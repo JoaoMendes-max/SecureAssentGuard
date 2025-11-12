@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

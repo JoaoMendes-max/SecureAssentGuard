@@ -1,0 +1,114 @@
+{
+	"kind" : "toolchains",
+	"toolchains" : 
+	[
+		{
+			"compiler" : 
+			{
+				"id" : "GNU",
+				"implicit" : 
+				{
+					"includeDirectories" : 
+					[
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/lib/gcc/aarch64-buildroot-linux-gnu/13.4.0/include",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/lib/gcc/aarch64-buildroot-linux-gnu/13.4.0/include-fixed",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/include",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/include"
+					],
+					"linkDirectories" : 
+					[
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/lib/gcc/aarch64-buildroot-linux-gnu/13.4.0",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/lib64",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/lib64",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/lib64",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/lib",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/lib",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/lib"
+					],
+					"linkFrameworkDirectories" : [],
+					"linkLibraries" : 
+					[
+						"gcc",
+						"gcc_s",
+						"c",
+						"gcc",
+						"gcc_s"
+					]
+				},
+				"path" : "/home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-gcc",
+				"version" : "13.4.0"
+			},
+			"language" : "C",
+			"sourceFileExtensions" : 
+			[
+				"c",
+				"m"
+			]
+		},
+		{
+			"compiler" : 
+			{
+				"id" : "GNU",
+				"implicit" : 
+				{
+					"includeDirectories" : 
+					[
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/include/c++/13.4.0",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/include/c++/13.4.0/aarch64-buildroot-linux-gnu",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/include/c++/13.4.0/backward",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/lib/gcc/aarch64-buildroot-linux-gnu/13.4.0/include",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/lib/gcc/aarch64-buildroot-linux-gnu/13.4.0/include-fixed",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/include",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/include"
+					],
+					"linkDirectories" : 
+					[
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/lib/gcc/aarch64-buildroot-linux-gnu/13.4.0",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/lib64",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/lib64",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/lib64",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/lib",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/lib",
+						"/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/lib"
+					],
+					"linkFrameworkDirectories" : [],
+					"linkLibraries" : 
+					[
+						"stdc++",
+						"m",
+						"gcc_s",
+						"gcc",
+						"c",
+						"gcc_s",
+						"gcc"
+					]
+				},
+				"path" : "/home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-g++",
+				"version" : "13.4.0"
+			},
+			"language" : "CXX",
+			"sourceFileExtensions" : 
+			[
+				"C",
+				"M",
+				"c++",
+				"cc",
+				"cpp",
+				"cxx",
+				"mm",
+				"mpp",
+				"CPP",
+				"ixx",
+				"cppm",
+				"ccm",
+				"cxxm",
+				"c++m"
+			]
+		}
+	],
+	"version" : 
+	{
+		"major" : 1,
+		"minor" : 0
+	}
+}

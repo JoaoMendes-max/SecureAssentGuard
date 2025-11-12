@@ -1,0 +1,5 @@
+/home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4/CMakeFiles/SecureAssetCore.dir
+/home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4/CMakeFiles/dDatabase.dir
+/home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4/CMakeFiles/dWebServer.dir
+/home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4/CMakeFiles/edit_cache.dir
+/home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,1 @@
+/home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-g++ -g -Wl,--dependency-file=CMakeFiles/dDatabase.dir/link.d CMakeFiles/dDatabase.dir/src/daemons/database/main_db.cpp.o CMakeFiles/dDatabase.dir/src/daemons/database/dDatabase.cpp.o -o dDatabase  -lpthread -lrt -lsqlcipher -largon2

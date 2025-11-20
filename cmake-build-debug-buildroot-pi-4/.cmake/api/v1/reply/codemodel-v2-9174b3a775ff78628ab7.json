@@ -1,0 +1,78 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"jsonFile" : "directory-.-Debug-f5ebdc15457944623624.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.10"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"name" : "Debug",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "SecureAssetGuard",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "SecureAssetCore::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-SecureAssetCore-Debug-9e28d4cc67f066620759.json",
+					"name" : "SecureAssetCore",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "dDatabase::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-dDatabase-Debug-ba94ede82bee3002d07c.json",
+					"name" : "dDatabase",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "dWebServer::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-dWebServer-Debug-e79f1064101221290ab6.json",
+					"name" : "dWebServer",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4",
+		"source" : "/home/mendes/SecureAssentGuard"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 8
+	}
+}

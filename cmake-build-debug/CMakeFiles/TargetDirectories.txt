@@ -1,0 +1,5 @@
+/home/mendes/SecureAssentGuard/cmake-build-debug/CMakeFiles/SecureAssetCore.dir
+/home/mendes/SecureAssentGuard/cmake-build-debug/CMakeFiles/dDatabase.dir
+/home/mendes/SecureAssentGuard/cmake-build-debug/CMakeFiles/dWebServer.dir
+/home/mendes/SecureAssentGuard/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/mendes/SecureAssentGuard/cmake-build-debug/CMakeFiles/rebuild_cache.dir

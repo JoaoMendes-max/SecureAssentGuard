@@ -1,0 +1,1 @@
+/usr/bin/c++ -g CMakeFiles/dDatabase.dir/src/daemons/database/main_db.cpp.o CMakeFiles/dDatabase.dir/src/daemons/database/dDatabase.cpp.o -o dDatabase  -lpthread -lrt -lsqlcipher -largon2

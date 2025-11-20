@@ -1,4 +1,16 @@
-/home/mendes/.local/share/JetBrains/Toolbox/apps/clion/bin/cmake/linux/x64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/home/mendes/.local/share/JetBrains/Toolbox/apps/clion/bin/ninja/linux/x64/ninja -DCMAKE_C_COMPILER=/home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-gcc -DCMAKE_CXX_COMPILER=/home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-g++ -DCMAKE_SYSROOT=/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot -G Ninja -S /home/mendes/SecureAssentGuard -B /home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4
--- Configuring done (0.0s)
+/home/mendes/.local/share/JetBrains/Toolbox/apps/clion/bin/cmake/linux/x64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=/home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-gcc -DCMAKE_CXX_COMPILER=/home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-g++ -G "Unix Makefiles" -S /home/mendes/SecureAssentGuard -B /home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4
+-- The C compiler identification is GNU 13.4.0
+-- The CXX compiler identification is GNU 13.4.0
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - done
+-- Check for working C compiler: /home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-gcc - skipped
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: /home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-g++ - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Configuring done (0.3s)
 -- Generating done (0.0s)
 -- Build files have been written to: /home/mendes/SecureAssentGuard/cmake-build-debug-buildroot-pi-4

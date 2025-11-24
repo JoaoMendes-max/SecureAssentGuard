@@ -6,6 +6,14 @@ using namespace std;
 
 int main()
 {
+    /*
+     *
+     * lil nigga
+     */
+    return 0;
+}
+
+/*
     cout << "Teste PWM a iniciar..." << endl;
 
     // pwmchip0, canal 0  → MUITO comum no Raspberry Pi
@@ -83,6 +91,4 @@ int main()
     cout << "PWM desligado!" << endl;
 
     cout << "Teste concluído." << endl;
-
-    return 0;
-}
+*/

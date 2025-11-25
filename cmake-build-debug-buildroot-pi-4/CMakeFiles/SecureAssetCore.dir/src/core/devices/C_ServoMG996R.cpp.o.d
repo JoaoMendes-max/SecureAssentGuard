@@ -26,7 +26,7 @@ CMakeFiles/SecureAssetCore.dir/src/core/devices/C_ServoMG996R.cpp.o: \
  /home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdint-intn.h \
  /home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdint-uintn.h \
  /home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot/usr/include/bits/stdint-least.h \
- /home/mendes/SecureAssentGuard/src/core/hal/C_PWM.h \
+ /home/mendes/SecureAssentGuard/src/core/devices/../hal/C_PWM.h \
  /home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/include/c++/13.4.0/iostream \
  /home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/include/c++/13.4.0/bits/requires_hosted.h \
  /home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/include/c++/13.4.0/ostream \

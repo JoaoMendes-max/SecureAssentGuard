@@ -33,17 +33,12 @@ struct Data_Fingerprint {
     int userID;
 };
 
-struct Data_Digital {
-    bool state;
-};
-
 // Union to save memory (stores only one type at a time)
 union SensorData_Union {
     Data_SHT31 tempHum;
     Data_RFID_Single rfid_single;
     Data_RFID_Inventory rfid_inventory;
     Data_Fingerprint fingerprint;
-    Data_Digital digital;
 };
 
 // Main Data Packet
@@ -52,20 +47,17 @@ struct SensorData {
     SensorData_Union data;
 };
 
-// --- Abstract Base Class ---
 
 class C_Sensor {
 protected:
     SensorID_enum m_sensorID;
 
 public:
-    // Constructor
+    //
     C_Sensor(SensorID_enum id) : m_sensorID(id) {}
 
-    // Virtual Destructor
-    virtual ~C_Sensor() = default;
+    virtual ~C_Sensor();
 
-    // Pure Virtual Methods (Must be implemented by children)
     virtual bool init() = 0;
     virtual bool read(SensorData* data) = 0;
 

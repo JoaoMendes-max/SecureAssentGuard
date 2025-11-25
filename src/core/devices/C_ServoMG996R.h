@@ -2,9 +2,25 @@
 #define C_SERVOMG996R_H
 
 #include "C_Actuator.h"
-#include "C_PWM.h" // A tua classe de PWM fornecida
+#include "../hal/C_PWM.h"
+#include <cstdint>
 
 class C_ServoMG996R : public C_Actuator {
+
+
+
+public:
+    C_ServoMG996R(ActuatorID_enum id, C_PWM& pwm);
+
+    virtual ~C_ServoMG996R();
+
+    // Implementação da Interface
+    bool init() override;
+    bool set_value(uint8_t angle) override;
+    void stop() override;
+
+    // Funcionalidade Extra do Servo
+    uint8_t getAngle() const { return m_targetAngle; }
 
 private:
     C_PWM& m_pwm;
@@ -12,11 +28,6 @@ private:
 
     static uint8_t angleToDutyCycle(uint8_t angle);
 
-public:
-    C_ServoMG996R(ActuatorID_enum id, C_PWM& pwm);
-    ~C_ServoMG996R() override;
-
-    bool set_value(uint8_t angle) override;
 };
 
-#endif
+#endif // C_SERVOMG996R_H

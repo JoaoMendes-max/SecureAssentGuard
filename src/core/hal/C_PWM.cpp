@@ -1,3 +1,4 @@
+
 #include "C_PWM.h"
 #include <fcntl.h>
 #include <unistd.h>
@@ -60,6 +61,7 @@ bool C_PWM::setPeriodns(int s) {
     return true;
 }
 
+
 bool C_PWM::setDutyCycle(uint8_t duty)
 {
     if (duty > 100) duty = 100;  // proteção
@@ -84,6 +86,22 @@ bool C_PWM::setDutyCycle(uint8_t duty)
 
     if (write(fd, val.c_str(), val.size()) < 0)
     {
+
+bool C_PWM::setDutyCycle(uint8_t duty) {
+    m_fd_duty = duty;
+    int dutyns = (m_fd_period * duty) / 100;
+
+    // Caminho para o ficheiro duty_cycle
+    string dutyPath =
+            "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) +
+            "/pwm" + to_string(m_pwmChannel) + "/duty_cycle";
+    int fd = open(dutyPath.c_str(), O_WRONLY);
+    if (fd < 0) {
+        cerr << "Erro ao abrir duty_cycle\n";
+        return false;
+    }
+    string val = to_string(dutyns);
+    if (write(fd, val.c_str(), val.size()) < 0) {
         cerr << "Erro ao escrever duty_cycle\n";
         close(fd);
         return false;
@@ -92,6 +110,7 @@ bool C_PWM::setDutyCycle(uint8_t duty)
     close(fd);
     return true;
 }
+
 
 bool C_PWM::setEnable(bool enable)
 {

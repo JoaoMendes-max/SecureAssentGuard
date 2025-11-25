@@ -1,1 +1,0 @@
-/home/mendes/buildroot/buildroot-2025.02.6/output/host/bin/aarch64-buildroot-linux-gnu-g++ -g -Wl,--dependency-file=CMakeFiles/dWebServer.dir/link.d CMakeFiles/dWebServer.dir/src/daemons/web/main_web.cpp.o CMakeFiles/dWebServer.dir/src/daemons/web/dWebServer.cpp.o -o dWebServer  -lpthread -lrt -lmongoose -ljson-c -lssl -lcrypto -largon2

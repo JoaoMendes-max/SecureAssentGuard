@@ -37,7 +37,11 @@ bool C_UART::openPort() {
     return true;
 }
 
+<<<<<<< Updated upstream
 // --- Fechar Porta --- fuck you mean fechar porta
+=======
+// --- Fechar Porta ---
+>>>>>>> Stashed changes
 void C_UART::closePort() {
     if (m_fd != -1) {
         close(m_fd);
@@ -145,10 +149,11 @@ int C_UART::writeBuffer(const void* data, size_t len) {
 // --- Ler Buffer ---
 int C_UART::readBuffer(void* buffer, size_t len) {
     if (m_fd == -1) return -1;
-    // um return -1 é como um false de bool ?
+
     // read retorna o número de bytes lidos ou -1 em erro (ou 0 se timeout)
     int count = read(m_fd, buffer, len);
     // Nota: Não imprimimos erro aqui porque timeout (0) é normal
 
     return count;
 }
+

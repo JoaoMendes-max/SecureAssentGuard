@@ -4,35 +4,25 @@
 #include <string>
 #include <cstdint> // Para uint8_t
 #include <cstddef> // Para size_t
+using namespace std;
+
 
 class C_I2C {
-    int m_bus;          // Número do barramento (1 para RPi)
-    uint8_t m_address;  // Endereço I2C do sensor
-    int m_fd;           // File Descriptor (O ID do ficheiro aberto no Linux)
-    std::string m_devicePath; // Caminho, ex: "/dev/i2c-1"
+    uint8_t m_slaveaddress;
+    int m_fd;
+    string m_devicePath;
 public:
-    // Construtor: Guarda o ID do barramento (ex: 1) e o endereço do sensor (ex: 0x68)
-    C_I2C(int bus, uint8_t address);
-
-    // Destrutor: Garante que o ficheiro é fechado
+    C_I2C(int i2cbusnum, uint8_t slave_address);
     ~C_I2C();
-
-    // Abre o ficheiro e configura o endereço do escravo (Slave)
+    //open dev directory and "set" slave address
     bool init();
-
-    // Fecha a ligação manualmente
+    //close fd
     void closeI2C();
-
-    // Escrever um valor num registo (Configuração)
-    // Ex: "Mete o valor 0x00 na gaveta 0x6B"
+    //used mainly to write some configuration in sensor specific register
     bool writeRegister(uint8_t reg, uint8_t value);
-
-    // Ler um valor de um registo (Dados Simples)
-    // Ex: "O que está na gaveta 0x3B?"
-    uint8_t readRegister(uint8_t reg);
-
-    // Ler vários bytes seguidos (Dados em Bloco)
-    // Ex: "Lê X, Y e Z de uma vez"
+    //used to read only one sensor specific reg
+    bool readRegister(uint8_t reg, uint8_t& value);
+    //used to read more than one reg
     bool readBytes(uint8_t reg, uint8_t* buffer, size_t len);
 
 };

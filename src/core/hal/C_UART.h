@@ -5,11 +5,12 @@
 
 #include <cstddef> // Para size_t
 #include <cstdint> // Para tipos inteiros
+using namespace std;
 
 class C_UART {
 
-    int m_fd;               // File Descriptor (ID do ficheiro aberto)
-    std::string m_portPath; // ex: "/dev/ttyAMA2"
+    int m_fd;
+    string m_portPath;
 public:
     // Construtor (Corrigido para ter o mesmo nome da classe)
     C_UART(int portnumber);

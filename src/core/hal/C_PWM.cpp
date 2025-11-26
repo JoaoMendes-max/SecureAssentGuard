@@ -62,32 +62,8 @@ bool C_PWM::setPeriodns(int s) {
 }
 
 
-bool C_PWM::setDutyCycle(uint8_t duty)
-{
-    if (duty > 100) duty = 100;  // proteção
-
-    m_fd_duty = duty;  // guarda a percentagem
-
-    // Calcula o duty cycle em nanosegundos na hora
-    int duty_ns = (m_fd_period * duty) / 100;
-
-    string dutyPath =
-            "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) +
-            "/pwm" + to_string(m_pwmChannel) + "/duty_cycle";
-
-    int fd = open(dutyPath.c_str(), O_WRONLY);
-    if (fd < 0)
-    {
-        cerr << "Erro ao abrir duty_cycle\n";
-        return false;
-    }
-
-    string val = to_string(duty_ns);  // usa a variável local
-
-    if (write(fd, val.c_str(), val.size()) < 0)
-    {
-
 bool C_PWM::setDutyCycle(uint8_t duty) {
+    if (duty > 100) duty = 100;
     m_fd_duty = duty;
     int dutyns = (m_fd_period * duty) / 100;
 
@@ -100,6 +76,7 @@ bool C_PWM::setDutyCycle(uint8_t duty) {
         cerr << "Erro ao abrir duty_cycle\n";
         return false;
     }
+
     string val = to_string(dutyns);
     if (write(fd, val.c_str(), val.size()) < 0) {
         cerr << "Erro ao escrever duty_cycle\n";

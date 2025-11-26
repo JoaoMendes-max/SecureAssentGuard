@@ -11,7 +11,7 @@ using namespace std;
 C_UART::C_UART(int portnumber)
     : m_fd(-1)
 {
-    m_portPath = "/dev/ttyAMA" + std::to_string(portnumber);
+    m_portPath = "/dev/ttyAMA" + to_string(portnumber);
 }
 
 // --- Destrutor ---
@@ -19,29 +19,22 @@ C_UART::~C_UART() {
     closePort();
 }
 
-// --- Abrir Porta ---
+
 bool C_UART::openPort() {
-    // O_RDWR: Leitura e Escrita
-    // O_NOCTTY: Não deixa a porta controlar o terminal (importante em Linux)
-    // O_NDELAY: Não bloqueia na abertura (útil se o cabo estiver desligado)
+    //logic to ignore dcd(data carrier detect)
     m_fd = open(m_portPath.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
 
     if (m_fd == -1) {
-        perror("C_UART: Erro ao abrir porta"); // Imprime o erro exato do sistema
+        cerr<<("C_UART: Erro ao abrir porta\n");
         return false;
     }
 
-    // Limpa a flag O_NDELAY para que as leituras funcionem normalmente (bloqueiem conforme o timeout)
     fcntl(m_fd, F_SETFL, 0);
 
     return true;
 }
 
-<<<<<<< Updated upstream
-// --- Fechar Porta --- fuck you mean fechar porta
-=======
-// --- Fechar Porta ---
->>>>>>> Stashed changes
+
 void C_UART::closePort() {
     if (m_fd != -1) {
         close(m_fd);
@@ -49,19 +42,19 @@ void C_UART::closePort() {
     }
 }
 
-// --- Configurar (A parte complexa) ---
+
 bool C_UART::configPort(int baud, int bits, char parity) {
     if (m_fd == -1) return false;
 
     struct termios options = {0};
 
-    // 1. Obter a configuração atual para não estragar tudo
+    // 1.Will get the present configurations
     if (tcgetattr(m_fd, &options) != 0) {
         perror("C_UART: Erro no tcgetattr");
         return false;
     }
 
-    // 2. Configurar Baud Rate (Switch Case para traduzir int -> flag)
+    // 2. configure baudrate
     speed_t speed;
     switch (baud) {
         case 9600:   speed = B9600; break;
@@ -79,8 +72,8 @@ bool C_UART::configPort(int baud, int bits, char parity) {
     cfsetispeed(&options, speed);
     cfsetospeed(&options, speed);
 
-    // 3. Configurar Bits de Dados (7 ou 8)
-    options.c_cflag &= ~CSIZE; // Limpa a máscara de tamanho
+    // 3. Configure data bytes
+    options.c_cflag &= ~CSIZE;
     if (bits == 8) {
         options.c_cflag |= CS8;
     } else if (bits == 7) {
@@ -90,7 +83,7 @@ bool C_UART::configPort(int baud, int bits, char parity) {
         return false;
     }
 
-    // 4. Configurar Paridade (N, E, O)
+    // 4. Configure PArity
     if (parity == 'N') {
         options.c_cflag &= ~PARENB; // Desliga bit de paridade
     } else if (parity == 'E') {
@@ -107,25 +100,21 @@ bool C_UART::configPort(int baud, int bits, char parity) {
     // 5. Configurar Stop Bits (Sempre 1 por padrão)
     options.c_cflag &= ~CSTOPB;
 
-    // 6. MODO RAW (Cru) - Resolve o problema da "escadinha" e caracteres estranhos
-    options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG); // Desliga modo canónico e eco
-    options.c_oflag &= ~OPOST;                          // Desliga processamento de saída
-    options.c_iflag &= ~(IXON | IXOFF | IXANY);         // Desliga controlo de fluxo software (XON/XOFF)
+    // 6.
+    options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
+    options.c_oflag &= ~OPOST;
+    options.c_iflag &= ~(IXON | IXOFF | IXANY);
 
-    // Hardware Flow Control (Desligar RTS/CTS para usar só 2 fios)
+    // Hardware Flow Control (Disable RTS/CTS because we only use tx and rx)
     options.c_cflag &= ~CRTSCTS;
 
-    // Ativar recetor e ignorar linhas de controlo de modem
+    // Disable modem flags like the neeed of DCD
     options.c_cflag |= (CLOCAL | CREAD);
 
-    // 7. Configurar Timeouts (Non-blocking com timeout)
-    // VMIN = 0, VTIME = 10 -> Espera até 1 segundo (10 * 0.1s) por dados
-    options.c_cc[VMIN] = 0;
-    options.c_cc[VTIME] = 10;
 
-    // 8. Aplicar Configurações (O ioctl acontece aqui!)
+    // 8.Configurations,
     if (tcsetattr(m_fd, TCSANOW, &options) != 0) {
-        perror("C_UART: Erro no tcsetattr");
+        cerr<<"C_UART: Erro no tcsetattr\n";
         return false;
     }
 
@@ -135,24 +124,21 @@ bool C_UART::configPort(int baud, int bits, char parity) {
     return true;
 }
 
-// --- Escrever Buffer ---
+
 int C_UART::writeBuffer(const void* data, size_t len) {
     if (m_fd == -1) return -1;
 
-    // write retorna o número de bytes escritos ou -1 em erro
     int count = write(m_fd, data, len);
-    if (count < 0) perror("C_UART: Erro ao escrever");
+    if (count < 0) cerr<<"C_UART: Erro ao escrever";
 
     return count;
 }
 
-// --- Ler Buffer ---
 int C_UART::readBuffer(void* buffer, size_t len) {
     if (m_fd == -1) return -1;
 
-    // read retorna o número de bytes lidos ou -1 em erro (ou 0 se timeout)
     int count = read(m_fd, buffer, len);
-    // Nota: Não imprimimos erro aqui porque timeout (0) é normal
+    if (count < 0) cerr<<"C_UART: Erro ao ler";
 
     return count;
 }

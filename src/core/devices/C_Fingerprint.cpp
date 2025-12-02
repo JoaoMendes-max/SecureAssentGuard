@@ -21,12 +21,12 @@ bool C_Fingerprint::init() {
 
 // --- POWER MANAGEMENT ---
 void C_Fingerprint::wakeUp() {
-    m_rst.write(1);     // Set RST Pin HIGH to wake up the sensor
+    m_rst.writePin(true);     // Set RST Pin HIGH to wake up the sensor
     usleep(250000);     // CRITICAL: Wait 250ms for the sensor to boot up before sending commands
 }
 
 void C_Fingerprint::sleep() {
-    m_rst.write(0);     // Set RST Pin LOW to put sensor to sleep (save power)
+    m_rst.writePin(false);     // Set RST Pin LOW to put sensor to sleep (save power)
 }
 
 // --- READ / VERIFY ---

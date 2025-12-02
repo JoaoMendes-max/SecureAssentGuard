@@ -1,121 +1,79 @@
 #include <iostream>
-#include <unistd.h>     // sleep()
-#include "C_PWM.h"
-#include "C_UART.h"
-#include <cstring>    // Para strlen, strcmp
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <signal.h>
 
-using namespace std;
+// --- Configurações iguais ao Driver ---
+#define IRQ_IOC_MAGIC  'k'
+#define REGIST_PID     _IOW(IRQ_IOC_MAGIC, 1, int)
+#define SIG_REED       44  // Reed Switch (Pino 17)
 
-int main()
-{
-    /*
-     *
-     * lil nigga
-     */
+// =================================================================
+// HANDLER DO SINAL
+// =================================================================
+void tratar_reed_switch(int n, siginfo_t *info, void *unused) {
+    std::cout << "\n**************************************************" << std::endl;
+    std::cout << "* *" << std::endl;
+    std::cout << "* !!! A FUNCAO 'tratar_reed_switch' CORREU !!!  *" << std::endl;
+    std::cout << "* *" << std::endl;
+    std::cout << "**************************************************" << std::endl;
+    std::cout << "-> Recebi o Sinal: " << n << std::endl;
+    std::cout << "-> Pino que disparou: " << info->si_int << std::endl;
+}
 
-{ /*
-    cout << "Teste PWM a iniciar..." << endl;
+int main() {
+    struct sigaction act;
+    sigset_t set;
+    int fd;
 
-    // pwmchip0, canal 0  → MUITO comum no Raspberry Pi
-    C_PWM pwm(0, 0);
+    std::cout << "--- A PREPARAR O TESTE ---" << std::endl;
 
-    // 1. Exportar o PWM
-    if (!pwm.init())
-    {
-        cerr << "Falha no init()" << endl;
-        return 1;
-    }
-    cout << "PWM exportado com sucesso!" << endl;
+    // 1. DESBLOQUEAR O SINAL (Crítico!)
+    sigemptyset(&set);
+    sigaddset(&set, SIG_REED);
+    sigprocmask(SIG_UNBLOCK, &set, NULL);
 
-    // 2. Definir o período (20ms → 20 000 000 ns)
-    if (!pwm.setPeriodns(20000000))
-    {
-        cerr << "Falha em setPeriod()" << endl;
-        return 1;
-    }
-    cout << "Periodo configurado!" << endl;
+    // 2. CONFIGURAR O HANDLER
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = (SA_SIGINFO | SA_RESTART);
+    act.sa_sigaction = tratar_reed_switch;
+    sigaction(SIG_REED, &act, NULL);
 
-    // 3. Meter duty a 50% (só para teste)
-    if (!pwm.setDutyCycle(50))
-    {
-        cerr << "Falha em setDutyCycle()" << endl;
-        return 1;
-    }
-    cout << "Duty cycle configurado!" << endl;
+    std::cout << "-> Handler do sinal 44 configurado." << std::endl;
 
-    // 4. LIGAR PWM
-    if (!pwm.setEnable(true))
-    {
-        cerr << "Falha em setEnable(true)" << endl;
-        return 1;
-    }
-    cout << "PWM ligado!" << endl;
-
-    // Mantém ligado 5 segundos
-    while (true) {
-        sleep(5);
-    }
-    // 5. DESLIGAR PWM
-    pwm.setEnable(false);
-    cout << "PWM desligado!" << endl;
-
-    cout << "Teste concluído." << endl;
-
-    return 0;*/
-    // 1. Configurar UART 2 (Pinos 27 e 28)
-    cout << "--- Iniciando Modo Terminal (UART 2) ---" << endl;
-    cout << "Liga o FTDI e abre o CuteCom no PC (115200 baud)." << endl;
-
-    C_UART uart(2);
-
-    if (!uart.openPort()) {
-        cerr << "ERRO: Nao consegui abrir a porta!" << endl;
+    // 3. ABRIR O DRIVER (irq0 = Reed Switch no pino 17)
+    fd = open("/dev/irq0", O_RDWR);
+    if (fd < 0) {
+        perror("Erro ao abrir /dev/irq0");
         return -1;
     }
 
-    if (!uart.configPort(115200, 8, 'N')) {
-        cerr << "ERRO: Nao consegui configurar!" << endl;
+    // 4. REGISTAR O PID
+    if (ioctl(fd, REGIST_PID, 0) < 0) {
+        perror("Erro no IOCTL");
+        close(fd);
         return -1;
     }
+    std::cout << "-> PID registado no driver." << std::endl;
 
-    // 2. Enviar uma mensagem de boas-vindas para o PC
-    const char* msgHello = "\r\nOla PC! Eu sou a Raspberry Pi.\r\nEscreve algo...\r\n";
-    uart.writeBuffer(msgHello, strlen(msgHello));
+    // 5. GARANTIR QUE A INTERRUPÇÃO ESTÁ ATIVA
+    char cmd = '1';
+    if (write(fd, &cmd, 1) < 0) {
+        perror("Erro no write");
+        close(fd);
+        return -1;
+    }
+    std::cout << "-> Interrupção do Reed Switch ATIVADA." << std::endl;
 
-    // 3. O CICLO INFINITO (Ouvir e Responder)
-    char buffer[100];
+    // 6. LOOP DE ESPERA
+    std::cout << "\n[AGUARDANDO] Toca no Pino 17 (GPIO 17, Físico 11)..." << std::endl;
+    std::cout << "Pressiona CTRL+C para sair.\n" << std::endl;
 
-    while (true) {
-        // Tenta ler o que tu escreveste no PC
-        int n = uart.readBuffer(buffer, 99);
-
-        if (n > 0) {
-            buffer[n] = '\0'; // Terminar a string
-
-            // Mostra no terminal da Raspberry (SSH)
-            cout << "Recebi do PC: " << buffer << endl;
-
-            // --- O "ECHO" (Mandar de volta) ---
-            // Envia de volta para aparecer no teu CuteCom
-            // Assim sabes que a comunicacao funciona nos dois sentidos
-            uart.writeBuffer("Tu disseste: ", 13);
-            uart.writeBuffer(buffer, n);
-            uart.writeBuffer("\r\n", 2); // Nova linha
-        }
-
-        // Envia um "ping" a cada 5 segundos só para saberes que a Rasp está viva
-        // (Podes comentar isto se for chato)
-        static int contador = 0;
-        contador++;
-        if (contador % 500 == 0) { // 500 * 10ms = 5 segundos
-            const char* ping = ".";
-            uart.writeBuffer(ping, 1);
-        }
-
-        // Pausa pequena para não bloquear o CPU (10ms)
-        usleep(10000);
+    while(true) {
+        sleep(1);
     }
 
-    uart.closePort();
+    close(fd);
     return 0;
 }

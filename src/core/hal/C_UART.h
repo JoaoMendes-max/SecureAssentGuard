@@ -36,7 +36,8 @@ public:
 
     // Ler dados (genérico)
     int readBuffer(void* buffer, size_t len);
-
+    // Em C_UART.h, dentro de public:
+    int getFd() const { return m_fd; }
 
 };
 

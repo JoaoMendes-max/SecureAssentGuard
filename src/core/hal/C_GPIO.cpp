@@ -36,7 +36,7 @@ bool C_GPIO::init() {
     close(fd); // Fecha logo
 
     // Esperar que o Linux crie a pasta (Crítico!)
-    usleep(100000);
+    //usleep(100000);
 
     // 2. DIREÇÃO
     string dirPath = m_path + "/direction";

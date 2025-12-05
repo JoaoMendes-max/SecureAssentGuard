@@ -9,10 +9,10 @@
 #define RDM_ETX         0x03
 #define RDM_FRAME_SIZE  14
 
-class C_RDM6300 : public C_Sensor {
+class C_RDM6300 final : public C_Sensor {
 private:
     C_UART& m_uart;
-    char m_rawBuffer[RDM_FRAME_SIZE];
+    char m_rawBuffer[RDM_FRAME_SIZE]{};
 
     // Helpers de Conversão
     static uint8_t asciiCharToVal(char c);
@@ -27,5 +27,4 @@ public:
     bool init() override;
     bool read(SensorData* data) override;
 };
-
 #endif

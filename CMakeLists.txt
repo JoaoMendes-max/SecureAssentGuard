@@ -38,7 +38,7 @@ add_executable(SecureAssetCore
         # IPC & Threads
         src/core/ipc/C_Monitor.cpp
         src/core/ipc/C_Mqueue.cpp
-        src/core/threads/C_Thread.cpp        # <--- ADICIONADO (A CLASSE BASE QUE FALTAVA)
+        src/core/threads/C_Thread.cpp
         src/core/threads/C_tAct.cpp
         src/core/threads/C_tReadEnvSensor.cpp
         src/core/threads/C_tVerifyRoomAccess.cpp

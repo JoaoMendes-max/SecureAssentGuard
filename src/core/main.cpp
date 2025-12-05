@@ -1,79 +1,118 @@
 #include <iostream>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/ioctl.h>
-#include <signal.h>
+#include "C_Fingerprint.h"
+#include "C_UART.h"
+#include "C_GPIO.h"
 
-// --- Configurações iguais ao Driver ---
-#define IRQ_IOC_MAGIC  'k'
-#define REGIST_PID     _IOW(IRQ_IOC_MAGIC, 1, int)
-#define SIG_REED       44  // Reed Switch (Pino 17)
-
-// =================================================================
-// HANDLER DO SINAL
-// =================================================================
-void tratar_reed_switch(int n, siginfo_t *info, void *unused) {
-    std::cout << "\n**************************************************" << std::endl;
-    std::cout << "* *" << std::endl;
-    std::cout << "* !!! A FUNCAO 'tratar_reed_switch' CORREU !!!  *" << std::endl;
-    std::cout << "* *" << std::endl;
-    std::cout << "**************************************************" << std::endl;
-    std::cout << "-> Recebi o Sinal: " << n << std::endl;
-    std::cout << "-> Pino que disparou: " << info->si_int << std::endl;
-}
+using namespace std;
 
 int main() {
-    struct sigaction act;
-    sigset_t set;
-    int fd;
+    cout << "=== TESTE DE VERIFICACAO (MATCH) ===" << endl;
 
-    std::cout << "--- A PREPARAR O TESTE ---" << std::endl;
+    // 1. Hardware Setup
+    C_UART uart(2);
+    C_GPIO rst(26, OUT);
+    C_Fingerprint finger(uart, rst);
 
-    // 1. DESBLOQUEAR O SINAL (Crítico!)
-    sigemptyset(&set);
-    sigaddset(&set, SIG_REED);
-    sigprocmask(SIG_UNBLOCK, &set, NULL);
-
-    // 2. CONFIGURAR O HANDLER
-    sigemptyset(&act.sa_mask);
-    act.sa_flags = (SA_SIGINFO | SA_RESTART);
-    act.sa_sigaction = tratar_reed_switch;
-    sigaction(SIG_REED, &act, NULL);
-
-    std::cout << "-> Handler do sinal 44 configurado." << std::endl;
-
-    // 3. ABRIR O DRIVER (irq0 = Reed Switch no pino 17)
-    fd = open("/dev/irq0", O_RDWR);
-    if (fd < 0) {
-        perror("Erro ao abrir /dev/irq0");
+    if (!finger.init()) {
+        cerr << "Erro no Init." << endl;
         return -1;
     }
 
-    // 4. REGISTAR O PID
-    if (ioctl(fd, REGIST_PID, 0) < 0) {
-        perror("Erro no IOCTL");
-        close(fd);
-        return -1;
+    // 2. Ligar Sensor
+    finger.wakeUp();
+    cout << "Sensor ligado. A espera do dedo..." << endl;
+
+    // 3. Loop de Verificação
+    while (true) {
+        cout << "\n>>> PODE POR O DEDO AGORA <<<" << endl;
+
+        SensorData data;
+
+        // Tenta ler com timeout de 5 segundos
+        if (finger.read(&data)) {
+
+            if (data.data.fingerprint.authenticated) {
+                // SUCESSO
+                cout << "#############################################" << endl;
+                cout << "# [SUCESSO] ACESSO AUTORIZADO!              #" << endl;
+                cout << "# User ID: " << data.data.fingerprint.userID << "                                #" << endl;
+                cout << "#############################################" << endl;
+            } else {
+                // FALHA (Dedo errado ou mal colocado)
+                cout << ">> [RECUSADO] Dedo nao reconhecido." << endl;
+            }
+
+            // Pausa para não ler o mesmo toque 50 vezes seguidas
+            cout << "(Tira o dedo... espera 2s)" << endl;
+            sleep(2);
+
+        } else {
+            // Timeout (Ninguém pôs o dedo em 5s)
+            cout << "." << flush;
+        }
     }
-    std::cout << "-> PID registado no driver." << std::endl;
 
-    // 5. GARANTIR QUE A INTERRUPÇÃO ESTÁ ATIVA
-    char cmd = '1';
-    if (write(fd, &cmd, 1) < 0) {
-        perror("Erro no write");
-        close(fd);
-        return -1;
-    }
-    std::cout << "-> Interrupção do Reed Switch ATIVADA." << std::endl;
-
-    // 6. LOOP DE ESPERA
-    std::cout << "\n[AGUARDANDO] Toca no Pino 17 (GPIO 17, Físico 11)..." << std::endl;
-    std::cout << "Pressiona CTRL+C para sair.\n" << std::endl;
-
-    while(true) {
-        sleep(1);
-    }
-
-    close(fd);
     return 0;
 }
+
+/*
+ * cout << "--- DEBUG: ADICIONAR USER 1 ---" << endl;
+
+    // 1. Hardware
+    // NOTA: Confirma fisicamente se o fio RST está no GPIO 26.
+    // (No teu Python tinhas o pino 24, no C++ tinhas 26. Verifica qual deles estás a usar).
+    cout << "[1] A configurar hardware (UART2, GPIO26)..." << endl;
+
+    C_UART uart(2);         // Usa /dev/ttyAMA2
+    C_GPIO rst(26, OUT);    // Pino de Reset
+    C_Fingerprint finger(uart, rst);
+
+    // 2. Init Drivers
+    cout << "[2] A inicializar drivers..." << endl;
+    if (!finger.init()) {
+        cerr << "ERRO: Init falhou (falha ao abrir UART ou exportar GPIO)." << endl;
+        return -1;
+    }
+
+    // ---------------------------------------------------------
+    // 3. HARD RESET MANUAL (A solução para o sensor "morto")
+    // ---------------------------------------------------------
+    cout << "[3] A executar Ciclo de Reset (Power Cycle)..." << endl;
+
+    // Passo A: Forçar Desligar (RST = LOW)
+    // Isto garante que o sensor reinicia o microcontrolador interno
+    finger.sleep();
+    cout << "   -> RST em LOW (Desligado)... a esperar 200ms" << endl;
+    usleep(200000);       // 200ms (0.2s) - Tempo igual ao script Python
+
+    // Passo B: Ligar (RST = HIGH)
+    finger.wakeUp();
+    cout << "   -> RST em HIGH (Ligado)... a esperar 300ms pelo Boot" << endl;
+
+    // O sensor demora cerca de 200-300ms a arrancar o sistema operativo interno
+    // antes de poder responder à UART. Sem isto, ele ignora os comandos.
+    usleep(300000);       // 300ms (0.3s)
+
+    cout << "   -> Sensor Reiniciado e Pronto." << endl;
+    // ---------------------------------------------------------
+
+    // 4. Add User
+    cout << "\n[4] A chamar addUser(1)..." << endl;
+    cout << ">>> TENS 10 SEGUNDOS PARA COLOCAR O DEDO EM CADA ETAPA <<<" << endl;
+
+    // Se a comunicação estiver a funcionar, verás os logs do executeCommand agora
+    bool result = finger.addUser(2);
+
+    if (result) {
+        cout << "\n[5] SUCESSO: Utilizador 1 adicionado!" << endl;
+    } else {
+        cout << "\n[5] FALHA: Não foi possível adicionar o utilizador." << endl;
+    }
+
+    // 5. Fim - Colocar a dormir para poupar energia
+    cout << "[6] A desligar (Sleep)." << endl;
+    finger.sleep();
+
+    return 0;
+ **/

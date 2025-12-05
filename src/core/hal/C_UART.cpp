@@ -4,21 +4,34 @@
 #include <termios.h>    // POSIX Terminal Control Definitions
 #include <unistd.h>     // UNIX Standard Definitions
 #include <cstring>      // memset
+#include <cerrno> // Necessário para usar 'errno'
 
 using namespace std;
 
-// --- Construtor ---
 C_UART::C_UART(int portnumber)
     : m_fd(-1)
 {
     m_portPath = "/dev/ttyAMA" + to_string(portnumber);
 }
 
-// --- Destrutor ---
 C_UART::~C_UART() {
     closePort();
 }
 
+bool C_UART::openPort() {
+    // Adiciona O_NONBLOCK explicitamente
+    m_fd = open(m_portPath.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+
+    if (m_fd == -1) {
+        perror("C_UART: Erro ao abrir porta");
+        return false;
+    }
+    // IMPORTANTE: Remove qualquer fcntl que tinhas aqui em baixo
+    return true;
+}
+
+
+/*
 
 bool C_UART::openPort() {
     //logic to ignore dcd(data carrier detect)
@@ -33,7 +46,7 @@ bool C_UART::openPort() {
 
     return true;
 }
-
+*/
 
 void C_UART::closePort() {
     if (m_fd != -1) {
@@ -110,7 +123,8 @@ bool C_UART::configPort(int baud, int bits, char parity) {
 
     // Disable modem flags like the neeed of DCD
     options.c_cflag |= (CLOCAL | CREAD);
-
+    options.c_cc[VMIN] = 0;
+    options.c_cc[VTIME] = 1;
 
     // 8.Configurations,
     if (tcsetattr(m_fd, TCSANOW, &options) != 0) {
@@ -133,7 +147,7 @@ int C_UART::writeBuffer(const void* data, size_t len) {
 
     return count;
 }
-
+/*
 int C_UART::readBuffer(void* buffer, size_t len) {
     if (m_fd == -1) return -1;
 
@@ -142,4 +156,21 @@ int C_UART::readBuffer(void* buffer, size_t len) {
 
     return count;
 }
+*/
+int C_UART::readBuffer(void* buffer, size_t len) {
+    if (m_fd == -1) return -1;
 
+    int count = read(m_fd, buffer, len);
+
+    if (count < 0) {
+        // Se o erro for "Não há dados disponíveis" (EAGAIN), retorna 0
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return 0;
+        }
+        // Outros erros reais
+        perror("C_UART: Erro real no read");
+        return -1;
+    }
+
+    return count;
+}

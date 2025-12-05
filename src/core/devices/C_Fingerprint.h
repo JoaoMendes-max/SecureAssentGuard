@@ -22,13 +22,7 @@
 #define ACK_NO_USER         0x05
 #define ACK_TIMEOUT         0x08
 
-class C_Fingerprint : public C_Sensor {
-private:
-    C_UART& m_uart;
-    C_GPIO& m_rst; // Reset Pin to control Power/Sleep state
-
-    // Core Helper Function: Handles packet construction, sending, timeout loop, and validation
-    uint8_t executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8_t p3, uint8_t* outHigh, uint8_t* outLow, float timeoutSec);
+class C_Fingerprint final : public C_Sensor {
 
 public:
     C_Fingerprint(C_UART& uart, C_GPIO& rst);
@@ -47,6 +41,15 @@ public:
     // Management Functions
     bool addUser(int userID);
     bool deleteUser(int userID);
+
+private:
+
+    C_UART& m_uart;
+    C_GPIO& m_rst; // Reset Pin to control Power/Sleep state
+
+    uint8_t executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2,
+        uint8_t p3, uint8_t* outHigh, uint8_t* outLow, float timeoutSec) const;
+
 };
 
 #endif

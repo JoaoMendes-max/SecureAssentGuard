@@ -83,3 +83,7 @@ bool C_I2C::readBytes(uint8_t reg, uint8_t* buffer, size_t len) {
 
     return true;
 }
+
+ssize_t C_I2C::readRaw(uint8_t* buffer, size_t len) {
+    return read(m_fd, buffer, len);
+}

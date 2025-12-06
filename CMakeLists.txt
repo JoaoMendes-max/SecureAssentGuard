@@ -27,7 +27,7 @@ add_executable(SecureAssetCore
         src/core/hal/C_UART.cpp
 
         # Devices
-        src/core/devices/C_TH_KS0348.cpp
+        src/core/devices/C_TH_SHT30.cpp
         src/core/devices/C_RDM6300.cpp
         src/core/devices/C_YRM1001.cpp
         src/core/devices/C_Fingerprint.cpp

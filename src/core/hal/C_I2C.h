@@ -24,7 +24,8 @@ public:
     bool readRegister(uint8_t reg, uint8_t& value);
     //used to read more than one reg
     bool readBytes(uint8_t reg, uint8_t* buffer, size_t len);
-
+    // Adicionar em public:
+    ssize_t readRaw(uint8_t* buffer, size_t len);
 };
 
 #endif // C_I2C_H

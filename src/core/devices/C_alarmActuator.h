@@ -1,8 +1,9 @@
 #ifndef C_ALARMACTUATOR_H
 #define C_ALARMACTUATOR_H
 #include "C_Actuator.h"
+#include "SharedTypes.h"
 
-#include "C_GPIO.h"
+class C_GPIO;
 
 class C_alarmActuator final : public C_Actuator {
 

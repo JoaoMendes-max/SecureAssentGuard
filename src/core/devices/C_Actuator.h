@@ -3,13 +3,7 @@
 #define C_ACTUATOR_H
 
 #include <cstdint>
-
-enum ActuatorID_enum {
-    ID_SERVO_ROOM,
-    ID_SERVO_VAULT,
-    ID_FAN,
-    ID_ALARM_ACTUATOR,
-};
+#include "SharedTypes.h"
 
 class C_Actuator {
 protected:
@@ -21,6 +15,7 @@ public:
     virtual bool init() = 0;
     virtual bool set_value(uint8_t value) = 0;
     virtual void stop() = 0;
+
 
     ActuatorID_enum get_ID() const { return m_actuatorID; }
 };

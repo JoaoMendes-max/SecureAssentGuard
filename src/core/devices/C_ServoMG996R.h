@@ -4,8 +4,9 @@
 #define C_SERVOMG996R_H
 
 #include "C_Actuator.h"
-#include "../hal/C_PWM.h"
 #include <cstdint>
+
+class C_PWM;
 
 class C_ServoMG996R final : public C_Actuator {
 public:

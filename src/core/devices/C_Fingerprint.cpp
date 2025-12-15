@@ -1,5 +1,7 @@
 #include <poll.h>
 #include "C_Fingerprint.h"
+#include "C_UART.h"
+#include "C_GPIO.h"
 #include <iostream>
 #include <unistd.h> // required for usleep()
 

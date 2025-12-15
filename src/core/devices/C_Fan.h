@@ -2,7 +2,8 @@
 #define C_FAN_H
 
 #include "C_Actuator.h"
-#include "C_GPIO.h"
+
+class C_GPIO;
 
 class C_Fan final: public C_Actuator {
 

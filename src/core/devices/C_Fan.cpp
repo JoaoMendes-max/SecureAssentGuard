@@ -1,4 +1,5 @@
 #include "C_Fan.h"
+#include "C_GPIO.h"
 
 C_Fan::C_Fan(C_GPIO &gpio_fan) : C_Actuator(ID_FAN),  gpio_fan(gpio_fan), fan_on(false){}
 

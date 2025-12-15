@@ -1,4 +1,5 @@
 #include "C_TH_SHT30.h"
+#include "C_I2C.h"
 #include <iostream>
 #include <unistd.h> // usleep
 

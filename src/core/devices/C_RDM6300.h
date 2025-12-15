@@ -2,8 +2,9 @@
 #define C_RDM6300_H
 
 #include "C_Sensor.h"
-#include "C_UART.h"
 #include <stdint.h>
+
+class C_UART;
 
 #define RDM_STX         0x02
 #define RDM_ETX         0x03

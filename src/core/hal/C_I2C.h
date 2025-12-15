@@ -3,7 +3,6 @@
 
 #include <string>
 #include <cstdint> // Para uint8_t
-#include <cstddef> // Para size_t
 using namespace std;
 
 

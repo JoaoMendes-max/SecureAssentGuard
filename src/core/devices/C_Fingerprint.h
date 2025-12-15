@@ -2,9 +2,10 @@
 #define C_FINGERPRINT_H
 
 #include "C_Sensor.h"
-#include "C_UART.h"
-#include "C_GPIO.h"
 #include <stdint.h>
+
+class C_UART;
+class C_GPIO;
 
 // Protocol Definitions (According to User Manual)
 #define FINGER_HEAD         0xF5

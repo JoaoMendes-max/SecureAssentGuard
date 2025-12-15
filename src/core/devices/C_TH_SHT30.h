@@ -2,8 +2,10 @@
 #define C_TH_SHT30_H
 
 #include "C_Sensor.h"
-#include "C_I2C.h"
 #include <stdint.h>
+#include <cstddef>  // size_t
+
+class C_I2C;
 
 #define SHT30_ADDR 0x44
 

@@ -1,4 +1,5 @@
 #include "C_alarmActuator.h"
+#include "C_GPIO.h"
 
 C_alarmActuator::C_alarmActuator(C_GPIO& gpio_led, C_GPIO& gpio_buzzer)
 : C_Actuator(ID_ALARM_ACTUATOR), gpio_led(gpio_led), gpio_buzzer(gpio_buzzer), ison(false) {}

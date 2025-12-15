@@ -1,5 +1,6 @@
 
 #include "C_ServoMG996R.h"
+#include "C_PWM.h"
 #include <iostream>
 
 // Limits in % (Duty Cycle) for period of 20ms
@@ -44,6 +45,10 @@ bool C_ServoMG996R::set_value(uint8_t angle) {
     if (!m_pwm.setEnable(true)) {
         std::cerr << "[Servo] Erro: Nao consegui reativar o motor" << std::endl;
         return false;
+    }
+    if (angle == 0) {
+        stop();  // para a thread dos atuadores assim ter se receber 0 é para desligar
+        return true;
     }
 
     // max angles of 180

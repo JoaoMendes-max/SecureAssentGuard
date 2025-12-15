@@ -1,13 +1,7 @@
 #ifndef C_SENSOR_H
 #define C_SENSOR_H
+#include "SharedTypes.h"
 
-// Sensor Identifiers
-enum SensorID_enum {
-    ID_SHT31,
-    ID_RDM6300,
-    ID_YRM1001,
-    ID_FINGERPRINT
-};
 // Sensor-specific Data Structures
 struct Data_SHT31 {
     float temp;

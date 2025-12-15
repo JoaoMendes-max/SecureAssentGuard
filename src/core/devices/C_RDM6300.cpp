@@ -1,4 +1,5 @@
 #include "C_RDM6300.h"
+#include "C_UART.h"
 #include <iostream>
 #include <cstring>
 #include <unistd.h> // usleep

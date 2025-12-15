@@ -20,6 +20,7 @@ private:
     static uint8_t hexPairToByte(char high, char low);
     static bool validateChecksum(const char* buffer);
     static void parseTag(const char* buffer, char* dest);
+    bool waitForData(int timeout_ms);
 
 public:
     C_RDM6300(C_UART& uart);

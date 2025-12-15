@@ -2,11 +2,8 @@
 #define SHAREDTYPES_H
 
 #include <cstdint>
-#include <ctime>
-#include <cstring>
-
 // ============================================
-// PRIORIDADES DO SISTEMA (RT)
+// thread priority
 // ============================================
 enum ThreadPriority_enum : int {
     PRIO_LOW        = 10,
@@ -15,7 +12,7 @@ enum ThreadPriority_enum : int {
 };
 
 // ============================================
-// IDs DE ATUADORES
+// IDs of actuators
 // ============================================
 enum ActuatorID_enum : uint8_t {
     ID_SERVO_ROOM = 0,
@@ -26,7 +23,7 @@ enum ActuatorID_enum : uint8_t {
 };
 
 // ============================================
-// IDs DE SENSORES
+// IDs of Sensors
 // ============================================
 enum SensorID_enum : uint8_t {
     ID_SHT31 = 0,
@@ -37,7 +34,7 @@ enum SensorID_enum : uint8_t {
 };
 
 // ============================================
-// TIPOS DE LOG
+// Types of Logs
 // ============================================
 enum LogType_enum : uint8_t {
     LOG_TYPE_ACTUATOR = 0,
@@ -49,7 +46,7 @@ enum LogType_enum : uint8_t {
 };
 
 // ============================================
-// COMANDO PARA ATUADORES
+// commands for actuator
 // ============================================
 struct ActuatorCmd {
     ActuatorID_enum actuatorID;
@@ -63,14 +60,14 @@ struct ActuatorCmd {
 };
 
 // ============================================
-// LOG PARA DATABASE (value como uint16_t para maior compatibilidade)
+// DATABASE LOG
 // ============================================
 struct DatabaseLog {
     LogType_enum logType;
     uint8_t entityID;
-    uint16_t value; // Permite registar IDs de RFID até 65535
+    uint16_t value;
     uint32_t timestamp;
-    char description[48];
+    char description[48]{};
 
     DatabaseLog()
         : logType(LOG_TYPE_SYSTEM),
@@ -83,7 +80,7 @@ struct DatabaseLog {
 };
 
 // ============================================
-// NOMES PARA LOGGING (C++17/20 - inline constexpr)
+//  NAMES FOR LOGGING
 // ============================================
 inline constexpr const char* ACTUATOR_NAMES[] = {
     "SERVO_ROOM",
@@ -103,3 +100,5 @@ inline constexpr const char* SENSOR_NAMES[] = {
 };
 
 #endif // SHAREDTYPES_H
+
+

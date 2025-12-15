@@ -1,4 +1,3 @@
-
 #ifndef C_ACTUATOR_H
 #define C_ACTUATOR_H
 
@@ -21,7 +20,3 @@ public:
 };
 
 #endif // C_ACTUATOR_H
-
-
-
-

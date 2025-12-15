@@ -17,7 +17,7 @@ static constexpr const char* MODULE_NAME = "[tAct]";
 C_tAct::C_tAct(C_Mqueue& mqIn,
                C_Mqueue& mqOut,
                const std::array<C_Actuator*, ID_ACTUATOR_COUNT>& listaAtuadores)
-    : C_Thread(PRIO_ACTUATORS), // Prioridade definida no Enum
+    : C_Thread(PRIO_HIGH), // Prioridade definida no Enum
       m_mqToActuator(mqIn),
       m_mqToDatabase(mqOut),
       m_actuators(listaAtuadores)
@@ -32,7 +32,7 @@ C_tAct::C_tAct(C_Mqueue& mqIn,
         }
     }
 
-    cout << MODULE_NAME << " Thread criada (Prio " << PRIO_ACTUATORS << ")"
+    cout << MODULE_NAME << " Thread criada (Prio " << PRIO_HIGH << ")"
          << ". Atuadores: " << count << "/" << m_actuators.size() << endl;
 }
 

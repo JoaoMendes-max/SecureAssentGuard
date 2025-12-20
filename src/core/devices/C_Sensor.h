@@ -9,7 +9,7 @@ struct Data_SHT31 {
 };
 
 struct Data_RFID_Single {
-    char tagID[14];
+    char tagID[11];
 };
 
 struct Data_RFID_Inventory {
@@ -37,6 +37,7 @@ struct SensorData {
 
 class C_Sensor {
 protected:
+    // id q identifica o tipo de sensor
     SensorID_enum m_sensorID;
 
 public:
@@ -45,6 +46,7 @@ public:
     virtual ~C_Sensor() = default;
 
     virtual bool init() = 0;
+    //vamos usar isto porque assim podemos guardar todo o tipo de data seja ele qual for da mesma forma
     virtual bool read(SensorData* data) = 0;
 
 

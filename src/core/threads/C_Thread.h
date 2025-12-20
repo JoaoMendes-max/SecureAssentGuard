@@ -8,25 +8,37 @@ using namespace std;
 
 class C_Thread {
 
-    pthread_t m_thread;
-    pthread_attr_t m_attributes;
-    int m_priority;
+    // --- Private Data ---
+    pthread_t m_thread;           // Stores the Thread ID.
+    pthread_attr_t m_attributes;  // Stores settings like priority.
+    int m_priority;               // Real-Time priority value.
 
-    //metodo usado para chamarmos o proprio run de cada classe filha-> vai ser passado como argumento ao pthread_create
+    // Bridge function required to connect C++ objects to C-style pthreads.
     static void* internalRun(void* arg);
-    // a funçao q pthread recebe retorna um apontador para void e receb um apointador para void
-    //é por isso q esta assim
 
 public:
 
-    C_Thread(int priority = 0); //so vai iniciliazar atribuitos
+    // Constructor : fill the attributes(priority,...)
+    C_Thread(int priority = 0);
+
+    // Destructor: Cleans up the attributes.
     virtual ~C_Thread();
 
-    bool start();       // cria thread(pthread creat->q tbm inicia chama o run)
-    void join();        // Espera que a thread termine( era aquele exemplo q vi da main)
-    void detach();      // Marca a thread para limpeza automática. se ela terminar limpa os recursos automaticamente
-    void cancel();      // Termina a thread forçadamente
 
+    // Calls 'pthread_create'(threadid, attributs and run function)
+    bool start();
+
+    // Wrapper: Calls 'pthread_join'
+    void join();
+
+    // Wrapper: Calls 'pthread_detach'
+    void detach();
+
+    // Wrapper: Calls 'pthread_cancel'
+    void cancel();
+
+
+    // Pure Virtual Function. Derived classes must implement their own run!!!
     virtual void run() = 0;
 };
 

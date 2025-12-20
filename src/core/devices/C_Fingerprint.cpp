@@ -181,5 +181,6 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
     if (outLow)  *outLow  = rx[3];
 
     std::cout << "[DEBUG] Resposta valida! Status (Q3): " << (int)rx[4] << std::endl;
-    return rx[4];
+    return rx[5];
+
 }

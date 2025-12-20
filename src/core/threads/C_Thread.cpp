@@ -28,7 +28,8 @@ C_Thread::C_Thread(int priority) : m_priority(priority) {
 // ----------------------------------------------------
 bool C_Thread::start() {
 
-    int result = pthread_create(&m_thread, &m_attributes, internalRun, this);
+    int result = pthread_create(&m_thread, &m_attributes, internalRun, this );
+    //quando é feito o pthread certo basicamente criamos a thread especifica
     // o this é o argumento q é passado para a funçao do internalRun
     //por exemplo
     //chamamos funçao ctAct.start(). o this vai ser um apontador para o obejto do tipo ctAct

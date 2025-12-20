@@ -7,13 +7,10 @@
 #define GPIO_BASE 512
 using namespace std;
 
-// --- Construtor ---
 C_GPIO::C_GPIO(int pin, GPIO_DIRECTION dir)
     : m_dir(dir)
 {
     m_pin=pin+GPIO_BASE;
-    // Guardamos logo o caminho base para não estar sempre a formatar strings
-    // Ex: /sys/class/gpio/gpio17
     m_path = "/sys/class/gpio/gpio" + to_string(m_pin);
 }
 

@@ -99,6 +99,37 @@ inline constexpr const char* SENSOR_NAMES[] = {
     "REED_VAULT"
 };
 
+
+
+
+//databaseeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee shii
+// Comandos apenas para as threads de Hardware
+enum e_DbCommand {
+    DB_CMD_VERIFY_RFID,      // VerifyRoomAccess (Tabela Users)
+    DB_CMD_UPDATE_ASSET,     // InventoryScan (Tabela Assets)
+    DB_CMD_WRITE_LOG         // Logs gerais: Vault, Movement, Actuators
+};
+
+
+// Mensagem de Pedido (Entrada no Daemon)
+struct DatabaseMsg {
+    e_DbCommand command;
+    char respQueueName[32];  // Onde a thread espera a resposta (se necessário)
+
+    union {
+        char rfid[16];       // Para validar User ou atualizar Asset
+        DatabaseLog log;     // Para registo de histórico
+    } payload;
+};
+
+// Mensagem de Resposta (Saída para as Threads)
+struct DbResponse {
+    bool authorized;         // Usado no RFID (Encontrado na BD?)
+    uint32_t accessLevel;    // Permissão do utilizador
+};
+
+
+
 #endif // SHAREDTYPES_H
 
 

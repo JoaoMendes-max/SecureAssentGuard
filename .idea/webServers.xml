@@ -2,10 +2,10 @@
 <project version="4">
   <component name="WebServers">
     <option name="servers">
-      <webServer id="ed757ae9-6262-4970-a3df-a1a00fe1c4e5" name="rasppi4">
-        <fileTransfer rootFolder="/root" accessType="SFTP" host="10.42.0.27" port="22" sshConfigId="16816004-c677-4afa-b76b-f8f99b7a5bff" sshConfig="rasppi4">
+      <webServer id="3ba23ff3-4998-400c-8a86-c8c0588f29b6" name="rasp">
+        <fileTransfer accessType="SFTP" host="10.42.0.163" port="22" sshConfigId="535452e0-ba22-442b-858e-367e24b37649" sshConfig="root@10.42.0.163:22 password">
           <advancedOptions>
-            <advancedOptions dataProtectionLevel="Private" passiveMode="true" shareSSLContext="true" />
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
           </advancedOptions>
         </fileTransfer>
       </webServer>

@@ -14,7 +14,7 @@ struct Data_RFID_Single {
 
 struct Data_RFID_Inventory {
     int tagCount;
-    char tagList[4][14];
+    char tagList[4][32];
 };
 
 struct Data_Fingerprint {

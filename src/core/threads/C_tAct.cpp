@@ -37,7 +37,7 @@ C_tAct::C_tAct(C_Mqueue& mqIn,
 }
 
 // ============================================
-// RUN (Loop Bloqueante)
+// RUN
 // ============================================
 void C_tAct::run() {
     cout << MODULE_NAME << " Iniciada..." << endl;
@@ -65,7 +65,7 @@ void C_tAct::run() {
 // PROCESS MESSAGE
 // ============================================
 void C_tAct::processMessage(const ActuatorCmd& msg) {
-    // 1. Validação
+    // 1. VALIDATION
     if (!isValidActuatorID(msg.actuatorID)) {
         cerr << MODULE_NAME << " ERRO: ID inválido " << (int)msg.actuatorID << endl;
         return;
@@ -77,7 +77,6 @@ void C_tAct::processMessage(const ActuatorCmd& msg) {
         return;
     }
 
-    // 2. Execução (Polimorfismo)
     cout << MODULE_NAME << " Comando: " << ACTUATOR_NAMES[msg.actuatorID]
          << " -> " << (int)msg.value << endl;
 

@@ -15,15 +15,13 @@ private:
     std::array<C_Actuator*, ID_ACTUATOR_COUNT> m_actuators;
 
 public:
-    // Construtor (Prioridade fixa em PRIO_ACTUATORS)
     C_tAct(C_Mqueue& mqIn,
            C_Mqueue& mqOut,
            const std::array<C_Actuator*, ID_ACTUATOR_COUNT>& listaAtuadores);
 
-    // Destrutor (Vazio, a limpeza da thread é garantida pelo Pai virtual)
-    ~C_tAct() {}
+    ~C_tAct() override = default;
 
-    void run() override; // O Loop Principal
+    void run() override;
 
 private:
     void processMessage(const ActuatorCmd& msg);
@@ -38,5 +36,4 @@ private:
         return id < ID_ACTUATOR_COUNT;
     }
 };
-
 #endif // C_TACT_H

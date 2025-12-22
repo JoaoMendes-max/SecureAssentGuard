@@ -4,21 +4,27 @@
 #include <cerrno>       // Para errno
 #include <sys/stat.h>   // Para permissões
 
-C_Mqueue::C_Mqueue(string queueName, long msgSize, long maxMsgs) {
+C_Mqueue::C_Mqueue(string queueName, long msgSize, long maxMsgs, bool createNew) {
     name = queueName;
-    maxMsgSize = msgSize;   // Guardar para validar no send/receive
+    maxMsgSize = msgSize;
     maxMsgCount = maxMsgs;
 
+    if (createNew) {
+        // CRIAR nova queue (processo principal)
+        struct mq_attr attr;
+        attr.mq_flags = 0;
+        attr.mq_maxmsg = maxMsgs;
+        attr.mq_msgsize = msgSize;
+        attr.mq_curmsgs = 0;
 
-    struct mq_attr attr;//struct q tem os atributos da mqueu
-    attr.mq_flags = 0;           // 0 = Bloqueante
-    attr.mq_maxmsg = maxMsgs;    // Capacidade da fila
-    attr.mq_msgsize = msgSize;   // Tamanho de cada mensagem
-    attr.mq_curmsgs = 0;
+        id = mq_open(name.c_str(), O_RDWR | O_CREAT, 0666, &attr);
+    } else {
+        // ABRIR queue existente (outros processos)
+        id = mq_open(name.c_str(), O_RDWR);
+    }
 
-    id = mq_open(name.c_str(), O_RDWR | O_CREAT, 0666, &attr);
-    if (id == (mqd_t)-1) {//é preciso casting porque o retorn da mq_open é desse tipo
-        cerr << "[Erro C_Mqueue] mq_open failed" << endl;
+    if (id == (mqd_t)-1) {
+        cerr << "[Erro C_Mqueue] mq_open failed: " << strerror(errno) << endl;
     }
 }
 

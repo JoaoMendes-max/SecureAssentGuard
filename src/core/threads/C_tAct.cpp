@@ -134,6 +134,7 @@ void C_tAct::generateDescription(ActuatorID_enum id,
 // LOG TO DATABASE
 // ============================================
 void C_tAct::logToDatabase(ActuatorID_enum id, uint8_t value) {
+    //mudar esta shit para mandar msg ahahah(ber verifyroomaccess
     DatabaseLog log;
 
     log.logType = LOG_TYPE_ACTUATOR;

@@ -16,7 +16,9 @@ private:
     long maxMsgCount;//max message number inside queue
 
 public:
-    C_Mqueue(string queueName, long msgSize = 1024, long maxMsgs = 10);
+    //tive de adicionar o createNew por causa do acesso ha queue pelo processo da bse de dados por exemplo
+
+    C_Mqueue(string queueName, long msgSize = 1024, long maxMsgs = 10,bool createNew = true);
 
     ~C_Mqueue();
 

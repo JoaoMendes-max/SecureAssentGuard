@@ -114,10 +114,9 @@ enum e_DbCommand {
 // Mensagem de Pedido (Entrada no Daemon)
 struct DatabaseMsg {
     e_DbCommand command;
-    char respQueueName[32];  // Onde a thread espera a resposta (se necessário)
-
+    //char respQueueName[32];  // Onde a thread espera a resposta (se necessário)
     union {
-        char rfid[16];       // Para validar User ou atualizar Asset
+        char rfid[11];       // Para validar User ou atualizar Asset
         DatabaseLog log;     // Para registo de histórico
     } payload;
 };
@@ -129,6 +128,13 @@ struct DbResponse {
 };
 
 
+//db response //possivelkmente vai ser mudada para struct
+struct AuthResponse {
+    bool authorized;      //
+    uint32_t userId;      // O ID que a DB gerou automaticamente
+    uint32_t accessLevel; //
+    bool isInside;        // Para o LCD saber se diz "Bem-vindo" ou "Até à próxima"
+};
 
 #endif // SHAREDTYPES_H
 

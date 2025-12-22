@@ -156,19 +156,19 @@ CMakeFiles/SecureAssetCore.dir/src/core/hal/C_UART.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/SecureAssetCore.dir/src/core/hal/C_UART.cpp.s"
 	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/mendes/SecureAssentGuard/src/core/hal/C_UART.cpp -o CMakeFiles/SecureAssetCore.dir/src/core/hal/C_UART.cpp.s
 
-CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o: CMakeFiles/SecureAssetCore.dir/flags.make
-CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o: /home/mendes/SecureAssentGuard/src/core/devices/C_TH_KS0348.cpp
-CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o: CMakeFiles/SecureAssetCore.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/mendes/SecureAssentGuard/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o -MF CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o.d -o CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o -c /home/mendes/SecureAssentGuard/src/core/devices/C_TH_KS0348.cpp
+CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o: CMakeFiles/SecureAssetCore.dir/flags.make
+CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o: /home/mendes/SecureAssentGuard/src/core/devices/C_TH_SHT30.cpp
+CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o: CMakeFiles/SecureAssetCore.dir/compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/mendes/SecureAssentGuard/cmake-build-debug/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o -MF CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o.d -o CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o -c /home/mendes/SecureAssentGuard/src/core/devices/C_TH_SHT30.cpp
 
-CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/mendes/SecureAssentGuard/src/core/devices/C_TH_KS0348.cpp > CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.i
+CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.i"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/mendes/SecureAssentGuard/src/core/devices/C_TH_SHT30.cpp > CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.i
 
-CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/mendes/SecureAssentGuard/src/core/devices/C_TH_KS0348.cpp -o CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.s
+CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.s"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/mendes/SecureAssentGuard/src/core/devices/C_TH_SHT30.cpp -o CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.s
 
 CMakeFiles/SecureAssetCore.dir/src/core/devices/C_RDM6300.cpp.o: CMakeFiles/SecureAssetCore.dir/flags.make
 CMakeFiles/SecureAssetCore.dir/src/core/devices/C_RDM6300.cpp.o: /home/mendes/SecureAssentGuard/src/core/devices/C_RDM6300.cpp
@@ -388,7 +388,7 @@ SecureAssetCore_OBJECTS = \
 "CMakeFiles/SecureAssetCore.dir/src/core/hal/C_I2C.cpp.o" \
 "CMakeFiles/SecureAssetCore.dir/src/core/hal/C_PWM.cpp.o" \
 "CMakeFiles/SecureAssetCore.dir/src/core/hal/C_UART.cpp.o" \
-"CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o" \
+"CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o" \
 "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_RDM6300.cpp.o" \
 "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_YRM1001.cpp.o" \
 "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_Fingerprint.cpp.o" \
@@ -414,7 +414,7 @@ SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/hal/C_GPIO.cpp.o
 SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/hal/C_I2C.cpp.o
 SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/hal/C_PWM.cpp.o
 SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/hal/C_UART.cpp.o
-SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o
+SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o
 SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/devices/C_RDM6300.cpp.o
 SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/devices/C_YRM1001.cpp.o
 SecureAssetCore: CMakeFiles/SecureAssetCore.dir/src/core/devices/C_Fingerprint.cpp.o

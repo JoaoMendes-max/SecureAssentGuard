@@ -13,7 +13,7 @@ set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/mendes/SecureAssentGuard/src/core/devices/C_Fingerprint.cpp" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_Fingerprint.cpp.o" "gcc" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_Fingerprint.cpp.o.d"
   "/home/mendes/SecureAssentGuard/src/core/devices/C_RDM6300.cpp" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_RDM6300.cpp.o" "gcc" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_RDM6300.cpp.o.d"
   "/home/mendes/SecureAssentGuard/src/core/devices/C_ServoMG996R.cpp" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_ServoMG996R.cpp.o" "gcc" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_ServoMG996R.cpp.o.d"
-  "/home/mendes/SecureAssentGuard/src/core/devices/C_TH_KS0348.cpp" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o" "gcc" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o.d"
+  "/home/mendes/SecureAssentGuard/src/core/devices/C_TH_SHT30.cpp" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o" "gcc" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o.d"
   "/home/mendes/SecureAssentGuard/src/core/devices/C_YRM1001.cpp" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_YRM1001.cpp.o" "gcc" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_YRM1001.cpp.o.d"
   "/home/mendes/SecureAssentGuard/src/core/devices/C_alarmActuator.cpp" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_alarmActuator.cpp.o" "gcc" "CMakeFiles/SecureAssetCore.dir/src/core/devices/C_alarmActuator.cpp.o.d"
   "/home/mendes/SecureAssentGuard/src/core/hal/C_GPIO.cpp" "CMakeFiles/SecureAssetCore.dir/src/core/hal/C_GPIO.cpp.o" "gcc" "CMakeFiles/SecureAssetCore.dir/src/core/hal/C_GPIO.cpp.o.d"

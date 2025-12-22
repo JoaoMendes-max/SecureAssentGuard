@@ -86,19 +86,17 @@ bool C_Fingerprint::deleteUser(int userID) {
         nullptr, 1.0) == ACK_SUCCESS);
 }
 
-// Substitui APENAS esta função no C_Fingerprint.cpp
-
-uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8_t p3, uint8_t* outHigh, uint8_t* outLow, float timeoutSec) const {
+uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8_t p3,
+    uint8_t* outHigh, uint8_t* outLow, float timeoutSec) const {
 
     std::cout << "[DEBUG] >> A entrar em executeCommand (POLL VERSION)..." << std::endl;
 
-    // 1. FLUSH BUFFER (Limpeza)
+    // 1. FLUSH BUFFER
     std::cout << "[DEBUG] A limpar buffer (Flush)..." << std::endl;
     uint8_t trash[64];
     int flushCount = 0;
     while(m_uart.readBuffer(trash, 64) > 0) {
         flushCount++;
-        // Proteção contra loop infinito no flush
         if (flushCount > 10) {
             std::cout << "[ERRO] Loop infinito no Flush!" << std::endl;
             break;
@@ -106,7 +104,7 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
     }
     if (flushCount > 0) std::cout << "[DEBUG] Lixo limpo." << std::endl;
 
-    // 2. CONSTRUIR PACOTE
+    // 2. BUILD COMMAND PACKET
     uint8_t tx[8];
     tx[0] = FINGER_HEAD;
     tx[1] = cmd;
@@ -118,30 +116,20 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
     std::cout << "[DEBUG] A enviar comando..." << std::endl;
     m_uart.writeBuffer(tx, 8);
 
-    // 3. RECEBER COM POLL
-    // Esta é a parte que substitui o sleep(10000)
+    // 3. RECEIVE RESPONSE USING POLL()
     std::cout << "[DEBUG] A esperar resposta (Poll)..." << std::endl;
-
     uint8_t rx[8];
     int totalRead = 0;
-
-    // Configuração do Poll
     struct pollfd pfd;
-    pfd.fd = m_uart.getFd(); // Tens de ter o getter na C_UART.h
-    pfd.events = POLLIN;     // Queremos ler dados
-
-    // Converter timeout para milissegundos
+    pfd.fd = m_uart.getFd();
+    pfd.events = POLLIN;     // we wanna read data
     int timeoutMs = (int)(timeoutSec * 1000);
 
-    // Loop de Leitura
     while (totalRead < 8) {
 
-        // O programa PÁRA aqui e o CPU descansa.
-        // Acorda logo que chegue 1 byte OU o tempo acabe.
         int ret = poll(&pfd, 1, timeoutMs);
 
         if (ret > 0) {
-            // SUCESSO: Há dados para ler!
             if (pfd.revents & POLLIN) {
                 int n = m_uart.readBuffer(rx + totalRead, 8 - totalRead);
                 if (n > 0) {
@@ -151,9 +139,7 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
             }
         }
         else if (ret == 0) {
-            // TIMEOUT: O tempo passou e o sensor não mandou nada
-            // Nota: Se estiveres no passo de "Pôr o dedo", é normal dar timeout se não puseres a tempo.
-            // std::cout << "[DEBUG] Timeout no Poll." << std::endl;
+            // TIMEOUT
             return ACK_TIMEOUT;
         }
         else {
@@ -164,7 +150,7 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
 
     std::cout << "[DEBUG] Pacote completo recebido." << std::endl;
 
-    // 4. VALIDAR
+    // 4. VALIDATE
     if (rx[0] != FINGER_HEAD || rx[7] != FINGER_TAIL) {
         std::cout << "[DEBUG] Erro de Frame (Head/Tail incorretos)" << std::endl;
         return 0xFF;
@@ -176,7 +162,7 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
         return 0xFF;
     }
 
-    // 5. EXTRAIR DADOS
+    // 5. EXTRACT DATA
     if (outHigh) *outHigh = rx[2];
     if (outLow)  *outLow  = rx[3];
 

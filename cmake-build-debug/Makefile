@@ -275,29 +275,29 @@ src/core/devices/C_ServoMG996R.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/SecureAssetCore.dir/build.make CMakeFiles/SecureAssetCore.dir/src/core/devices/C_ServoMG996R.cpp.s
 .PHONY : src/core/devices/C_ServoMG996R.cpp.s
 
-src/core/devices/C_TH_KS0348.o: src/core/devices/C_TH_KS0348.cpp.o
-.PHONY : src/core/devices/C_TH_KS0348.o
+src/core/devices/C_TH_SHT30.o: src/core/devices/C_TH_SHT30.cpp.o
+.PHONY : src/core/devices/C_TH_SHT30.o
 
 # target to build an object file
-src/core/devices/C_TH_KS0348.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/SecureAssetCore.dir/build.make CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.o
-.PHONY : src/core/devices/C_TH_KS0348.cpp.o
+src/core/devices/C_TH_SHT30.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/SecureAssetCore.dir/build.make CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.o
+.PHONY : src/core/devices/C_TH_SHT30.cpp.o
 
-src/core/devices/C_TH_KS0348.i: src/core/devices/C_TH_KS0348.cpp.i
-.PHONY : src/core/devices/C_TH_KS0348.i
+src/core/devices/C_TH_SHT30.i: src/core/devices/C_TH_SHT30.cpp.i
+.PHONY : src/core/devices/C_TH_SHT30.i
 
 # target to preprocess a source file
-src/core/devices/C_TH_KS0348.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/SecureAssetCore.dir/build.make CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.i
-.PHONY : src/core/devices/C_TH_KS0348.cpp.i
+src/core/devices/C_TH_SHT30.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/SecureAssetCore.dir/build.make CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.i
+.PHONY : src/core/devices/C_TH_SHT30.cpp.i
 
-src/core/devices/C_TH_KS0348.s: src/core/devices/C_TH_KS0348.cpp.s
-.PHONY : src/core/devices/C_TH_KS0348.s
+src/core/devices/C_TH_SHT30.s: src/core/devices/C_TH_SHT30.cpp.s
+.PHONY : src/core/devices/C_TH_SHT30.s
 
 # target to generate assembly for a file
-src/core/devices/C_TH_KS0348.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/SecureAssetCore.dir/build.make CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_KS0348.cpp.s
-.PHONY : src/core/devices/C_TH_KS0348.cpp.s
+src/core/devices/C_TH_SHT30.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/SecureAssetCore.dir/build.make CMakeFiles/SecureAssetCore.dir/src/core/devices/C_TH_SHT30.cpp.s
+.PHONY : src/core/devices/C_TH_SHT30.cpp.s
 
 src/core/devices/C_YRM1001.o: src/core/devices/C_YRM1001.cpp.o
 .PHONY : src/core/devices/C_YRM1001.o
@@ -805,9 +805,9 @@ help:
 	@echo "... src/core/devices/C_ServoMG996R.o"
 	@echo "... src/core/devices/C_ServoMG996R.i"
 	@echo "... src/core/devices/C_ServoMG996R.s"
-	@echo "... src/core/devices/C_TH_KS0348.o"
-	@echo "... src/core/devices/C_TH_KS0348.i"
-	@echo "... src/core/devices/C_TH_KS0348.s"
+	@echo "... src/core/devices/C_TH_SHT30.o"
+	@echo "... src/core/devices/C_TH_SHT30.i"
+	@echo "... src/core/devices/C_TH_SHT30.s"
 	@echo "... src/core/devices/C_YRM1001.o"
 	@echo "... src/core/devices/C_YRM1001.i"
 	@echo "... src/core/devices/C_YRM1001.s"

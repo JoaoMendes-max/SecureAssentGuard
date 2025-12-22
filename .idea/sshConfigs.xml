@@ -2,9 +2,7 @@
 <project version="4">
   <component name="SshConfigs">
     <configs>
-      <sshConfig authType="PASSWORD" connectionConfig="{&quot;serverAliveInterval&quot;:300}" host="10.42.0.27" id="16816004-c677-4afa-b76b-f8f99b7a5bff" port="22" customName="rasppi4" nameFormat="CUSTOM" username="root" useOpenSSHConfig="true">
-        <option name="customName" value="rasppi4" />
-      </sshConfig>
+      <sshConfig authType="PASSWORD" host="10.42.0.163" id="535452e0-ba22-442b-858e-367e24b37649" port="22" nameFormat="DESCRIPTIVE" username="root" useOpenSSHConfig="true" />
     </configs>
   </component>
 </project>

@@ -8,7 +8,7 @@
 enum ThreadPriority_enum : int {
     PRIO_LOW        = 10,
     PRIO_MEDIUM   = 30,
-    PRIO_HIGH      = 99
+    PRIO_HIGH      = 50
 };
 
 // ============================================
@@ -18,7 +18,7 @@ enum ActuatorID_enum : uint8_t {
     ID_SERVO_ROOM = 0,
     ID_SERVO_VAULT = 1,
     ID_FAN = 2,
-    ID_ALARM_ACTUATOR = 3,
+     ID_ALARM_ACTUATOR = 3,
     ID_ACTUATOR_COUNT = 4
 };
 
@@ -91,7 +91,7 @@ inline constexpr const char* ACTUATOR_NAMES[] = {
 
 inline constexpr const char* SENSOR_NAMES[] = {
     "TEMP_HUMIDITY",
-    "RFID_ENTRY",
+    "RFID_ENTR  Y",
     "RFID_INVENTORY",
     "FINGERPRINT",
     "PIR_MOTION",

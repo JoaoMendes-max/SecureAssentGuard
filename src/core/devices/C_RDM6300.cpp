@@ -2,86 +2,72 @@
 #include "C_UART.h"
 #include <iostream>
 #include <cstring>
-#include <poll.h>   // [NOVO] Necessário para poll()
-#include <unistd.h> // Para close, etc.
+#include <poll.h>
+#include <unistd.h>
 
 C_RDM6300::C_RDM6300(C_UART& uart)
-    : C_Sensor(ID_RDM6300), m_uart(uart)
-{
-}
+    : C_Sensor(ID_RDM6300), m_uart(uart) {}
 
 C_RDM6300::~C_RDM6300() = default;
 
 bool C_RDM6300::init() {
     if (!m_uart.openPort()) return false;
-    // Configuração padrão RDM6300: 9600, 8N1
+    // RDM6300 default: 9600 baud, 8 data bits, no parity, 1 stop bit
     if (!m_uart.configPort(9600, 8, 'N')) return false;
     return true;
 }
 
-// [NOVO] Função auxiliar que usa poll()
-// Retorna true se houver dados prontos para ler, false se der timeout
-bool C_RDM6300::waitForData(int timeout_ms) {
+// Wait for data with timeout using poll()
+// Returns true if data available, false on timeout
+bool C_RDM6300::waitForData(int timeout_ms) const {
     struct pollfd pfd;
-    pfd.fd = m_uart.getFd(); // [Cite: C_UART.h - getFd() existe]
-    pfd.events = POLLIN;     // Queremos saber se há dados para ler
+    pfd.fd = m_uart.getFd();
+    pfd.events = POLLIN;     // Wait for read-ready
 
-    // poll() bloqueia a thread aqui sem gastar CPU
-    // Retorna > 0 (eventos), 0 (timeout), -1 (erro)
+    // poll() blocks without CPU usage
     int ret = poll(&pfd, 1, timeout_ms);
 
-    return (ret > 0);
+    return (ret > 0);        // >0 = data ready, 0 = timeout, <0 = error
 }
 
 bool C_RDM6300::read(SensorData* data) {
-    // 1. ESPERA EFICIENTE (Blocking Wait)
-    // Espera até 1000ms (1s) pelo início de um pacote.
-    // Se não houver cartão, a função retorna false e a thread pode verificar flags de saída.
+    /* Wait for packet start (STX byte) with 1s timeout.
+       If no card present, returns quickly allowing thread exit checks. */
     if (!waitForData(1000)) {
         return false;
     }
-
-    // 2. Tenta ler o cabeçalho (STX)
+    // Read STX byte (0x02)
     char header = 0;
-    // Como o poll disse que há dados, este readBuffer não deve bloquear/falhar
     if (m_uart.readBuffer(&header, 1) != 1) return false;
-
+    /* Validate STX - if not 0x02, we have garbage data.
+       Clean buffer to avoid synchronization issues. */
     if (header != RDM_STX) {
-        // Se o primeiro byte não for STX, limpamos o lixo
         char trash[32];
-        // Pequeno atraso para garantir que o lixo chegou totalmente antes de mudar
-        if (waitForData(10)) {
-             while(m_uart.readBuffer(trash, 32) > 0);
+        if (waitForData(10)) {    // Brief wait for remaining garbage
+            while(m_uart.readBuffer(trash, sizeof(trash)) > 0);
         }
         return false;
     }
-
-    // Prepara o buffer
+    // Start building frame: STX at position 0
     m_rawBuffer[0] = RDM_STX;
-    int bytesToRead = 13; // Faltam 13 bytes (Dados + Checksum + ETX)
+    int bytesToRead = 13;    // Remaining: 10 data + 2 checksum + 1 ETX
     int totalRead = 0;
-
-    // 3. Loop de Leitura do Corpo
-    // Aqui usamos um timeout mais curto (100ms) porque se o cabeçalho chegou,
-    // o resto da mensagem deve chegar imediatamente.
+    /* Read frame body with 100ms timeout.
+       At 9600 bps (~1ms/byte), 100ms is ample for 13 bytes. */
     while (totalRead < bytesToRead) {
-
-        // Espera pelo próximo pedaço de dados
         if (!waitForData(100)) {
-            // Timeout no meio do pacote -> Pacote incompleto/corrompido
-            return false;
+            return false;    // Frame incomplete/corrupted
         }
 
-        int n = m_uart.readBuffer(m_rawBuffer + 1 + totalRead, bytesToRead - totalRead);
+        int n = m_uart.readBuffer(m_rawBuffer + 1 + totalRead,
+                                 bytesToRead - totalRead);
         if (n > 0) {
             totalRead += n;
         } else {
-            // Erro de leitura mesmo com poll a dizer que havia dados
-            return false;
+            return false;    // Read error
         }
     }
-
-    // 4. Validação (Igual ao anterior)
+    // Validate frame structure and checksum
     bool success = false;
     if (m_rawBuffer[13] == RDM_ETX) {
         if (validateChecksum(m_rawBuffer)) {
@@ -92,18 +78,21 @@ bool C_RDM6300::read(SensorData* data) {
             }
         }
     }
-
-    // Limpeza final do buffer (se houver dados extra indesejados)
-    if (waitForData(0)) { // Check não-bloqueante rápido
+    /* Non-blocking buffer cleanup.
+       Remove any leftover bytes to keep UART sync. */
+    if (waitForData(0)) {
         char trash[64];
-        while(m_uart.readBuffer(trash, 64) > 0);
+        while(m_uart.readBuffer(trash, sizeof(trash)) > 0);
     }
-
     return success;
 }
 
-// --- Funções Auxiliares mantêm-se iguais ---
+/*
+* Helper functions
+*/
 
+/* RDM6300 checksum: XOR of 5 data bytes.
+   Frame format: STX(1) + DATA(10) + CHECKSUM(2) + ETX(1) */
 bool C_RDM6300::validateChecksum(const char* buffer) {
     uint8_t calcChecksum = 0;
     for (int i = 0; i < 5; i++) {
@@ -114,18 +103,21 @@ bool C_RDM6300::validateChecksum(const char* buffer) {
     return (calcChecksum == receivedChecksum);
 }
 
+// Extract 10-character ASCII tag from frame (bytes 1-10)
 void C_RDM6300::parseTag(const char* buffer, char* dest) {
     memcpy(dest, buffer + 1, 10);
     dest[10] = '\0';
 }
 
+// Convert ASCII hex char to 4-bit value
 uint8_t C_RDM6300::asciiCharToVal(char c) {
     if (c >= '0' && c <= '9') return c - '0';
     if (c >= 'A' && c <= 'F') return c - 'A' + 10;
     if (c >= 'a' && c <= 'f') return c - 'a' + 10;
-    return 0;
+    return 0;  // Invalid char
 }
 
+// Convert two ASCII hex chars to one byte
 uint8_t C_RDM6300::hexPairToByte(char high, char low) {
     return (asciiCharToVal(high) << 4) | asciiCharToVal(low);
 }

@@ -18,7 +18,7 @@ enum ActuatorID_enum : uint8_t {
     ID_SERVO_ROOM = 0,
     ID_SERVO_VAULT = 1,
     ID_FAN = 2,
-     ID_ALARM_ACTUATOR = 3,
+    ID_ALARM_ACTUATOR = 3,
     ID_ACTUATOR_COUNT = 4
 };
 
@@ -105,8 +105,10 @@ inline constexpr const char* SENSOR_NAMES[] = {
 //databaseeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee shii
 // Comandos apenas para as threads de Hardware
 enum e_DbCommand {
-    DB_CMD_VERIFY_RFID,      // VerifyRoomAccess (Tabela Users)
-    DB_CMD_UPDATE_ASSET,     // InventoryScan (Tabela Assets)
+    DB_CMD_ENTER_ROOM_RFID, // VerifyRoomAccess (Tabela Users)
+    DB_CMD_LEAVE_ROOM_RFID,//
+    DB_CMD_UPDATE_ASSET, // InventoryScan (Tabela Assets)
+    DB_CMD_USER_IN_PIR,      // usado para ver se algum dos users esta inside
     DB_CMD_WRITE_LOG         // Logs gerais: Vault, Movement, Actuators
 };
 

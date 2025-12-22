@@ -13,7 +13,7 @@ private:
     C_Monitor& m_monitor;
     C_RDM6300& m_rfidEntry;
     C_Mqueue& m_mqToDatabase;   // Usando a tua classe C_Mqueue
-    C_Mqueue& m_mqToRfid;
+    C_Mqueue& m_mqToVerifyRoom;//é a da resposta
     C_Mqueue& m_mqToActuator;
 
     int m_failedAttempts;
@@ -30,7 +30,7 @@ public:
                         C_Mqueue& mqAct);
 
     virtual ~C_tVerifyRoomAccess();
-    void generateDescription(uint8_t userId, bool authorized, bool isInside, char* buffer, size_t size);
+    void generateDescription(uint8_t userId, bool authorized, char* buffer, size_t size);
     void sendLog(uint8_t userId, uint16_t accessLevel, bool authorized, bool isInside);
     void run() override; // Retorno void* como no diagrama
 };

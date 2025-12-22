@@ -45,6 +45,8 @@ add_executable(SecureAssetCore
         src/core/threads/C_tInventoryScan.cpp
         src/core/threads/C_tVerifyVaultAccess.cpp
         src/core/threads/C_tCheckMovement.cpp
+        src/core/threads/C_tLeaveRoomAccess.cpp
+        src/core/threads/C_tLeaveRoomAccess.h
 )
 
 target_link_libraries(SecureAssetCore

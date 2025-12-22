@@ -3,13 +3,15 @@
 
 dDatabase::dDatabase(const std::string& dbPath,
                    C_Mqueue& mqDb,
-                   C_Mqueue& mqRfid,
-                   C_Mqueue& mqFinger)
+                   C_Mqueue& mqRfidIn,C_Mqueue& mqRfidOut,
+                   C_Mqueue& mqFinger,C_Mqueue& m_mqToCheckMovement)
     : m_db(nullptr),
       m_dbPath(dbPath),
       m_mqToDatabase(mqDb),      // <--- A receber aqui!
-      m_mqToRoomRfid(mqRfid),
-      m_mqToFingerprint(mqFinger)
+      m_mqToVerifyRoom(mqRfidIn),
+      m_mqToLeaveRoom(mqRfidOut),
+      m_mqToFingerprint(mqFinger),
+      m_mqToCheckMovement(m_mqToCheckMovement)
 {
 }
 
@@ -109,62 +111,124 @@ bool dDatabase::initializeSchema() {
 
 void dDatabase::processDbMessage(const DatabaseMsg &msg) {
     switch (msg.command) {
-        case DB_CMD_VERIFY_RFID:
-            handleVerifyRFID(msg.payload.rfid);
+        case DB_CMD_ENTER_ROOM_RFID:
+            handleAccessRequest(msg.payload.rfid, true);
             break;
+        case DB_CMD_LEAVE_ROOM_RFID:
+            handleAccessRequest(msg.payload.rfid, false);
         case DB_CMD_WRITE_LOG:
             handleInsertLog(msg.payload.log);
-        default:
+            break;
+        case DB_CMD_USER_IN_PIR:
+            handleCheckUserInPir();
             break;
 
     }
 }
 
 
-void dDatabase::handleVerifyRFID(const char* rfid) {
+
+void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
     sqlite3_stmt* stmt;
-    AuthResponse resp = {false, 0, 0, false};
-    int currentPresence = 0;
+    AuthResponse resp = {false, 0};
 
-    // 1. PROCURAR O UTILIZADOR NO SQLITE
-    const char* sqlSelect = "SELECT UserID, AccessLevel, IsInside FROM Users WHERE RFID_Card = ?;";
-
+    // 1. A validação é igual para os dois (o cartão existe?)
+    const char* sqlSelect = "SELECT UserID, AccessLevel FROM Users WHERE RFID_Card = ?;";
     if (sqlite3_prepare_v2(m_db, sqlSelect, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, rfid, -1, SQLITE_STATIC);
-
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             resp.authorized = true;
             resp.userId = (uint32_t)sqlite3_column_int(stmt, 0);
             resp.accessLevel = (uint32_t)sqlite3_column_int(stmt, 1);
-            currentPresence = sqlite3_column_int(stmt, 2);
         }
         sqlite3_finalize(stmt);
     }
 
-    // 2. ATUALIZAR PRESENÇA (TOGGLE)
+    // 2. Se autorizado, atualizamos o estado de forma explícita
     if (resp.authorized) {
-        int newPresence = (currentPresence == 0) ? 1 : 0;
-        resp.isInside = (newPresence == 1);
+        // Se isEntering é true, newState = 1. Se é false, newState = 0.
+        int newState = isEntering ? 1 : 0;
 
         const char* sqlUpdate = "UPDATE Users SET IsInside = ? WHERE UserID = ?;";
         if (sqlite3_prepare_v2(m_db, sqlUpdate, -1, &stmt, nullptr) == SQLITE_OK) {
-            sqlite3_bind_int(stmt, 1, newPresence);
+            sqlite3_bind_int(stmt, 1, newState);
             sqlite3_bind_int(stmt, 2, (int)resp.userId);
             sqlite3_step(stmt);
             sqlite3_finalize(stmt);
         }
-
-        std::cout << "[DB] RFID " << rfid << " (User " << resp.userId << ") -> "
-                  << (newPresence ? "ENTROU" : "SAIU") << std::endl;
     }
 
-    // 3. ENVIAR RESPOSTA À THREAD USANDO A TUA CLASSE C_Mqueue
-    // Como a m_mqToRoomRfid é uma referência ao objeto já criado,
-    // usamos o teu métod .send() que valida o tamanho internamente.
-    m_mqToRoomRfid.send(&resp, sizeof(resp),0);
+    // 3. Responder à thread que fez o pedido
+    // Importante: Cada thread deve ter a sua própria queue de resposta para não haver misturas
+    if (isEntering) {
+        m_mqToVerifyRoom.send(&resp, sizeof(resp));
+    } else {
+        m_mqToLeaveRoom.send(&resp, sizeof(resp));
+    }
 }
 
 
-void dDatabase::handleInsertLog(const DatabaseLog &log) {
+void dDatabase::handleInsertLog(const DatabaseLog& log) {
+    sqlite3_stmt* stmt;
 
+    // 1. O SQL com placeholders (?) para segurança
+    const char* sql = "INSERT INTO Logs (LogType, EntityID, Value, Timestamp, Description) "
+                      "VALUES (?, ?, ?, ?, ?);";
+
+    // 2. Preparar a query
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+
+        // 3. Vincular os dados da struct DatabaseLog aos pontos de interrogação
+        // LogType: LOG_TYPE_ACCESS (1) ou LOG_TYPE_ALERT (2)
+        sqlite3_bind_int(stmt, 1, static_cast<int>(log.logType));
+
+        // EntityID: ID do utilizador ou do atuador
+        sqlite3_bind_int(stmt, 2, static_cast<int>(log.entityID));
+
+        // Value: 1 para Sucesso/Ligado, 0 para Falha/Desligado
+        sqlite3_bind_int(stmt, 3, static_cast<int>(log.value));
+
+        // Timestamp: Tempo Unix enviado pela thread
+        sqlite3_bind_int(stmt, 4, static_cast<int>(log.timestamp));
+
+        // Description: O texto gerado pela generateDescription()
+        sqlite3_bind_text(stmt, 5, log.description, -1, SQLITE_STATIC);
+
+        // 4. Executar a inserção no ficheiro .db
+        if (sqlite3_step(stmt) != SQLITE_DONE) {
+            std::cerr << "[Erro dDatabase] Falha ao gravar log: "
+                      << sqlite3_errmsg(m_db) << std::endl;
+        } else {
+            std::cout << "[dDatabase] Novo log registado com sucesso." << std::endl;
+        }
+
+        // 5. Limpar o statement para libertar memória
+        sqlite3_finalize(stmt);
+    } else {
+        std::cerr << "[Erro dDatabase] Erro no prepare do SQL: "
+                  << sqlite3_errmsg(m_db) << std::endl;
+    }
+}
+
+
+void dDatabase::handleCheckUserInPir() {
+    sqlite3_stmt* stmt;
+    AuthResponse resp = {false, 0}; // authorized = false por defeito
+
+    // SQL: Conta quantos utilizadores têm IsInside = 1
+    const char* sql = "SELECT COUNT(*) FROM Users WHERE IsInside = 1;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            int count = sqlite3_column_int(stmt, 0);
+            if (count > 0) {
+                resp.authorized = true; // Há pessoas na sala
+            }
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // RESPONDER À THREAD (Usamos a fila m_mqCheckMovement)
+    // Nota: Como o m_mqCheckMovement já está aberto na dDatabase, enviamos o resultado
+    m_mqToCheckMovement.send(&resp, sizeof(resp));
 }

@@ -38,6 +38,7 @@ private:
     // Handlers
     void handleAccessRequest(const char* rfid, bool isEntering);
     void handleUpdateAsset(const char* rfid);
+    void handleScanInventory(const Data_RFID_Inventory& inventory);
     void handleInsertLog(const DatabaseLog& log);
     void handleCheckUserInPir();
 };

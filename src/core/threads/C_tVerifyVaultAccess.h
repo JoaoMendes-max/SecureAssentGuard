@@ -7,12 +7,13 @@
 #include "C_Mqueue.h"
 
 class c_tVerifyVaultAccess : public C_Thread {
-        C_Monitor& m_monitor;
+        C_Monitor& m_monitorfgp;
+        C_Monitor& m_monitorservovault;
         C_Fingerprint& m_fingerprint;
         C_Mqueue& m_mqToDatabase;
         C_Mqueue& m_mqToActuator;
     public:
-        c_tVerifyVaultAccess(C_Monitor& m_monitor,C_Fingerprint& m_fingerprint,C_Mqueue& m_mqToDatabase,C_Mqueue& m_mqToActuator);
+        c_tVerifyVaultAccess(C_Monitor& m_monitor,C_Monitor& m_monitorservovault, C_Fingerprint& m_fingerprint,C_Mqueue& m_mqToDatabase,C_Mqueue& m_mqToActuator);
         virtual ~c_tVerifyVaultAccess();
         void run() override;
         void generateDescription(int userId, bool authorized, char* buffer, size_t size);

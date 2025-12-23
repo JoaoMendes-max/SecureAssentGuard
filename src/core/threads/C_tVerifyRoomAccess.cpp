@@ -4,19 +4,15 @@
 #include <ctime>
 
 // O construtor inicializa todas as referências passadas pelo processo principal
-C_tVerifyRoomAccess::C_tVerifyRoomAccess(C_Monitor& monitor,
-                                       C_RDM6300& rfid,
-                                       C_Mqueue& mqDB,
-                                       C_Mqueue& mqFromDB,
-                                       C_Mqueue& mqAct)
-    : m_monitor(monitor),
+C_tVerifyRoomAccess::C_tVerifyRoomAccess(C_Monitor& monitorrfid, C_Monitor& m_monitorservoroom, C_RDM6300& rfid, C_Mqueue& mqDB, C_Mqueue& mqFromDB,C_Mqueue& mqAct)
+    : m_monitorrfid(monitorrfid),
+      m_monitorservoroom(m_monitorservoroom),
       m_rfidEntry(rfid),
-      m_mqToDatabase(mqDB),  // Fila de saída para a Base de Dados
-      m_mqToVerifyRoom(mqFromDB),  // Fila de entrada com a resposta da BD
+      m_mqToDatabase(mqDB), // Fila de saída para a Base de Dados
+      m_mqToVerifyRoom(mqFromDB), // Fila de entrada com a resposta da BD
       m_mqToActuator(mqAct), // Fila de saída para os Actuadores
       m_maxAttempts(3),
-      m_failedAttempts(0)
-{
+      m_failedAttempts(0) {
     // m_maxAttempts já está inicializado a 3 no header
 }
 
@@ -28,7 +24,7 @@ void C_tVerifyRoomAccess::run() {
     std::cout << "[VerifyRoomAccess] Thread em execução. À espera de tags..." << std::endl;
 
     while (true) {
-        m_monitor.wait();
+        m_monitorrfid.wait();
         SensorData data={};// confitma esta merda de criar locais !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         // 1. Tentar ler uma tag do sensor RDM6300
@@ -53,6 +49,10 @@ void C_tVerifyRoomAccess::run() {
                     ActuatorCmd cmd = {ID_SERVO_ROOM, 0};//para ficar solto
                     m_mqToActuator.send(&cmd, sizeof(cmd));
                     sendLog((uint8_t)resp.userId, (uint16_t)resp.accessLevel, true);
+
+                    m_monitorservoroom.wait();
+                    cmd = {ID_SERVO_VAULT, 90};//para ficar preso
+                    m_mqToActuator.send(&cmd, sizeof(cmd));
                 }
                 else {
                     m_failedAttempts++;

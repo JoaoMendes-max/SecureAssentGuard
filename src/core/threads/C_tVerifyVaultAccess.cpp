@@ -6,11 +6,13 @@
 #include "SharedTypes.h"
 
 // Construtor usando apenas o que pediste
-c_tVerifyVaultAccess::c_tVerifyVaultAccess(C_Monitor& m_monitor,
+c_tVerifyVaultAccess::c_tVerifyVaultAccess(C_Monitor& m_monitorfgp,
+                                         C_Monitor& m_monitorservovault,
                                          C_Fingerprint& m_fingerprint,
                                          C_Mqueue& m_mqToDatabase,
                                          C_Mqueue& m_mqToActuator)
-    : m_monitor(m_monitor),
+    : m_monitorfgp(m_monitorfgp),
+      m_monitorservovault( m_monitorservovault),
       m_fingerprint(m_fingerprint),
       m_mqToDatabase(m_mqToDatabase),
       m_mqToActuator(m_mqToActuator)
@@ -26,13 +28,17 @@ void c_tVerifyVaultAccess::run() {
     SensorData data={};
 
     while (true) {
-        m_monitor.wait();
+        m_monitorfgp.wait();
         if (m_fingerprint.read(&data)) {
             if (data.data.fingerprint.authenticated) {
                 ActuatorCmd cmd = {ID_SERVO_VAULT, 0};//para ficar solto
                 m_mqToActuator.send(&cmd, sizeof(cmd));
                 //manda log de acesso bem sucedido
                 sendLog(data.data.fingerprint.userID,true);
+
+                m_monitorservovault.wait();
+                cmd = {ID_SERVO_VAULT, 90};//para ficar preso
+                m_mqToActuator.send(&cmd, sizeof(cmd));
             }else {
                 //se nao for reconhecida
                 sendLog(0,false);
@@ -67,5 +73,4 @@ void c_tVerifyVaultAccess::sendLog(int userId, bool authorized) {
     generateDescription(userId, authorized, msg.payload.log.description, sizeof(msg.payload.log.description));
 
     m_mqToDatabase.send(&msg, sizeof(DatabaseMsg));
-}
 }

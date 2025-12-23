@@ -10,7 +10,8 @@
 class C_tVerifyRoomAccess : public C_Thread {
 private:
     // Atributos baseados no teu diagrama
-    C_Monitor& m_monitor;
+    C_Monitor& m_monitorrfid;
+    C_Monitor& m_monitorservoroom;
     C_RDM6300& m_rfidEntry;
     C_Mqueue& m_mqToDatabase;   // Usando a tua classe C_Mqueue
     C_Mqueue& m_mqToVerifyRoom;//é a da resposta
@@ -23,7 +24,8 @@ private:
 
 public:
     // Construtor exatamente como no diagrama
-    C_tVerifyRoomAccess(C_Monitor& monitor,
+    C_tVerifyRoomAccess(C_Monitor& monitorrfid,
+                        C_Monitor& m_monitorservoroom,
                         C_RDM6300& rfid,
                         C_Mqueue& mqDB,
                         C_Mqueue& mqFromDB,

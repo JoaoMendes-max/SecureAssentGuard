@@ -116,6 +116,9 @@ void dDatabase::processDbMessage(const DatabaseMsg &msg) {
             break;
         case DB_CMD_LEAVE_ROOM_RFID:
             handleAccessRequest(msg.payload.rfid, false);
+            break;
+        case DB_CMD_UPDATE_ASSET:
+            handleScanInventory(msg.payload.rfidInventory);
         case DB_CMD_WRITE_LOG:
             handleInsertLog(msg.payload.log);
             break;
@@ -231,4 +234,46 @@ void dDatabase::handleCheckUserInPir() {
     // RESPONDER À THREAD (Usamos a fila m_mqCheckMovement)
     // Nota: Como o m_mqCheckMovement já está aberto na dDatabase, enviamos o resultado
     m_mqToCheckMovement.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleScanInventory(const Data_RFID_Inventory& inventory) {
+    sqlite3_stmt* stmt;
+    uint32_t now = static_cast<uint32_t>(time(nullptr));
+
+    // 1. Marcar todos os ativos como 'OUT'
+    // Se um objeto não aparecer no scan, assume-se que saiu do cofre.
+    const char* sqlReset = "UPDATE Assets SET State = 'OUT';";
+    int rc = sqlite3_exec(m_db, sqlReset, nullptr, nullptr, nullptr);
+
+    if (rc != SQLITE_OK) {
+        std::cerr << "[DB] Erro ao resetar estados: " << sqlite3_errmsg(m_db) << std::endl;
+        return;
+    }
+
+    // 2. Preparar a query de atualização (usamos placeholders '?' por performance)
+    const char* sqlUpdate = "UPDATE Assets SET State = 'IN', LastRead = ? WHERE RFID_Tag = ?;";
+
+    if (sqlite3_prepare_v2(m_db, sqlUpdate, -1, &stmt, nullptr) == SQLITE_OK) {
+
+        // Loop 1 a 1 pelas tags detetadas pela thread C_tInventoryScan
+        for (int i = 0; i < inventory.tagCount; ++i) {
+
+            // Vincular o timestamp e a Tag ID atual
+            sqlite3_bind_int(stmt, 1, now);
+            sqlite3_bind_text(stmt, 2, inventory.tagList[i], -1, SQLITE_STATIC);
+
+            // Executar a atualização para este item específico
+            if (sqlite3_step(stmt) != SQLITE_DONE) {
+                std::cerr << "[DB] Erro ao atualizar Tag: " << inventory.tagList[i] << std::endl;
+            }
+
+            // Limpar os binds para a próxima volta do loop
+            sqlite3_reset(stmt);
+        }
+
+        sqlite3_finalize(stmt);
+        std::cout << "[DB] Inventário atualizado com sucesso (" << inventory.tagCount << " itens)." << std::endl;
+    } else {
+        std::cerr << "[DB] Erro no prepare do inventário: " << sqlite3_errmsg(m_db) << std::endl;
+    }
 }

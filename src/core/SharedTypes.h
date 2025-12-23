@@ -2,14 +2,54 @@
 #define SHAREDTYPES_H
 
 #include <cstdint>
-// ============================================
-// thread priority
-// ============================================
-enum ThreadPriority_enum : int {
-    PRIO_LOW        = 10,
-    PRIO_MEDIUM   = 30,
-    PRIO_HIGH      = 50
+//=============================================
+//SENSOR SPECIFIC
+//=============================================
+
+//SENSOR IDS
+enum SensorID_enum : uint8_t {
+    ID_SHT31 = 0,
+    ID_RDM6300 = 1,
+    ID_YRM1001 = 2,
+    ID_FINGERPRINT = 3,
+    ID_SENSOR_COUNT = 4
 };
+
+struct Data_SHT31 {
+    float temp;
+    float hum;
+};
+
+struct Data_RFID_Single {
+    char tagID[11];
+};
+
+struct Data_RFID_Inventory {
+    int tagCount;
+    char tagList[4][32];
+};
+
+struct Data_Fingerprint {
+    bool authenticated;
+    int userID;
+};
+
+union SensorData_Union {
+    Data_SHT31 tempHum;
+    Data_RFID_Single rfid_single;
+    Data_RFID_Inventory rfid_inventory;
+    Data_Fingerprint fingerprint;
+};
+
+struct SensorData {
+    SensorID_enum type;
+    SensorData_Union data;
+};
+
+
+
+
+
 
 // ============================================
 // IDs of actuators
@@ -22,31 +62,11 @@ enum ActuatorID_enum : uint8_t {
     ID_ACTUATOR_COUNT = 4
 };
 
-// ============================================
-// IDs of Sensors
-// ============================================
-enum SensorID_enum : uint8_t {
-    ID_SHT31 = 0,
-    ID_RDM6300 = 1,
-    ID_YRM1001 = 2,
-    ID_FINGERPRINT = 3,
-    ID_SENSOR_COUNT = 4
-};
+
+
 
 // ============================================
-// Types of Logs
-// ============================================
-enum LogType_enum : uint8_t {
-    LOG_TYPE_ACTUATOR = 0,
-    LOG_TYPE_SENSOR = 1,
-    LOG_TYPE_ACCESS = 2,
-    LOG_TYPE_SYSTEM = 3,
-    LOG_TYPE_ALERT = 4,
-    LOG_TYPE_INVENTORY = 5
-};
-
-// ============================================
-// commands for actuator
+// commands for actuator mqueu
 // ============================================
 struct ActuatorCmd {
     ActuatorID_enum actuatorID;
@@ -59,25 +79,9 @@ struct ActuatorCmd {
         : actuatorID(id), value(val) {}
 };
 
-// ============================================
-// DATABASE LOG
-// ============================================
-struct DatabaseLog {
-    LogType_enum logType;
-    uint8_t entityID;
-    uint16_t value;
-    uint32_t timestamp;
-    char description[48]{};
 
-    DatabaseLog()
-        : logType(LOG_TYPE_SYSTEM),
-          entityID(0),
-          value(0),
-          timestamp(0)
-    {
-        description[0] = '\0';
-    }
-};
+
+
 
 // ============================================
 //  NAMES FOR LOGGING
@@ -102,6 +106,54 @@ inline constexpr const char* SENSOR_NAMES[] = {
 
 
 
+// ============================================
+// thread priority
+// ============================================
+enum ThreadPriority_enum : int {
+    PRIO_LOW        = 10,
+    PRIO_MEDIUM   = 30,
+    PRIO_HIGH      = 50
+};
+
+
+
+
+
+// ============================================
+// Types of Logs
+// ============================================
+enum LogType_enum : uint8_t {
+    LOG_TYPE_ACTUATOR = 0,
+    LOG_TYPE_SENSOR = 1,
+    LOG_TYPE_ACCESS = 2,
+    LOG_TYPE_SYSTEM = 3,
+    LOG_TYPE_ALERT = 4,
+    LOG_TYPE_INVENTORY = 5
+};
+
+
+// ============================================
+// DATABASE LOG
+// ============================================
+struct DatabaseLog {
+    LogType_enum logType;
+    uint8_t entityID;
+    uint16_t value;
+    uint32_t timestamp;
+    char description[48]{};
+
+    DatabaseLog()
+        : logType(LOG_TYPE_SYSTEM),
+          entityID(0),
+          value(0),
+          timestamp(0)
+    {
+        description[0] = '\0';
+    }
+};
+
+
+
 //databaseeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee shii
 // Comandos apenas para as threads de Hardware
 enum e_DbCommand {
@@ -113,6 +165,7 @@ enum e_DbCommand {
 };
 
 
+
 // Mensagem de Pedido (Entrada no Daemon)
 struct DatabaseMsg {
     e_DbCommand command;
@@ -120,6 +173,8 @@ struct DatabaseMsg {
     union {
         char rfid[11];       // Para validar User ou atualizar Asset
         DatabaseLog log;     // Para registo de histórico
+        Data_RFID_Inventory rfidInventory;
+
     } payload;
 };
 

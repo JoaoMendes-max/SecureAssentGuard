@@ -16,8 +16,8 @@ enum SensorID_enum : uint8_t {
 };
 
 struct Data_SHT31 {
-    float temp;
-    float hum;
+    int temp;
+    int hum;
 };
 
 struct Data_RFID_Single {

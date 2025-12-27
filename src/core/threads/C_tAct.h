@@ -12,11 +12,13 @@ class C_tAct : public C_Thread {
 private:
     C_Mqueue& m_mqToActuator;
     C_Mqueue& m_mqToDatabase;
+    C_Mqueue& m_mqAlarmTrigger;
     std::array<C_Actuator*, ID_ACTUATOR_COUNT> m_actuators;
 
 public:
     C_tAct(C_Mqueue& mqIn,
            C_Mqueue& mqOut,
+           C_Mqueue& mqAlarmTrigger,
            const std::array<C_Actuator*, ID_ACTUATOR_COUNT>& listaAtuadores);
 
     ~C_tAct() override = default;

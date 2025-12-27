@@ -13,9 +13,8 @@ public:
     virtual ~C_Sensor() = default;
 
     virtual bool init() = 0;
-    //vamos usar isto porque assim podemos guardar todo o tipo de data seja ele qual for da mesma forma
+    //vamos usar isto porque assim podemos guardar   o tipo de data seja ele qual for da mesma forma
     virtual bool read(SensorData* data) = 0;
-
 
     SensorID_enum get_ID() const { return m_sensorID; }
 };

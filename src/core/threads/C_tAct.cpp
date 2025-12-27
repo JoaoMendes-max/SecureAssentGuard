@@ -16,10 +16,12 @@ static constexpr const char* MODULE_NAME = "[tAct]";
 // ============================================
 C_tAct::C_tAct(C_Mqueue& mqIn,
                C_Mqueue& mqOut,
+               C_Mqueue& mqAlarmTrigger,
                const std::array<C_Actuator*, ID_ACTUATOR_COUNT>& listaAtuadores)
     : C_Thread(PRIO_HIGH), // Prioridade definida no Enum
       m_mqToActuator(mqIn),
       m_mqToDatabase(mqOut),
+      m_mqAlarmTrigger(mqAlarmTrigger),
       m_actuators(listaAtuadores)
 {
     size_t count = 0;
@@ -81,6 +83,14 @@ void C_tAct::processMessage(const ActuatorCmd& msg) {
          << " -> " << (int)msg.value << endl;
 
     bool sucesso = actuator->set_value(msg.value);
+
+    if (sucesso && msg.actuatorID == ID_ALARM_ACTUATOR && msg.value == 1) {
+        char trigger = 1;
+        // Envia endereço da variável (&trigger)
+        if (m_mqAlarmTrigger.send(&trigger, sizeof(trigger))) {
+            cout << MODULE_NAME << " ⏰ Timer de alarme ativado" << endl;
+        }
+    }
 
     // 3. Log
     if (sucesso) {

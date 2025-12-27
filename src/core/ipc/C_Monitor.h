@@ -13,6 +13,8 @@ public:
 
     void wait();
     void signal();
+    bool timedWait(int seconds);
+
 };
 
 #endif // C_MONITOR_H

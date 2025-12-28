@@ -3,9 +3,13 @@
 #include "C_Fingerprint.h"
 #include "C_UART.h"
 #include "C_GPIO.h"
+#include "C_RDM6300.h"
+#include "C_tSighandler.h"
+#include "C_tTestWorker.h"
+#include "C_YRM1001.h"
 
 using namespace std;
-
+/*
 int main() {
     cout << "=== TESTE DE VERIFICACAO (MATCH) ===" << endl;
 
@@ -54,7 +58,7 @@ int main() {
     }
 
     return 0;
-}
+}*/
 
 /*
  * cout << "--- DEBUG: ADICIONAR USER 1 ---" << endl;
@@ -116,3 +120,37 @@ int main() {
 
     return 0;
  **/
+
+
+int main() {
+    C_UART uart2(2);
+    C_GPIO enable(26,OUT);
+
+
+    C_YRM1001 rfidinvent(uart2,enable);
+
+
+
+    rfidinvent.init();
+    // 1. Bloqueio estático (Obrigatório)
+    C_tSighandler::setupSignalBlock();
+
+    // 2. Criar os monitores
+    C_Monitor monReed, monPIR, monFinger, monRFID;
+
+    // 3. Criar a nossa thread de sinais
+    C_tSighandler sigHandler(monReed, monPIR, monFinger, monRFID);
+
+    // 4. Criar a thread de teste ligada APENAS ao monitor do Reed Switch
+    C_tTestWorker testWorker(monRFID,rfidinvent, "REED_SWITCH_TEST");
+
+
+    // 5. Arrancar as duas
+    sigHandler.start();
+    testWorker.start();
+
+    std::cout << "[Main] Teste de sinal iniciado. À espera do hardware ou 'kill'..." << std::endl;
+
+    while(true) pause();
+    return 0;
+}

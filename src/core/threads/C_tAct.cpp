@@ -88,7 +88,7 @@ void C_tAct::processMessage(const ActuatorCmd& msg) {
         char trigger = 1;
         // Envia endereço da variável (&trigger)
         if (m_mqAlarmTrigger.send(&trigger, sizeof(trigger))) {
-            cout << MODULE_NAME << " ⏰ Timer de alarme ativado" << endl;
+            cout << MODULE_NAME << " Timer de alarme ativado" << endl;
         }
     }
 

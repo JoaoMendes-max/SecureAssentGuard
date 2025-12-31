@@ -3,6 +3,7 @@
 #include "C_Fingerprint.h"
 #include "C_UART.h"
 #include "C_GPIO.h"
+#include "C_Mqueue.h"
 #include "C_RDM6300.h"
 #include "C_tSighandler.h"
 #include "C_tTestWorker.h"
@@ -121,17 +122,21 @@ int main() {
     return 0;
  **/
 
-
+/*
 int main() {
+    C_Mqueue mqToDb("mq_to_db",512,10,false);
+
     C_UART uart2(2);
     C_GPIO enable(26,OUT);
 
+    C_RDM6300 rfident(uart2);
+    //C_YRM1001 rfidinvent(uart2,enable);
 
-    C_YRM1001 rfidinvent(uart2,enable);
 
 
+    //rfidinvent.init();
+    rfident.init();
 
-    rfidinvent.init();
     // 1. Bloqueio estático (Obrigatório)
     C_tSighandler::setupSignalBlock();
 
@@ -142,7 +147,7 @@ int main() {
     C_tSighandler sigHandler(monReed, monPIR, monFinger, monRFID);
 
     // 4. Criar a thread de teste ligada APENAS ao monitor do Reed Switch
-    C_tTestWorker testWorker(monRFID,rfidinvent, "REED_SWITCH_TEST");
+    C_tTestWorker testWorker(monRFID,rfident, "REED_SWITCH_TEST");
 
 
     // 5. Arrancar as duas
@@ -152,5 +157,39 @@ int main() {
     std::cout << "[Main] Teste de sinal iniciado. À espera do hardware ou 'kill'..." << std::endl;
 
     while(true) pause();
+    return 0;
+}*/
+
+
+#include <cstring>
+
+
+using namespace std;
+
+int main() {
+    cout << "[SIMULADOR] A iniciar teste de envio para a DB..." << endl;
+
+    // 1. Ligar à fila que a DB já criou
+    // Nome: "mq_to_db", Tamanho: 512, Max: 10, createNew: false
+    C_Mqueue m_mqToDatabase("/mq_to_db", sizeof(DatabaseMsg), 10, false);
+
+    // 2. Preparar a mensagem (Simulando a Thread)
+    DatabaseMsg msg = {};
+    msg.command = DB_CMD_ENTER_ROOM_RFID;
+
+    const char* rfidSimulado = "1234567890"; // Exemplo de um ID de cartão
+    strncpy(msg.payload.rfid, rfidSimulado, sizeof(msg.payload.rfid) - 1);
+    msg.payload.rfid[sizeof(msg.payload.rfid) - 1] = '\0'; // Garantir o fim da string
+    cout << sizeof(DatabaseMsg) << endl;
+    cout << "[SIMULADOR] A enviar RFID: " << msg.payload.rfid << " para a fila mq_to_db..." << endl;
+
+    // 3. Enviar
+    if (m_mqToDatabase.send(&msg, sizeof(msg))) {
+        cout << "[SIMULADOR] Mensagem enviada com sucesso!" << endl;
+    } else {
+        cerr << "[ERRO] Falha ao enviar a mensagem. A BD está a correr?" << endl;
+    }
+
+    cout << "[SIMULADOR] Teste terminado." << endl;
     return 0;
 }

@@ -22,6 +22,7 @@ public:
     void close();
     bool initializeSchema();
     void processDbMessage(const DatabaseMsg& msg);
+    void handleInsertLog(const DatabaseLog& log);
 
 private:
     sqlite3* m_db;
@@ -39,7 +40,7 @@ private:
     void handleAccessRequest(const char* rfid, bool isEntering);
     void handleUpdateAsset(const char* rfid);
     void handleScanInventory(const Data_RFID_Inventory& inventory);
-    void handleInsertLog(const DatabaseLog& log);
+
     void handleCheckUserInPir();
 };
 

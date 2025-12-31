@@ -268,6 +268,34 @@ bool C_YRM1001::parseFrame(char* epcOut, size_t epcSize) const {
     return true;
 }
 
+bool C_YRM1001::setPower(uint16_t powerDBm) {
+    // A maioria dos YRM aceita de 0 a 2600 (centésimos de dBm)
+    // ou 0 a 26 (dBm). Vamos assumir dBm simples para este exemplo.
+
+    uint8_t cmd_power[] = {
+        0xBB, 0x00, 0xB6, 0x00, 0x02,
+        (uint8_t)((powerDBm >> 8) & 0xFF), // MSB
+        (uint8_t)(powerDBm & 0xFF),        // LSB
+        0x00, 0x7E
+    };
+
+    // Calcula o Checksum: Soma de Type(00) + Cmd(B6) + PL_L(00) + PL_H(02) + Payload
+    cmd_power[7] = calculateChecksum(&cmd_power[1], 6);
+
+    std::cout << "[YRM1001] Setting power to: " << powerDBm << " dBm" << std::endl;
+
+    if (!sendCommand(cmd_power, sizeof(cmd_power))) return false;
+
+    // Opcional: Ler a resposta do módulo (readFrame) para confirmar sucesso
+    if (readFrame()) {
+        if (m_rawBuffer[YRM_IDX_COMMAND] == 0xB6 && m_rawBuffer[5] == 0x00) {
+            std::cout << "[YRM1001] Power set successfully!" << std::endl;
+            return true;
+        }
+    }
+    return false;
+}
+
 /* ============================================
  * CALCULATE CHECKSUM
  * Sum all bytes and return LSB
@@ -327,6 +355,9 @@ bool C_YRM1001::read(SensorData* data) {
 
     /* ========== 2. CLEAR UART BUFFER ========== */
     flushUART();
+
+
+    setPower(5);
 
     /* ========== 3. START INVENTORY COMMAND ========== */
     if (!sendCommand(CMD_START_INVENTORY, sizeof(CMD_START_INVENTORY))) {

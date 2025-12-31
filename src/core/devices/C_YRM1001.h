@@ -64,6 +64,7 @@ private:
 
     /* Helper Functions */
     static uint8_t calculateChecksum(const uint8_t* data, size_t len);
+    bool setPower(uint16_t powerDBm);
     static void bytesToHex(const uint8_t* data, size_t len, char* hexOut);
     static bool isTagSeen(const char* epc, char tagList[][32], int tagCount) ;
     void flushUART() const;

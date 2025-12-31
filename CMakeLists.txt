@@ -1,16 +1,18 @@
 cmake_minimum_required(VERSION 3.10)
-project(SecureAssetGuard C CXX)
+project(SecureAssentGuard C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
 # Onde estão os headers (.h)
 include_directories(
+        src              # <--- ADICIONADO (Resolve o erro do SharedTypes.h)
         src/core
         src/core/hal
         src/core/devices
         src/core/ipc
         src/core/threads
         src/daemons
+        src/daemons/database # <--- ADICIONADO para encontrar dDatabase.h
 )
 
 # =========================================================
@@ -46,7 +48,10 @@ add_executable(SecureAssetCore
         src/core/threads/C_tVerifyVaultAccess.cpp
         src/core/threads/C_tCheckMovement.cpp
         src/core/threads/C_tLeaveRoomAccess.cpp
+        src/core/threads/C_tLeaveRoomAccess.h
+        src/core/threads/C_tSighandler.cpp
         src/core/threads/C_tAlarmTimer.cpp
+
 )
 
 target_link_libraries(SecureAssetCore
@@ -60,6 +65,7 @@ target_link_libraries(SecureAssetCore
 add_executable(dDatabase
         src/daemons/database/main_db.cpp
         src/daemons/database/dDatabase.cpp
+        src/core/ipc/C_Mqueue.cpp
 )
 
 target_link_libraries(dDatabase

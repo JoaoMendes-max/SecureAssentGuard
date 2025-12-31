@@ -139,10 +139,15 @@ void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
     const char* sqlSelect = "SELECT UserID, AccessLevel FROM Users WHERE RFID_Card = ?;";
     if (sqlite3_prepare_v2(m_db, sqlSelect, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, rfid, -1, SQLITE_STATIC);
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {//se encontrarem preenchem a resposta
             resp.authorized = true;
             resp.userId = (uint32_t)sqlite3_column_int(stmt, 0);
             resp.accessLevel = (uint32_t)sqlite3_column_int(stmt, 1);
+
+            cout << "\n[CHECK] User Encontrado!" << endl;
+            cout << " > UserID:      " << resp.userId << endl;
+            cout << " > AccessLevel: " << resp.accessLevel << endl;
+            cout << "----------------------------" << endl;
         }
         sqlite3_finalize(stmt);
     }
@@ -150,6 +155,7 @@ void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
     // 2. Se autorizado, atualizamos o estado de forma explícita
     if (resp.authorized) {
         // Se isEntering é true, newState = 1. Se é false, newState = 0.
+        //
         int newState = isEntering ? 1 : 0;
 
         const char* sqlUpdate = "UPDATE Users SET IsInside = ? WHERE UserID = ?;";

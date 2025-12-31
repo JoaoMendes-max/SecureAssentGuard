@@ -34,6 +34,7 @@ bool C_RDM6300::read(SensorData* data) {
     /* Wait for packet start (STX byte) with 1s timeout.
        If no card present, returns quickly allowing thread exit checks. */
     if (!waitForData(1000)) {
+        cerr << "shit falhou" << endl;
         return false;
     }
     // Read STX byte (0x02)

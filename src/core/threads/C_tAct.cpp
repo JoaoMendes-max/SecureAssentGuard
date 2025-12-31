@@ -158,4 +158,5 @@ void C_tAct::logToDatabase(ActuatorID_enum id, uint8_t value) {
     if (!enviado) {
         cerr << MODULE_NAME << " ERRO ao enviar log" << endl;
     }
+    // lil nigga
 }

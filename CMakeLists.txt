@@ -50,6 +50,7 @@ add_executable(SecureAssetCore
         src/core/threads/C_tLeaveRoomAccess.cpp
         src/core/threads/C_tLeaveRoomAccess.h
         src/core/threads/C_tSighandler.cpp
+        src/core/threads/C_tAlarmTimer.cpp
 
 )
 

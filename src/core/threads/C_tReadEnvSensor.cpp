@@ -122,6 +122,7 @@ void C_tReadEnvSensor::sendLog(int temp, int hum) const {
     msg.payload.log.logType = LOG_TYPE_SENSOR;
     msg.payload.log.entityID = ID_SHT31;  // ID do sensor no enum
     msg.payload.log.value = static_cast<uint16_t>(temp);
+    msg.payload.log.value2 = static_cast<uint16_t>(hum);   // Humidade (novo campo)
     msg.payload.log.timestamp = static_cast<uint32_t>(time(nullptr));
 
     // Gerar descrição

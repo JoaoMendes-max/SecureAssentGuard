@@ -1,22 +1,46 @@
 cmake_minimum_required(VERSION 3.10)
-project(SecureAssentGuard C CXX)
+project(SecureAssetGuard LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Onde estão os headers (.h)
-include_directories(
-        src              # <--- ADICIONADO (Resolve o erro do SharedTypes.h)
-        src/core
-        src/core/hal
-        src/core/devices
-        src/core/ipc
-        src/core/threads
-        src/daemons
-        src/daemons/database # <--- ADICIONADO para encontrar dDatabase.h
+# =========================================================
+# SYSROOT DO BUILDROOT
+# =========================================================
+set(SYSROOT "/home/mendes/buildroot/buildroot-2025.02.6/output/host/aarch64-buildroot-linux-gnu/sysroot")
+
+add_compile_definitions(
+        MG_ENABLE_HTTP=1
+)
+
+# ADICIONE ISSO ao seu CMakeLists.txt:
+set(CMAKE_FIND_ROOT_PATH ${SYSROOT})
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+# =========================================================
+# INCLUDES COMUNS AO PROJETO
+# (target-based, para o CLion indexar corretamente)
+# =========================================================
+set(PROJECT_INCLUDES
+        ${SYSROOT}/usr/include
+
+        ${CMAKE_SOURCE_DIR}/src
+        ${CMAKE_SOURCE_DIR}/src/core
+        ${CMAKE_SOURCE_DIR}/src/core/hal
+        ${CMAKE_SOURCE_DIR}/src/core/devices
+        ${CMAKE_SOURCE_DIR}/src/core/ipc
+        ${CMAKE_SOURCE_DIR}/src/core/threads
+
+        ${CMAKE_SOURCE_DIR}/src/daemons
+        ${CMAKE_SOURCE_DIR}/src/daemons/database
+        ${CMAKE_SOURCE_DIR}/src/daemons/web
 )
 
 # =========================================================
-# 1. O CÉREBRO (SecureAssetCore)
+# 1. SECURE ASSET CORE
 # =========================================================
 add_executable(SecureAssetCore
         src/core/main.cpp
@@ -40,6 +64,7 @@ add_executable(SecureAssetCore
         # IPC & Threads
         src/core/ipc/C_Monitor.cpp
         src/core/ipc/C_Mqueue.cpp
+
         src/core/threads/C_Thread.cpp
         src/core/threads/C_tAct.cpp
         src/core/threads/C_tReadEnvSensor.cpp
@@ -48,10 +73,12 @@ add_executable(SecureAssetCore
         src/core/threads/C_tVerifyVaultAccess.cpp
         src/core/threads/C_tCheckMovement.cpp
         src/core/threads/C_tLeaveRoomAccess.cpp
-        src/core/threads/C_tLeaveRoomAccess.h
         src/core/threads/C_tSighandler.cpp
         src/core/threads/C_tAlarmTimer.cpp
+)
 
+target_include_directories(SecureAssetCore PRIVATE
+        ${PROJECT_INCLUDES}
 )
 
 target_link_libraries(SecureAssetCore
@@ -68,11 +95,15 @@ add_executable(dDatabase
         src/core/ipc/C_Mqueue.cpp
 )
 
+target_include_directories(dDatabase PRIVATE
+        ${PROJECT_INCLUDES}
+)
+
 target_link_libraries(dDatabase
         pthread
         rt
-        sqlcipher   # <--- CORRIGIDO (Usa a lib do SQLCipher)
-        argon2      # Linka com libargon2.so
+        sqlcipher
+        argon2
 )
 
 # =========================================================
@@ -81,13 +112,17 @@ target_link_libraries(dDatabase
 add_executable(dWebServer
         src/daemons/web/main_web.cpp
         src/daemons/web/dWebServer.cpp
+        src/core/ipc/C_Mqueue.cpp
+)
+
+target_include_directories(dWebServer PRIVATE
+        ${PROJECT_INCLUDES}
 )
 
 target_link_libraries(dWebServer
         pthread
         rt
         mongoose
-        json-c
         ssl
         crypto
         argon2

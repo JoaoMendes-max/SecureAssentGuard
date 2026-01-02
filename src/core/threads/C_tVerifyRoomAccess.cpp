@@ -2,7 +2,6 @@
 #include <iostream>
 #include <cstring>
 #include <ctime>
-
 // O construtor inicializa todas as referências passadas pelo processo principal
 C_tVerifyRoomAccess::C_tVerifyRoomAccess(C_Monitor& monitorrfid, C_Monitor& m_monitorservoroom, C_RDM6300& rfid, C_Mqueue& mqDB, C_Mqueue& mqFromDB,C_Mqueue& mqAct)
     : m_monitorrfid(monitorrfid),

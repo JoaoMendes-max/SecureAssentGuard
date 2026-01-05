@@ -348,12 +348,7 @@ bool C_YRM1001::read(SensorData* data) {
 
     std::cout << "[YRM1001] ========== START SCAN ==========" << std::endl;
 
-    /* ========== 1. POWER ON ========== */
-    if (!powerOn()) {
-        return false;
-    }
-
-    /* ========== 2. CLEAR UART BUFFER ========== */
+     /* ========== 2. CLEAR UART BUFFER ========== */
     flushUART();
 
 

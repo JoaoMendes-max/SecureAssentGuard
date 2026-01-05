@@ -266,6 +266,14 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
         std::cerr << "[Erro dDatabase] Erro no prepare do SQL: "
                   << sqlite3_errmsg(m_db) << std::endl;
     }
+
+    if (log.logType == LOG_TYPE_SENSOR) {
+        updateSensorTable(log.entityID, log.value, log.value2);
+    }
+    else if (log.logType == LOG_TYPE_ACTUATOR) {
+        updateActuatorTable(log.entityID, log.value);
+    }
+
 }
 
 

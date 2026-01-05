@@ -18,7 +18,7 @@ public:
               C_Mqueue& mqRfidOut,
               C_Mqueue& mqFinger,
               C_Mqueue& mqCheckMovement,
-              C_Mqueue& mqToWeb););
+              C_Mqueue& mqToWeb);
     ~dDatabase();
 
     bool open();

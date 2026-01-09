@@ -16,13 +16,12 @@ static constexpr const char* MODULE_NAME = "[tAct]";
 // ============================================
 C_tAct::C_tAct(C_Mqueue& mqIn,
                C_Mqueue& mqOut,
-               C_Mqueue& mqAlarmTrigger,
                const std::array<C_Actuator*, ID_ACTUATOR_COUNT>& listaAtuadores)
     : C_Thread(PRIO_HIGH), // Prioridade definida no Enum
       m_mqToActuator(mqIn),
       m_mqToDatabase(mqOut),
-      m_mqAlarmTrigger(mqAlarmTrigger),
-      m_actuators(listaAtuadores)
+      m_actuators(listaAtuadores),
+      m_alarmTimerId(0) // Inicializa a zero
 {
     size_t count = 0;
     for (size_t i = 0; i < m_actuators.size(); ++i) {
@@ -34,8 +33,90 @@ C_tAct::C_tAct(C_Mqueue& mqIn,
         }
     }
 
+    initTimer();
+
     cout << MODULE_NAME << " Thread criada (Prio " << PRIO_HIGH << ")"
          << ". Atuadores: " << count << "/" << m_actuators.size() << endl;
+}
+
+C_tAct::~C_tAct() {
+    // É boa prática apagar o timer ao destruir a classe
+    if (m_alarmTimerId != 0) {
+        timer_delete(m_alarmTimerId);
+    }
+}
+
+// ============================================
+// INIT TIMER (Cria a estrutura, mas não arranca)
+// ============================================
+void C_tAct::initTimer() {
+
+    struct sigevent sev = {};
+    // Configura para criar uma thread temporária ou sinal quando o timer estourar
+    sev.sigev_notify = SIGEV_THREAD;
+    sev.sigev_notify_function = alarmTimerCallback; // A nossa função estática
+    sev.sigev_value.sival_ptr = this; // O TRUQUE: Passamos o ponteiro desta classe
+    sev.sigev_notify_attributes = nullptr;
+
+    if (timer_create(CLOCK_MONOTONIC, &sev, &m_alarmTimerId) == -1) {
+        cerr << MODULE_NAME << " ERRO CRÍTICO: Falha ao criar timer POSIX!" << endl;
+    }
+}
+
+// ============================================
+// STATIC CALLBACK (Executa quando o tempo acaba)
+// ============================================
+void C_tAct::alarmTimerCallback(union sigval sv) {
+    // Recuperar o ponteiro "this" que passamos no initTimer
+    C_tAct* self = static_cast<C_tAct*>(sv.sival_ptr);
+
+    if (self) {
+        cout << "[tAct-Timer] Tempo esgotado! A enviar comando OFF..." << endl;
+
+        // Criar comando para desligar o alarme
+        ActuatorCmd cmd;
+        cmd.actuatorID = ID_ALARM_ACTUATOR;
+        cmd.value = 0; // DESLIGAR
+
+        // Enviar para a PRÓPRIA fila da thread tAct
+        // Nota: As Mqueues são thread-safe, por isso isto é seguro
+        self->m_mqToActuator.send(&cmd, sizeof(cmd));
+    }
+}
+
+// ============================================
+// START ALARM TIMER
+// ============================================
+void C_tAct::startAlarmTimer(int seconds) {
+    struct itimerspec its;
+
+    // Tempo para disparar
+    its.it_value.tv_sec = seconds;
+    its.it_value.tv_nsec = 0;
+
+    // Intervalo (0 = one-shot, dispara uma vez e para)
+    its.it_interval.tv_sec = 0;
+    its.it_interval.tv_nsec = 0;
+
+    if (timer_settime(m_alarmTimerId, 0, &its, nullptr) == -1) {
+        cerr << MODULE_NAME << " ERRO ao armar timer" << endl;
+    } else {
+        cout << MODULE_NAME << " Timer armado para " << seconds << "s" << endl;
+    }
+}
+
+// ============================================
+// STOP ALARM TIMER (Opcional, para cancelar)
+// ============================================
+void C_tAct::stopAlarmTimer() {
+    struct itimerspec its;
+    // Zeros desativam o timer
+    its.it_value.tv_sec = 0;
+    its.it_value.tv_nsec = 0;
+    its.it_interval.tv_sec = 0;
+    its.it_interval.tv_nsec = 0;
+
+    timer_settime(m_alarmTimerId, 0, &its, nullptr);
 }
 
 // ============================================
@@ -84,11 +165,14 @@ void C_tAct::processMessage(const ActuatorCmd& msg) {
 
     bool sucesso = actuator->set_value(msg.value);
 
-    if (sucesso && msg.actuatorID == ID_ALARM_ACTUATOR && msg.value == 1) {
-        char trigger = 1;
-        // Envia endereço da variável (&trigger)
-        if (m_mqAlarmTrigger.send(&trigger, sizeof(trigger))) {
-            cout << MODULE_NAME << " Timer de alarme ativado" << endl;
+    if (sucesso && msg.actuatorID == ID_ALARM_ACTUATOR) {
+        if (msg.value == 1) {
+            // Se ligou o alarme, INICIA o timer de 30s
+            startAlarmTimer(30);
+        } else {
+            // Se desligou o alarme (manualmente ou pelo timer), CANCELA o timer
+            // Isto evita que o timer dispare se desligarmos manualmente aos 15s
+            stopAlarmTimer();
         }
     }
 
@@ -145,7 +229,7 @@ void C_tAct::generateDescription(ActuatorID_enum id,
 void C_tAct::logToDatabase(ActuatorID_enum id, uint8_t value) {
     //mudar esta shit para mandar msg ahahah(ber verifyroomaccess
     DatabaseLog log;
-
+    // memset(&log, 0, sizeof(DatabaseLog)); o chat disse para ter isto em todos que assim tem se a certeza do que se manda sem lixo
     log.logType = LOG_TYPE_ACTUATOR;
     log.entityID = static_cast<uint8_t>(id);
     log.value = static_cast<uint16_t>(value); // Casting para uint16_t
@@ -158,5 +242,4 @@ void C_tAct::logToDatabase(ActuatorID_enum id, uint8_t value) {
     if (!enviado) {
         cerr << MODULE_NAME << " ERRO ao enviar log" << endl;
     }
-    // lil nigga
 }

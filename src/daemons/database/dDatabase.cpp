@@ -71,7 +71,8 @@ bool dDatabase::initializeSchema() {
         "Timestamp INTEGER, "
         "LogType INTEGER, "
         "Description TEXT,"
-        "Value INTEGER);"
+        "Value INTEGER),"
+        "Value2 INTEGER DEFAULT 0);"
 
 
         // 3. Assets: ID automático, Tag única para o inventário
@@ -230,9 +231,12 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
     sqlite3_stmt* stmt;
 
     // 1. O SQL com placeholders (?) para segurança
+    /*
     const char* sql = "INSERT INTO Logs (LogType, EntityID, Value, Timestamp, Description) "
                       "VALUES (?, ?, ?, ?, ?);";
-
+*/
+    const char* sql = "INSERT INTO Logs (LogType, EntityID, Value, Value2, Timestamp, Description) "
+                  "VALUES (?, ?, ?, ?, ?, ?);";
     // 2. Preparar a query
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
 
@@ -245,6 +249,9 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
 
         // Value: 1 para Sucesso/Ligado, 0 para Falha/Desligado
         sqlite3_bind_int(stmt, 3, static_cast<int>(log.value));
+
+        sqlite3_bind_int(stmt, 4, static_cast<int>(log.value2));     // ← ADICIONAR!
+
 
         // Timestamp: Tempo Unix enviado pela thread
         sqlite3_bind_int(stmt, 4, static_cast<int>(log.timestamp));

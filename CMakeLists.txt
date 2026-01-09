@@ -80,14 +80,13 @@ target_link_libraries(dDatabase
 add_executable(dWebServer
         src/daemons/web/main_web.cpp
         src/daemons/web/dWebServer.cpp
+        src/core/ipc/C_Mqueue.cpp
 )
 
 target_link_libraries(dWebServer
         pthread
         rt
         mongoose
-        json-c
         ssl
         crypto
-        argon2
 )

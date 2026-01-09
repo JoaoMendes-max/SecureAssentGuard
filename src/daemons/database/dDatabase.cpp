@@ -61,6 +61,7 @@ bool dDatabase::initializeSchema() {
         "Name TEXT, "
         "RFID_Card TEXT UNIQUE, "
         "FingerprintID INTEGER UNIQUE, " // O ID que vem do sensor biométrico
+        "Password TEXT, "
         "AccessLevel INTEGER, "
         "IsInside INTEGER DEFAULT 0);"   // 0 = Fora, 1 = Dentro
 
@@ -113,20 +114,23 @@ bool dDatabase::initializeSchema() {
     // Hash password "1234" with Argon2
     const char* password = "1234";
     char hash[128];
-    uint8_t salt[16] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
-                        0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10};
-
-    argon2i_hash_encoded(2, 65536, 1, password, strlen(password),
-                        salt, sizeof(salt), 32, hash, sizeof(hash));
-
-    // Insert admin user
-    const char* insertAdmin = "INSERT OR IGNORE INTO Users (Name, Password, AccessLevel) VALUES ('admin', ?, 1);";
-    sqlite3_stmt* stmt;
-    if (sqlite3_prepare_v2(m_db, insertAdmin, -1, &stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, hash, -1, SQLITE_STATIC);
-        sqlite3_step(stmt);
-        sqlite3_finalize(stmt);
+    // Gerar salt aleatório (16 bytes)
+    uint8_t salt[16];
+    srand(time(nullptr));  // Seed do random
+    for (int i = 0; i < 16; i++) {
+        salt[i] = rand() % 256;
     }
+
+    // Hash com Argon2id (16 MB RAM, 2 iterações, 1 thread)
+    argon2id_hash_encoded(
+        2,          // time_cost (iterações)
+        16384,      // memory_cost = 16 MB (16 * 1024)
+        1,          // parallelism (1 thread)
+        password, strlen(password),
+        salt, sizeof(salt),
+        32,         // hash length
+        hash, sizeof(hash)
+    );
 
     // Insert initial sensor records
     const char* insertSensors =

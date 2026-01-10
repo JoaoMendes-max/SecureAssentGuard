@@ -48,7 +48,6 @@ private:
     void handleGetDashboard();
     void handleGetSensors();
     void handleGetActuators();
-
     void updateSensorTable(uint8_t entityID, uint16_t value, uint16_t value2);
     void updateActuatorTable(uint8_t entityID, uint16_t value);
 };

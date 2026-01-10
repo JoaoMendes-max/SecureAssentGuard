@@ -24,8 +24,7 @@ dDatabase::~dDatabase() {
 }
 
 bool dDatabase::open() {
-    // Tenta abrir o ficheiro. Se não existir, o SQLite cria-o automaticamente.
-    // .c_str() converte a string do C++ para o formato que o SQLite (em C) entende.
+
     int result = sqlite3_open(m_dbPath.c_str(), &m_db);
 
     if (result != SQLITE_OK) {

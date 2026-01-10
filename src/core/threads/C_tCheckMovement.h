@@ -8,12 +8,12 @@
 class C_tCheckMovement : public C_Thread{
 public:
     C_tCheckMovement(C_Mqueue& m_mqToCheckMovement, C_Mqueue& m_mqToDatabase,C_Mqueue& m_mqToActuator,C_Monitor& m_monitor);
-    void sendLog(bool authorized);
-    void generateDescription(bool authorized, char* buffer, size_t size);
     ~C_tCheckMovement() override = default;
     void run() override;
 
 private:
+    void sendLog(bool authorized);
+    void generateDescription(bool authorized, char* buffer, size_t size);
     C_Mqueue& m_mqToCheckMovement;
     C_Mqueue& m_mqToDatabase;
     C_Mqueue& m_mqToActuator;

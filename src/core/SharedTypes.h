@@ -46,6 +46,11 @@ struct SensorData {
     SensorData_Union data;
 };
 
+
+
+
+
+
 // ============================================
 // IDs of actuators
 // ============================================
@@ -56,6 +61,9 @@ enum ActuatorID_enum : uint8_t {
     ID_ALARM_ACTUATOR = 3,
     ID_ACTUATOR_COUNT = 4
 };
+
+
+
 
 // ============================================
 // commands for actuator mqueu
@@ -70,6 +78,10 @@ struct ActuatorCmd {
     ActuatorCmd(ActuatorID_enum id, uint8_t val)
         : actuatorID(id), value(val) {}
 };
+
+
+
+
 
 // ============================================
 //  NAMES FOR LOGGING
@@ -93,6 +105,9 @@ inline constexpr const char* SENSOR_NAMES[] = {
     */
 };
 
+
+
+
 // ============================================
 // thread priority
 // ============================================
@@ -101,6 +116,10 @@ enum ThreadPriority_enum : int {
     PRIO_MEDIUM   = 30,
     PRIO_HIGH      = 50
 };
+
+
+
+
 
 // ============================================
 // Types of Logs
@@ -113,6 +132,7 @@ enum LogType_enum : uint8_t {
     LOG_TYPE_ALERT = 4,
     LOG_TYPE_INVENTORY = 5
 };
+
 
 // ============================================
 // DATABASE LOG

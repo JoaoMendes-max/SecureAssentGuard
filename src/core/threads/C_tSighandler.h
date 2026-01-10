@@ -31,7 +31,7 @@ public:
     // Construtor: Recebe as referências dos monitores
     C_tSighandler(C_Monitor& reed, C_Monitor& pir, C_Monitor& finger, C_Monitor& rfid);
 
-    virtual ~C_tSighandler() override;
+     ~C_tSighandler() override;
 
     // MÉTODO STATIC: Deve ser chamado no início do main()
     static void setupSignalBlock();

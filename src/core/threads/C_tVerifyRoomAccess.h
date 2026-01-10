@@ -33,7 +33,6 @@ public:
 
     virtual ~C_tVerifyRoomAccess();
     void generateDescription(uint8_t userId, bool authorized, char* buffer, size_t size);
-    void sendLog(uint8_t userId, uint16_t accessLevel, bool authorized, bool isInside);
     void run() override; // Retorno void* como no diagrama
 };
 

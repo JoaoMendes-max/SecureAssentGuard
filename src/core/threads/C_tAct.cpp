@@ -178,7 +178,7 @@ void C_tAct::processMessage(const ActuatorCmd& msg) {
 
     // 3. Log
     if (sucesso) {
-        logToDatabase(msg.actuatorID, msg.value);
+        sendLog(msg.actuatorID, msg.value);
     } else {
         cerr << MODULE_NAME << " FALHA Hardware: " << ACTUATOR_NAMES[msg.actuatorID] << endl;
     }
@@ -226,7 +226,7 @@ void C_tAct::generateDescription(ActuatorID_enum id,
 // ============================================
 // LOG TO DATABASE
 // ============================================
-void C_tAct::logToDatabase(ActuatorID_enum id, uint8_t value) {
+void C_tAct::sendLog(ActuatorID_enum id, uint8_t value) {
     //mudar esta shit para mandar msg ahahah(ber verifyroomaccess
     DatabaseLog log;
     // memset(&log, 0, sizeof(DatabaseLog)); o chat disse para ter isto em todos que assim tem se a certeza do que se manda sem lixo

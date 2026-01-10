@@ -3,12 +3,13 @@
 #include <cstring>
 #include <ctime>
 
-C_tLeaveRoomAccess::C_tLeaveRoomAccess(C_Monitor& monitor,
+C_tLeaveRoomAccess::C_tLeaveRoomAccess(C_Monitor& monitorrfid, C_Monitor& monitorservoroom,
                                        C_RDM6300& rfid,
                                        C_Mqueue& mqDB,
                                        C_Mqueue& mqFromDB,
                                        C_Mqueue& mqAct)
-    : m_monitor(monitor),
+    : m_monitorrfid( monitorrfid),
+      m_monitorservoroom( monitorservoroom),
       m_rfidExit(rfid),
       m_mqToDatabase(mqDB),
       m_mqToLeaveRoom(mqFromDB),
@@ -25,7 +26,7 @@ void C_tLeaveRoomAccess::run() {
     std::cout << "[LeaveRoom] Thread em execução. À espera de tags para sair..." << std::endl;
 
     while (true) {
-        m_monitor.wait();
+        m_monitorrfid.wait();
         SensorData data = {};
 
         // 1. Leitura do sensor interno
@@ -52,44 +53,34 @@ void C_tLeaveRoomAccess::run() {
                     m_mqToActuator.send(&cmd, sizeof(cmd));
 
                     // 5. Log de Saída
-                    sendLog((uint8_t)resp.userId, (uint16_t)resp.accessLevel, true);
-                }
-                else {
-                    m_failedAttempts++;
-                    std::cerr << "[RFID-EXIT] Saída Negada! Tentativa " << m_failedAttempts << std::endl;
+                    sendLog((uint8_t)resp.userId, (uint16_t)resp.accessLevel);
 
-                    if (m_failedAttempts >= m_maxAttempts) {
-                        m_failedAttempts = 0;
-                        ActuatorCmd alarm = {ID_ALARM_ACTUATOR, 1};
-                        m_mqToActuator.send(&alarm, sizeof(alarm));
-                    }
-                    // Log de Alerta na saída
-                    sendLog(0, 0, false);
+
+                    m_monitorservoroom.wait();
+                    cmd = {ID_SERVO_ROOM, 90};//para ficar preso
+                    m_mqToActuator.send(&cmd, sizeof(cmd));
+
                 }
             }
         }
     }
 }
 
-void C_tLeaveRoomAccess::generateDescription(uint8_t userId, bool authorized, char* buffer, size_t size) {
-    if (!authorized) {
-        snprintf(buffer, size, "ACESSO NEGADO NA SAÍDA: Cartão não reconhecido");
-    } else {
-        // Semântica de SAÍDA
+void C_tLeaveRoomAccess::generateDescription(uint8_t userId, char* buffer, size_t size) {
+
         snprintf(buffer, size, "Utilizador %d SAIU da sala", userId);
-    }
 }
 
-void C_tLeaveRoomAccess::sendLog(uint8_t userId, uint16_t accessLevel, bool authorized) {
+void C_tLeaveRoomAccess::sendLog(uint8_t userId, uint16_t accessLevel) {
     DatabaseMsg msg = {};
     msg.command = DB_CMD_WRITE_LOG;
 
-    msg.payload.log.logType = authorized ? LOG_TYPE_ACCESS : LOG_TYPE_ALERT;
+    msg.payload.log.logType = LOG_TYPE_ACCESS ;
     msg.payload.log.entityID = userId;
     msg.payload.log.value = accessLevel;
     msg.payload.log.timestamp = static_cast<uint32_t>(time(nullptr));
 
-    generateDescription(userId, authorized, msg.payload.log.description, sizeof(msg.payload.log.description));
+    generateDescription(userId, msg.payload.log.description, sizeof(msg.payload.log.description));
 
     m_mqToDatabase.send(&msg, sizeof(DatabaseMsg), 0);
 }

@@ -50,7 +50,7 @@ void C_tVerifyRoomAccess::run() {
                     sendLog((uint8_t)resp.userId, (uint16_t)resp.accessLevel, true);
 
                     m_monitorservoroom.wait();
-                    cmd = {ID_SERVO_VAULT, 90};//para ficar preso
+                    cmd = {ID_SERVO_ROOM, 90};//para ficar preso
                     m_mqToActuator.send(&cmd, sizeof(cmd));
                 }
                 else {

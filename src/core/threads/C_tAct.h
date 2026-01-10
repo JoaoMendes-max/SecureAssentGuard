@@ -29,7 +29,7 @@ public:
 
 private:
     void processMessage(const ActuatorCmd& msg);
-    void logToDatabase(ActuatorID_enum id, uint8_t value);
+    void sendLog(ActuatorID_enum id, uint8_t value);
 
     // Funções auxiliares do Timer
     void initTimer();

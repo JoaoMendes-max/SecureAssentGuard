@@ -165,7 +165,6 @@ enum e_DbCommand {
 };
 
 
-
 // Mensagem de Pedido (Entrada no Daemon)
 struct DatabaseMsg {
     e_DbCommand command;
@@ -176,12 +175,6 @@ struct DatabaseMsg {
         Data_RFID_Inventory rfidInventory;
 
     } payload;
-};
-
-// Mensagem de Resposta (Saída para as Threads)
-struct DbResponse {
-    bool authorized;         // Usado no RFID (Encontrado na BD?)
-    uint32_t accessLevel;    // Permissão do utilizador
 };
 
 

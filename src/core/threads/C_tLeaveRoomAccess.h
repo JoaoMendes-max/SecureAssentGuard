@@ -9,7 +9,8 @@
 
 class C_tLeaveRoomAccess : public C_Thread {
 private:
-    C_Monitor& m_monitor;
+    C_Monitor& m_monitorrfid;
+    C_Monitor& m_monitorservoroom;
     C_RDM6300& m_rfidExit;       // Sensor montado no interior para sair
     C_Mqueue& m_mqToDatabase;
     C_Mqueue& m_mqToLeaveRoom;   // Fila de resposta específica para a saída
@@ -19,7 +20,7 @@ private:
     int m_maxAttempts;
 
 public:
-    C_tLeaveRoomAccess(C_Monitor& monitor,
+    C_tLeaveRoomAccess(C_Monitor& monitorrfid, C_Monitor& monitorservoroom,
                        C_RDM6300& rfid,
                        C_Mqueue& mqDB,
                        C_Mqueue& mqFromDB,
@@ -27,8 +28,8 @@ public:
 
     virtual ~C_tLeaveRoomAccess();
 
-    void generateDescription(uint8_t userId, bool authorized, char* buffer, size_t size);
-    void sendLog(uint8_t userId, uint16_t accessLevel, bool authorized);
+    void generateDescription(uint8_t userId, char* buffer, size_t size);
+    void sendLog(uint8_t userId, uint16_t accessLevel);
     void run() override;
 };
 

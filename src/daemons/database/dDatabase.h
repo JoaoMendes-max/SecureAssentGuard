@@ -18,9 +18,10 @@ public:
               C_Mqueue& mqCheckMovement);
     ~dDatabase();
 
-    bool open();
+    bool open();//open or create db file and get sqlite3* m_db
     void close();
-    bool initializeSchema();
+    bool initializeSchema();//initialize database structure
+
     void processDbMessage(const DatabaseMsg& msg);
     void handleInsertLog(const DatabaseLog& log);
 
@@ -28,19 +29,18 @@ private:
     sqlite3* m_db;
     std::string m_dbPath;
 
-    // --- OS ATRIBUTOS ADEQUADOS ---
-    C_Mqueue& m_mqToDatabase;    // A que recebe os pedidos (input)
-    C_Mqueue& m_mqToVerifyRoom;    // responde a thread de entrada da sala rfid
-    C_Mqueue& m_mqToLeaveRoom;// a q responde a thread de saida da sala rfid
-    C_Mqueue& m_mqToFingerprint; // A que responde ao Dedo (output)
-    C_Mqueue& m_mqToCheckMovement;// a q responde ao pir
+
+    C_Mqueue& m_mqToDatabase;
+    C_Mqueue& m_mqToVerifyRoom;
+    C_Mqueue& m_mqToLeaveRoom;
+    C_Mqueue& m_mqToFingerprint;
+    C_Mqueue& m_mqToCheckMovement;
 
 
     // Handlers
     void handleAccessRequest(const char* rfid, bool isEntering);
     void handleUpdateAsset(const char* rfid);
     void handleScanInventory(const Data_RFID_Inventory& inventory);
-
     void handleCheckUserInPir();
 };
 

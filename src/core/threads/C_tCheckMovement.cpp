@@ -20,7 +20,7 @@ void C_tCheckMovement::run() {
         m_mqToCheckMovement.receive(&resp, sizeof(resp));
         if (m_mqToCheckMovement.receive(&resp, sizeof(resp)) > 0) {
             // Se authorized for FALSE, significa que não há ninguém autorizado lá dentro
-            if (!resp.authorized) {
+            if (!resp.payload.auth.authorized) {
                 std::cout << "[ALERTA] Movimento sem utilizadores na sala! ATIVANDO ALARME." << std::endl;
 
                 // 4. MANDAR ATIVAR O ALARME

@@ -186,27 +186,30 @@ void dDatabase::processDbMessage(const DatabaseMsg &msg) {
 
 void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
     sqlite3_stmt* stmt;
-    AuthResponse resp = {false, 0};
+
+    AuthResponse resp = {};
+
+    resp.command = isEntering ? DB_CMD_ENTER_ROOM_RFID : DB_CMD_LEAVE_ROOM_RFID;
 
     // 1. A validação é igual para os dois (o cartão existe?)
     const char* sqlSelect = "SELECT UserID, AccessLevel FROM Users WHERE RFID_Card = ?;";
     if (sqlite3_prepare_v2(m_db, sqlSelect, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, rfid, -1, SQLITE_STATIC);
         if (sqlite3_step(stmt) == SQLITE_ROW) {//se encontrarem preenchem a resposta
-            resp.authorized = true;
-            resp.userId = (uint32_t)sqlite3_column_int(stmt, 0);
-            resp.accessLevel = (uint32_t)sqlite3_column_int(stmt, 1);
+            resp.payload.auth.authorized = true;
+            resp.payload.auth.userId = (uint32_t)sqlite3_column_int(stmt, 0);
+            resp.payload.auth.accessLevel = (uint32_t)sqlite3_column_int(stmt, 1);
 
             cout << "\n[CHECK] User Encontrado!" << endl;
-            cout << " > UserID:      " << resp.userId << endl;
-            cout << " > AccessLevel: " << resp.accessLevel << endl;
+            cout << " > UserID:      " << resp.payload.auth.userId << endl;
+            cout << " > AccessLevel: " << resp.payload.auth.accessLevel << endl;
             cout << "----------------------------" << endl;
         }
         sqlite3_finalize(stmt);
     }
 
     // 2. Se autorizado, atualizamos o estado de forma explícita
-    if (resp.authorized) {
+    if (resp.payload.auth.authorized) {
         // Se isEntering é true, newState = 1. Se é false, newState = 0.
         //
         int newState = isEntering ? 1 : 0;
@@ -214,7 +217,7 @@ void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
         const char* sqlUpdate = "UPDATE Users SET IsInside = ? WHERE UserID = ?;";
         if (sqlite3_prepare_v2(m_db, sqlUpdate, -1, &stmt, nullptr) == SQLITE_OK) {
             sqlite3_bind_int(stmt, 1, newState);
-            sqlite3_bind_int(stmt, 2, (int)resp.userId);
+            sqlite3_bind_int(stmt, 2, (int)resp.payload.auth.userId);
             sqlite3_step(stmt);
             sqlite3_finalize(stmt);
         }
@@ -331,8 +334,10 @@ void dDatabase::updateActuatorTable(uint8_t entityID, uint16_t value) {
 
 void dDatabase::handleCheckUserInPir() {
     sqlite3_stmt* stmt;
-    AuthResponse resp = {false, 0}; // authorized = false por defeito
 
+    AuthResponse resp = {};
+
+    resp.command = DB_CMD_USER_IN_PIR;
     // SQL: Conta quantos utilizadores têm IsInside = 1
     const char* sql = "SELECT COUNT(*) FROM Users WHERE IsInside = 1;";
 
@@ -340,7 +345,7 @@ void dDatabase::handleCheckUserInPir() {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             int count = sqlite3_column_int(stmt, 0);
             if (count > 0) {
-                resp.authorized = true; // Há pessoas na sala
+                resp.payload.auth.authorized = true; // Há pessoas na sala
             }
         }
         sqlite3_finalize(stmt);

@@ -44,8 +44,8 @@ void C_tLeaveRoomAccess::run() {
             AuthResponse resp = {};
             if (m_mqToLeaveRoom.receive(&resp, sizeof(resp)) > 0) {
 
-                if (resp.authorized) {
-                    std::cout << "[RFID-EXIT] Saída Autorizada! UserID: " << resp.userId << std::endl;
+                if (resp.payload.auth.authorized) {
+                    std::cout << "[RFID-EXIT] Saída Autorizada! UserID: " << resp.payload.auth.userId << std::endl;
                     m_failedAttempts = 0;
 
                     // 4. Abrir porta para sair
@@ -53,7 +53,7 @@ void C_tLeaveRoomAccess::run() {
                     m_mqToActuator.send(&cmd, sizeof(cmd));
 
                     // 5. Log de Saída
-                    sendLog((uint8_t)resp.userId, (uint16_t)resp.accessLevel);
+                    sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel);
 
 
                     m_monitorservoroom.wait();

@@ -228,18 +228,21 @@ void C_tAct::generateDescription(ActuatorID_enum id,
 // ============================================
 void C_tAct::sendLog(ActuatorID_enum id, uint8_t value) {
     //mudar esta shit para mandar msg ahahah(ber verifyroomaccess
-    DatabaseLog log;
-    // memset(&log, 0, sizeof(DatabaseLog)); o chat disse para ter isto em todos que assim tem se a certeza do que se manda sem lixo
-    log.logType = LOG_TYPE_ACTUATOR;
-    log.entityID = static_cast<uint8_t>(id);
-    log.value = static_cast<uint16_t>(value); // Casting para uint16_t
-    log.timestamp = static_cast<uint32_t>(time(nullptr));
+    DatabaseMsg msg = {};
+    msg.command = DB_CMD_WRITE_LOG; // <--- Fundamental para a DB saber o que fazer
 
-    generateDescription(id, value, log.description, sizeof(log.description));
+    // 2. Preencher os dados do log dentro do payload
+    msg.payload.log.logType = LOG_TYPE_ACTUATOR;
+    msg.payload.log.entityID = static_cast<uint8_t>(id);
+    msg.payload.log.value = static_cast<uint16_t>(value);
+    msg.payload.log.timestamp = static_cast<uint32_t>(time(nullptr));
 
-    bool enviado = m_mqToDatabase.send(&log, sizeof(DatabaseLog), 0);
+    generateDescription(id, value, msg.payload.log.description, sizeof(msg.payload.log.description));
+
+    // 3. Enviar a DatabaseMsg completa (o tamanho tem de ser sizeof(DatabaseMsg))
+    bool enviado = m_mqToDatabase.send(&msg, sizeof(DatabaseMsg), 0);
 
     if (!enviado) {
-        cerr << MODULE_NAME << " ERRO ao enviar log" << endl;
+        cerr << MODULE_NAME << " ERRO ao enviar log (DatabaseMsg)" << endl;
     }
 }

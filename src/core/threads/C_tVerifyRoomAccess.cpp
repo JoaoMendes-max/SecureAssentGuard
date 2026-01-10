@@ -42,12 +42,12 @@ void C_tVerifyRoomAccess::run() {
             AuthResponse resp={};
             if (m_mqToVerifyRoom.receive(&resp, sizeof(resp)) > 0) {
                 //se tiver autorizado so vai mandar o log de acesso
-                if (resp.authorized) {
-                    std::cout << "[RFID] Acesso Autorizado! UserID: " << resp.userId << std::endl;
+                if (resp.payload.auth.authorized) {
+                    std::cout << "[RFID] Acesso Autorizado! UserID: " << resp.payload.auth.userId << std::endl;
                     m_failedAttempts = 0;
                     ActuatorCmd cmd = {ID_SERVO_ROOM, 0};//para ficar solto
                     m_mqToActuator.send(&cmd, sizeof(cmd));
-                    sendLog((uint8_t)resp.userId, (uint16_t)resp.accessLevel, true);
+                    sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel, true);
 
                     m_monitorservoroom.wait();
                     cmd = {ID_SERVO_ROOM, 90};//para ficar preso

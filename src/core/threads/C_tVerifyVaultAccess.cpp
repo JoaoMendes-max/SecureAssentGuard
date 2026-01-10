@@ -36,9 +36,9 @@ void c_tVerifyVaultAccess::run() {
 
         if (bytes > 0) {
             if (cmdMsg.command == DB_CMD_ADD_USER) { // Precisas definir este comando no SharedTypes.h
-                m_fingerprint.addUser(cmdMsg.userId);
+                m_fingerprint.addUser(cmdMsg.payload.auth.userId);
             } else if (cmdMsg.command == DB_CMD_DELETE_USER) {
-                m_fingerprint.deleteUser(cmdMsg.userId);
+                m_fingerprint.deleteUser(cmdMsg.payload.auth.userId);
             }
         }
 

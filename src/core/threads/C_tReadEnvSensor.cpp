@@ -52,11 +52,11 @@ void C_tReadEnvSensor::run() {
         if (bytes > 0) {
             // Se recebeu mensagem, verifica o comando e atualiza
             if (cmdMsg.command == DB_CMD_UPDATE_TEMP_THRESHOLD) {
-                m_tempThreshold = cmdMsg.settings.tempThreshold;
+                m_tempThreshold = cmdMsg.payload.settings.tempThreshold;
                 std::cout << "[EnvSensor] Update Temp -> " << m_tempThreshold << std::endl;
             }
             else if (cmdMsg.command == DB_CMD_UPDATE_SAMPLING_TIME) {
-                m_intervalSeconds = cmdMsg.settings.samplingInterval;
+                m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
                 std::cout << "[EnvSensor] Update Time -> " << m_intervalSeconds << "s" << std::endl;
             }
         }

@@ -207,11 +207,16 @@ union SystemSettings {
 //db response //possivelkmente vai ser mudada para struct
 struct AuthResponse {
     e_DbCommand command;
-    bool authorized;      //
-    uint8_t userId;      // O ID que a DB gerou automaticamente
-    uint32_t accessLevel; //
-    bool isInside;        // Para o LCD saber se diz "Bem-vindo" ou "Até à próxima"
-    SystemSettings settings;
+
+    union {
+        struct {
+            bool authorized;
+            uint8_t userId;
+            uint32_t accessLevel;
+        } auth;
+
+        SystemSettings settings;
+    } payload;
 };
 
 

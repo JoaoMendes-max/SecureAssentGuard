@@ -352,7 +352,7 @@ void dDatabase::handleCheckUserInPir() {
     m_mqToCheckMovement.send(&resp, sizeof(resp));
 }
 
-void dDatabase::handleScanInventory(const Data_RFID_Inventory& inventory) {
+void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
     sqlite3_stmt* stmt;
     uint32_t now = static_cast<uint32_t>(time(nullptr));
 
@@ -381,6 +381,18 @@ void dDatabase::handleScanInventory(const Data_RFID_Inventory& inventory) {
             // Executar a atualização para este item específico
             if (sqlite3_step(stmt) != SQLITE_DONE) {
                 std::cerr << "[DB] Erro ao atualizar Tag: " << inventory.tagList[i] << std::endl;
+            }
+            if (sqlite3_changes(m_db) == 0) {
+                const char* sqlInsert = "INSERT INTO Assets (Name, RFID_Tag, State, LastRead) VALUES ('Item Desconhecido', ?, 'IN', ?);";
+                sqlite3_stmt* stmtIns;
+
+                if (sqlite3_prepare_v2(m_db, sqlInsert, -1, &stmtIns, nullptr) == SQLITE_OK) {
+                    sqlite3_bind_text(stmtIns, 1, inventory.tagList[i], -1, SQLITE_STATIC);
+                    sqlite3_bind_int(stmtIns, 2, now);
+                    sqlite3_step(stmtIns);
+                    sqlite3_finalize(stmtIns);
+                    std::cout << "[DB] Novo ativo detetado e registado: " << inventory.tagList[i] << std::endl;
+                }
             }
 
             // Limpar os binds para a próxima volta do loop

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Asset Guard - Actuators State</title>
+    <style>
+        /* --- General Styles (Consistent with Sensors Page) --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header --- */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            font-size: 1.5em;
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        /* Back Button */
+        .btn-back {
+            text-decoration: none;
+            background-color: #e9ecef;
+            color: #333;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-back:hover {
+            background-color: #dbe2e8;
+            transform: translateX(-2px);
+        }
+
+        /* --- Grid Layout --- */
+        .actuators-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* --- Actuator Card --- */
+        .actuator-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+            border-left: 5px solid #6c757d; /* Default border color */
+        }
+
+        .actuator-card:hover {
+            transform: translateY(-3px);
+        }
+
+        /* Specific Colors per Category */
+        .card-env { border-color: #0dcaf0; }   /* Cyan for Air/Fan */
+        .card-alert { border-color: #dc3545; } /* Red for Alarms */
+        .card-vault { border-color: #198754; } /* Green for Vault */
+        .card-room { border-color: #ffc107; }  /* Yellow for Room */
+
+        /* Card Header */
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .card-icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+            background: #f0f2f5;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .card-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #555;
+            text-transform: uppercase;
+        }
+
+        /* Data Rows */
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 0.95em;
+        }
+
+        .sub-row {
+            margin-top: 5px;
+            font-size: 0.85em;
+            color: #777;
+            text-align: right;
+        }
+
+        .data-label {
+            color: #555;
+            font-weight: 500;
+        }
+
+        /* Status Badges */
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        /* Badge Colors */
+        .status-on { background-color: #d1e7dd; color: #0f5132; }       /* Greenish */
+        .status-off { background-color: #e2e3e5; color: #41464b; }      /* Grey */
+        .status-danger { background-color: #f8d7da; color: #842029; }   /* Red */
+        .status-secure { background-color: #cff4fc; color: #055160; }   /* Blueish */
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>⚙️ Actuators State</h1>
+    <a href="dashboard.html" class="btn-back">
+        <span>&#8592;</span> Back
+    </a>
+</header>
+
+<div class="actuators-grid">
+
+    <div class="actuator-card card-env">
+        <div class="card-header">
+            <div class="card-icon">🌪️</div>
+            <div class="card-title">Environment (Vault)</div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Ventilation Fan</span>
+            <span id="fan-state" class="status-badge status-off">OFF</span>
+        </div>
+        <div class="sub-row">
+            Last used: <span id="fan-time">--</span>
+        </div>
+    </div>
+
+    <div class="actuator-card card-alert">
+        <div class="card-header">
+            <div class="card-icon">🚨</div>
+            <div class="card-title">Alerts</div>
+        </div>
+
+        <div class="data-row">
+            <span class="data-label">Alarm (Buzzer)</span>
+            <span id="buzzer-state" class="status-badge status-off">INACTIVE</span>
+        </div>
+        <div class="sub-row" style="margin-bottom: 15px;">
+            Last used: <span id="buzzer-time">--</span>
+        </div>
+
+        <div class="data-row">
+            <span class="data-label">Alert Light (LED)</span>
+            <span id="led-state" class="status-badge status-off">OFF</span>
+        </div>
+        <div class="sub-row">
+            Last used: <span id="led-time">--</span>
+        </div>
+    </div>
+
+    <div class="actuator-card card-vault">
+        <div class="card-header">
+            <div class="card-icon">🔐</div>
+            <div class="card-title">Access (Vault)</div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Vault Door (Servo)</span>
+            <span id="vault-servo" class="status-badge status-secure">LOCKED</span>
+        </div>
+        <div class="sub-row">
+            Last Open: <span id="vault-time">--</span>
+        </div>
+    </div>
+
+    <div class="actuator-card card-room">
+        <div class="card-header">
+            <div class="card-icon">🚪</div>
+            <div class="card-title">Access (Room)</div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Room Door (Servo)</span>
+            <span id="room-servo" class="status-badge status-secure">LOCKED</span>
+        </div>
+        <div class="sub-row">
+            Last Open: <span id="room-time">--</span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    function updateBadge(elementId, text, type) {
+        const el = document.getElementById(elementId);
+        if(!el) return;
+        el.innerText = text;
+        el.className = 'status-badge';
+        if (type === 'active' || text === 'ON' || text === 'OPEN') {
+            if(elementId.includes('buzzer') || elementId.includes('led')) el.classList.add('status-danger');
+            else el.classList.add('status-on');
+        } else if (text === 'LOCKED') el.classList.add('status-secure');
+        else el.classList.add('status-off');
+    }
+
+    function updateActuators() {
+        // FETCH REAL
+        fetch('/api/actuators')
+            .then(res => res.json())
+            .then(data => {
+                updateBadge('fan-state', data.fan.state, 'neutral');
+                document.getElementById('fan-time').innerText = data.fan.timestamp;
+
+                updateBadge('buzzer-state', data.buzzer.state, 'active');
+                document.getElementById('buzzer-time').innerText = data.buzzer.timestamp;
+
+                updateBadge('led-state', data.led.state, 'active');
+                document.getElementById('led-time').innerText = data.led.timestamp;
+
+                updateBadge('vault-servo', data.vaultDoor.state, 'secure');
+                document.getElementById('vault-time').innerText = data.vaultDoor.timestamp;
+
+                updateBadge('room-servo', data.roomDoor.state, 'secure');
+                document.getElementById('room-time').innerText = data.roomDoor.timestamp;
+            })
+            .catch(err => console.error(err));
+    }
+    window.onload = updateActuators;
+</script>
+
+</body>
+</html>

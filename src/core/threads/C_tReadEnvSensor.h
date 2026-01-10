@@ -13,6 +13,7 @@ private:
     C_TH_SHT30& m_sensor;
     C_Mqueue& m_mqToActuator;
     C_Mqueue& m_mqToDatabase;
+    C_Mqueue& m_mqFromDb;
 
     int m_tempThreshold;
     int m_intervalSeconds;
@@ -26,6 +27,7 @@ public:
                      C_TH_SHT30& sensor,
                      C_Mqueue& mqAct,
                      C_Mqueue& mqDB,
+                     C_Mqueue& mqFromDb, // <--- Adicionado
                      int intervalSec = 600,
                      int threshold = 30);
 

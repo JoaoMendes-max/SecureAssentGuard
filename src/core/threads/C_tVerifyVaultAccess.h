@@ -12,9 +12,10 @@ class c_tVerifyVaultAccess : public C_Thread {
         C_Fingerprint& m_fingerprint;
         C_Mqueue& m_mqToDatabase;
         C_Mqueue& m_mqToActuator;
+        C_Mqueue& m_mqFromDatabase;
     public:
-        c_tVerifyVaultAccess(C_Monitor& m_monitor,C_Monitor& m_monitorservovault, C_Fingerprint& m_fingerprint,C_Mqueue& m_mqToDatabase,C_Mqueue& m_mqToActuator);
-        virtual ~c_tVerifyVaultAccess();
+        c_tVerifyVaultAccess(C_Monitor& m_monitor,C_Monitor& m_monitorservovault, C_Fingerprint& m_fingerprint,C_Mqueue& m_mqToDatabase,C_Mqueue& m_mqToActuator, C_Mqueue& m_mqFromDatabase);
+        ~c_tVerifyVaultAccess() override;
         void run() override;
         void generateDescription(int userId, bool authorized, char* buffer, size_t size);
         void sendLog(int userId, bool authorized);

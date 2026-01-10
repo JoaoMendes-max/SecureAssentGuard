@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Asset Guard - Manage Users</title>
+    <style>
+        /* --- Estilos Gerais --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header Bonito --- */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        h1 { margin: 0; color: #2c3e50; font-size: 1.5em; }
+
+        /* Botão Voltar Consistente */
+        .btn-back {
+            text-decoration: none;
+            background-color: #e9ecef;
+            color: #333;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+            font-size: 0.95em;
+        }
+
+        .btn-back:hover { background-color: #dbe2e8; transform: translateX(-2px); }
+
+        /* --- Layout --- */
+        .main-container { display: flex; gap: 30px; align-items: flex-start; flex: 1; }
+
+        .actions-sidebar {
+            display: flex; flex-direction: column; gap: 15px; width: 200px;
+            background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .action-btn {
+            padding: 12px 20px; border: none; font-size: 0.95em; font-weight: 600; cursor: pointer; text-align: left;
+            border-radius: 8px; display: flex; align-items: center; gap: 10px; color: white; transition: 0.2s;
+        }
+        .action-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .btn-add { background-color: #007BFF; }
+        .btn-remove { background-color: #dc3545; }
+        .btn-modify { background-color: #ffc107; color: #333; }
+        .sidebar-hint { font-size: 0.8em; color: #888; text-align: center; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
+
+        /* Tabela */
+        .table-card { flex: 1; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        thead th { text-align: left; padding: 15px; background-color: #f8f9fa; color: #555; border-bottom: 2px solid #eee; font-weight: 600; }
+        tbody td { padding: 15px; border-bottom: 1px solid #eee; color: #333; }
+        tbody tr { cursor: pointer; transition: background 0.2s; }
+        tbody tr:hover { background-color: #f1f1f1; }
+        tbody tr.selected { background-color: #e7f1ff; border-left: 4px solid #007BFF; }
+
+        .access-badge { padding: 5px 12px; border-radius: 20px; font-size: 0.85em; font-weight: bold; }
+        .access-full { background-color: #d1e7dd; color: #0f5132; }
+        .access-room { background-color: #cff4fc; color: #055160; }
+
+        /* Modal */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
+        .modal-box { background: white; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideDown 0.3s ease; }
+        @keyframes slideDown { from {transform: translateY(-50px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #666; font-size: 0.9em; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .btn-cancel { background: #eee; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+        .btn-save { background: #007BFF; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Manage Users</h1>
+    <a href="dashboard.html" class="btn-back">
+        <span>&#8592;</span> Back
+    </a>
+</header>
+
+<div class="main-container">
+    <aside class="actions-sidebar">
+        <button class="action-btn btn-add" onclick="openModal('add')"><span>👤</span> Add User</button>
+        <button class="action-btn btn-remove" onclick="removeUser()"><span>🗑️</span> Remove User</button>
+        <button class="action-btn btn-modify" onclick="openModal('edit')"><span>✏️</span> Modify User</button>
+        <div class="sidebar-hint">💡 Select a user to modify or remove.</div>
+    </aside>
+
+    <main class="table-card">
+        <table>
+            <thead><tr><th>User Name</th><th>User ID / Tag</th><th>Access Type</th><th>Last Login</th></tr></thead>
+            <tbody id="usersTableBody"></tbody>
+        </table>
+    </main>
+</div>
+
+<div class="modal-overlay" id="userModal">
+    <div class="modal-box">
+        <h2 id="modalTitle" style="margin-top:0;">Add User</h2>
+        <div class="form-group"><label>Name</label><input type="text" id="inputName"></div>
+        <div class="form-group"><label>ID (RFID/Finger)</label><input type="text" id="inputId"></div>
+        <div class="form-group">
+            <label>Access</label>
+            <select id="inputAccess"><option value="Room/Vault">Room & Vault</option><option value="Room">Room Only</option></select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="btn-save" onclick="saveUser()">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let users = [];
+    let selectedIndex = -1;
+    let currentMode = 'add'; // 'add' ou 'edit'
+
+    // --- 1. LEITURA (GET) ---
+    function fetchUsers() {
+        fetch('/api/users')
+            .then(res => res.json())
+            .then(data => {
+                users = data;
+                renderTable();
+            })
+            .catch(err => console.error("Erro ao carregar users:", err));
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('usersTableBody');
+        tbody.innerHTML = '';
+        users.forEach((user, index) => {
+            const tr = document.createElement('tr');
+            if (index === selectedIndex) tr.classList.add('selected');
+            
+            // Selecionar linha ao clicar
+            tr.onclick = () => { 
+                selectedIndex = (selectedIndex === index) ? -1 : index; 
+                renderTable(); 
+            };
+
+            const badge = user.access.includes("Vault") ? 'access-full' : 'access-room';
+            tr.innerHTML = `<td style="font-weight:500;">${user.name}</td>
+                            <td>${user.id}</td>
+                            <td><span class="access-badge ${badge}">${user.access}</span></td>
+                            <td>${user.lastLogin}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // --- 2. GRAVAR (POST ou PUT) ---
+    function saveUser() {
+        const name = document.getElementById('inputName').value;
+        const id = document.getElementById('inputId').value;
+        const access = document.getElementById('inputAccess').value;
+
+        if (!name || !id) {
+            alert("Por favor preencha o Nome e o ID.");
+            return;
+        }
+
+        let url = '/api/users';
+        let method = 'POST';
+
+        // Se for edição, mudamos para PUT e apontamos para o ID específico
+        if (currentMode === 'edit') {
+            url = '/api/users/' + encodeURIComponent(id);
+            method = 'PUT';
+        }
+
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, id: id, access: access })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                closeModal();
+                fetchUsers(); // Atualiza a lista
+                selectedIndex = -1; // Limpa a seleção
+            } else {
+                alert("Erro ao gravar: " + (data.message || "Erro desconhecido"));
+            }
+        })
+        .catch(err => alert("Erro de comunicação: " + err));
+    }
+
+    // --- 3. REMOVER (DELETE) ---
+    function removeUser() {
+        if (selectedIndex === -1) {
+            alert("Selecione um utilizador primeiro!");
+            return;
+        }
+
+        const userToDelete = users[selectedIndex];
+        if (!confirm(`Tem a certeza que deseja remover o utilizador "${userToDelete.name}" (ID: ${userToDelete.id})?`)) {
+            return;
+        }
+
+        fetch('/api/users/' + encodeURIComponent(userToDelete.id), {
+            method: 'DELETE'
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                selectedIndex = -1;
+                fetchUsers();
+            } else {
+                alert("Erro ao remover: " + data.message);
+            }
+        })
+        .catch(err => alert("Erro ao tentar remover: " + err));
+    }
+
+    // --- FUNÇÕES DE INTERFACE (Modal) ---
+    function openModal(mode) {
+        const modal = document.getElementById('userModal');
+        const title = document.getElementById('modalTitle');
+        const inName = document.getElementById('inputName');
+        const inId = document.getElementById('inputId');
+        const inAccess = document.getElementById('inputAccess');
+
+        currentMode = mode;
+
+        if (mode === 'add') {
+            title.innerText = "Add New User";
+            inName.value = '';
+            inId.value = '';
+            inId.disabled = false; // Pode escrever o ID novo
+            inAccess.value = 'Room/Vault'; // Valor por defeito
+        } else if (mode === 'edit') {
+            if (selectedIndex === -1) {
+                alert("Selecione um utilizador para editar!");
+                return;
+            }
+            const user = users[selectedIndex];
+            title.innerText = "Modify User";
+            inName.value = user.name;
+            inId.value = user.id;
+            inId.disabled = true; // Não se deve mudar o ID principal na edição
+            inAccess.value = user.access;
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('userModal').style.display = 'none';
+    }
+
+    // Fechar ao clicar fora
+    window.onclick = function(event) {
+        const modal = document.getElementById('userModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    }
+
+    // Iniciar
+    window.onload = fetchUsers;
+</script>
+</body>
+</html>

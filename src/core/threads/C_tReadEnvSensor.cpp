@@ -13,6 +13,7 @@ C_tReadEnvSensor::C_tReadEnvSensor(C_Monitor& monitor,
                                    C_TH_SHT30& sensor,
                                    C_Mqueue& mqAct,
                                    C_Mqueue& mqDB,
+                                   C_Mqueue& mqFromDb,
                                    int intervalSec,
                                    int threshold)
     : C_Thread(PRIO_LOW),  // Prioridade baixa (como definido no design)
@@ -20,6 +21,7 @@ C_tReadEnvSensor::C_tReadEnvSensor(C_Monitor& monitor,
       m_sensor(sensor),
       m_mqToActuator(mqAct),
       m_mqToDatabase(mqDB),
+      m_mqFromDb(mqFromDb),
       m_tempThreshold(threshold),
       m_intervalSeconds(intervalSec),
       m_lastFanState(0)
@@ -37,11 +39,28 @@ void C_tReadEnvSensor::run() {
     std::cout << "[tReadEnv] Thread em execução. A aguardar primeiro ciclo..."
               << std::endl;
 
+    AuthResponse cmdMsg = {};
+
     while (true) {
         // ========================================
         // ESPERA PERIÓDICA (usa timedWait do monitor!)
         // Retorna true se timeout, false se signal
         // ========================================
+
+        ssize_t bytes = m_mqFromDb.timedReceive(&cmdMsg, sizeof(AuthResponse), 0);
+
+        if (bytes > 0) {
+            // Se recebeu mensagem, verifica o comando e atualiza
+            if (cmdMsg.command == DB_CMD_UPDATE_TEMP_THRESHOLD) {
+                m_tempThreshold = cmdMsg.settings.tempThreshold;
+                std::cout << "[EnvSensor] Update Temp -> " << m_tempThreshold << std::endl;
+            }
+            else if (cmdMsg.command == DB_CMD_UPDATE_SAMPLING_TIME) {
+                m_intervalSeconds = cmdMsg.settings.samplingInterval;
+                std::cout << "[EnvSensor] Update Time -> " << m_intervalSeconds << "s" << std::endl;
+            }
+        }
+
         bool wasTimeout = m_monitor.timedWait(m_intervalSeconds);
 
         if (!wasTimeout) {

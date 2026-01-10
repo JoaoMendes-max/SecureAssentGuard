@@ -158,7 +158,11 @@ enum e_DbCommand {
     DB_CMD_LOGIN,             // Autenticação de utilizador web
     DB_CMD_GET_DASHBOARD,     // Obter dados para o dashboard
     DB_CMD_GET_SENSORS,       // Obter estado dos sensores
-    DB_CMD_GET_ACTUATORS      // Obter estado dos atuadores
+    DB_CMD_GET_ACTUATORS,      // Obter estado dos atuadores
+    DB_CMD_ADD_USER, // dar add a user
+    DB_CMD_DELETE_USER,
+    DB_CMD_UPDATE_TEMP_THRESHOLD,
+    DB_CMD_UPDATE_SAMPLING_TIME
 };
 
 
@@ -175,20 +179,21 @@ struct DatabaseMsg {
     } payload;
 };
 
-// Mensagem de Resposta (Saída para as Threads)
-struct DbResponse {
-    bool authorized;         // Usado no RFID (Encontrado na BD?)
-    uint32_t accessLevel;    // Permissão do utilizador
+union SystemSettings {
+    int tempThreshold;
+    int samplingInterval; // em segundos
 };
-
 
 //db response //possivelkmente vai ser mudada para struct
 struct AuthResponse {
+    e_DbCommand command;
     bool authorized;      //
-    uint32_t userId;      // O ID que a DB gerou automaticamente
+    uint8_t userId;      // O ID que a DB gerou automaticamente
     uint32_t accessLevel; //
     bool isInside;        // Para o LCD saber se diz "Bem-vindo" ou "Até à próxima"
+    SystemSettings settings;
 };
+
 
 struct DbWebResponse {
     bool success;           // true se operação foi bem sucedida

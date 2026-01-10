@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Asset Guard - Manage Assets</title>
+    <style>
+        /* --- Estilos Gerais --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header Bonito (Consistente) --- */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        h1 { margin: 0; color: #2c3e50; font-size: 1.5em; }
+
+        /* Botão Voltar (Estilo Consistente) */
+        .btn-back {
+            text-decoration: none;
+            background-color: #e9ecef;
+            color: #333;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+            font-size: 0.95em;
+        }
+
+        .btn-back:hover {
+            background-color: #dbe2e8;
+            transform: translateX(-2px);
+        }
+
+        /* --- Layout --- */
+        .main-container {
+            display: flex;
+            gap: 30px;
+            align-items: flex-start;
+            flex: 1;
+        }
+
+        /* Sidebar */
+        .actions-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 200px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .action-btn {
+            padding: 12px 20px;
+            border: none;
+            font-size: 0.95em;
+            font-weight: 600;
+            cursor: pointer;
+            text-align: left;
+            transition: all 0.2s;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+        }
+
+        .action-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .btn-add { background-color: #007BFF; }
+        .btn-remove { background-color: #dc3545; }
+        .btn-modify { background-color: #ffc107; color: #333; }
+
+        .sidebar-hint {
+            font-size: 0.8em; color: #888; text-align: center; margin-top: 10px;
+            border-top: 1px solid #eee; padding-top: 10px;
+        }
+
+        /* Tabela */
+        .table-card {
+            flex: 1;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        table { width: 100%; border-collapse: collapse; }
+        thead th { text-align: left; padding: 15px; background-color: #f8f9fa; color: #555; border-bottom: 2px solid #eee; font-weight: 600; }
+        tbody td { padding: 15px; border-bottom: 1px solid #eee; color: #333; }
+        tbody tr { cursor: pointer; transition: background 0.2s; }
+        tbody tr:hover { background-color: #f1f1f1; }
+        tbody tr.selected { background-color: #e7f1ff; border-left: 4px solid #007BFF; }
+
+        .status-badge { padding: 5px 10px; border-radius: 20px; font-size: 0.85em; font-weight: bold; }
+        .status-in { background-color: #d1e7dd; color: #0f5132; }
+        .status-out { background-color: #f8d7da; color: #842029; }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); display: none;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(3px);
+        }
+        .modal-box {
+            background: white; padding: 30px; border-radius: 12px;
+            width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown { from {transform: translateY(-50px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
+
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #666; font-size: 0.9em; }
+        .form-group input, .form-group select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+        .btn-cancel { background: #eee; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+        .btn-save { background: #007BFF; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Manage Assets</h1>
+    <a href="dashboard.html" class="btn-back">
+        <span>&#8592;</span> Back
+    </a>
+</header>
+
+<div class="main-container">
+    <aside class="actions-sidebar">
+        <button class="action-btn btn-add" onclick="openModal('add')"><span>➕</span> Add Asset</button>
+        <button class="action-btn btn-remove" onclick="removeAsset()"><span>🗑️</span> Remove Asset</button>
+        <button class="action-btn btn-modify" onclick="openModal('edit')"><span>✏️</span> Modify Asset</button>
+        <div class="sidebar-hint">💡 Click on a row to select it first.</div>
+    </aside>
+
+    <main class="table-card">
+        <table>
+            <thead>
+            <tr><th>Asset Name</th><th>RFID Tag</th><th>State</th><th>Last Seen</th></tr>
+            </thead>
+            <tbody id="assetsTableBody"></tbody>
+        </table>
+    </main>
+</div>
+
+<div class="modal-overlay" id="assetModal">
+    <div class="modal-box">
+        <h2 id="modalTitle" style="margin-top:0;">Add Asset</h2>
+        <div class="form-group"><label>Name</label><input type="text" id="inputName"></div>
+        <div class="form-group"><label>Tag ID</label><input type="text" id="inputTag"></div>
+        <div class="form-group">
+            <label>State</label>
+            <select id="inputState"><option value="Inside">Inside</option><option value="Outside">Outside</option></select>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+            <button class="btn-save" onclick="saveAsset()">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let assets = [];
+    let selectedIndex = -1;
+    let currentMode = 'add'; // 'add' ou 'edit' para saber qual endpoint usar
+
+    // --- 1. LEITURA (GET) ---
+    function fetchAssets() {
+        fetch('/api/assets')
+            .then(res => res.json())
+            .then(data => {
+                assets = data;
+                renderTable();
+            })
+            .catch(err => console.error("Erro ao carregar assets:", err));
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('assetsTableBody');
+        tbody.innerHTML = '';
+        assets.forEach((asset, index) => {
+            const tr = document.createElement('tr');
+            if (index === selectedIndex) tr.classList.add('selected');
+            
+            // Ao clicar na linha, seleciona ou deseleciona
+            tr.onclick = () => { 
+                selectedIndex = (selectedIndex === index) ? -1 : index; 
+                renderTable(); 
+            };
+
+            const badge = asset.state === 'Inside' ? 'status-in' : 'status-out';
+            tr.innerHTML = `<td>${asset.name}</td>
+                            <td>${asset.tag}</td>
+                            <td><span class="status-badge ${badge}">${asset.state}</span></td>
+                            <td>${asset.lastSeen}</td>`;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // --- 2. GRAVAR (POST ou PUT) ---
+    function saveAsset() {
+        const name = document.getElementById('inputName').value;
+        const tag = document.getElementById('inputTag').value;
+        const state = document.getElementById('inputState').value;
+
+        if (!name || !tag) {
+            alert("Por favor preencha o Nome e a Tag.");
+            return;
+        }
+
+        let url = '/api/assets';
+        let method = 'POST';
+
+        // Se estivermos a editar, mudamos para PUT e adicionamos o ID no URL
+        if (currentMode === 'edit') {
+            // Nota: Assumindo que a 'tag' é o ID único e não muda.
+            // Se mudares a tag, o backend pode precisar de lógica extra.
+            url = '/api/assets/' + encodeURIComponent(tag); 
+            method = 'PUT';
+        }
+
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, tag: tag, state: state })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                closeModal();
+                fetchAssets(); // Recarrega a tabela para mostrar as mudanças
+                selectedIndex = -1; // Limpa a seleção
+            } else {
+                alert("Erro ao gravar: " + (data.message || "Erro desconhecido"));
+            }
+        })
+        .catch(err => alert("Erro de comunicação: " + err));
+    }
+
+    // --- 3. REMOVER (DELETE) ---
+    function removeAsset() {
+        if (selectedIndex === -1) {
+            alert("Selecione um ativo na tabela primeiro!");
+            return;
+        }
+
+        const assetToDelete = assets[selectedIndex];
+        if (!confirm(`Tem a certeza que deseja remover o ativo "${assetToDelete.name}" (${assetToDelete.tag})?`)) {
+            return;
+        }
+
+        fetch('/api/assets/' + encodeURIComponent(assetToDelete.tag), {
+            method: 'DELETE'
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.status === 'ok') {
+                selectedIndex = -1;
+                fetchAssets();
+            } else {
+                alert("Erro ao remover: " + data.message);
+            }
+        })
+        .catch(err => alert("Erro ao tentar remover: " + err));
+    }
+
+    // --- FUNÇÕES AUXILIARES (Modal) ---
+    function openModal(mode) {
+        const modal = document.getElementById('assetModal');
+        const title = document.getElementById('modalTitle');
+        const inName = document.getElementById('inputName');
+        const inTag = document.getElementById('inputTag');
+        const inState = document.getElementById('inputState');
+
+        currentMode = mode;
+
+        if (mode === 'add') {
+            title.innerText = "Add New Asset";
+            inName.value = '';
+            inTag.value = '';
+            inTag.disabled = false; // Ao criar, pode escrever a Tag
+            inState.value = 'Inside';
+        } else if (mode === 'edit') {
+            if (selectedIndex === -1) {
+                alert("Selecione um ativo para editar!");
+                return;
+            }
+            const asset = assets[selectedIndex];
+            title.innerText = "Modify Asset";
+            inName.value = asset.name;
+            inTag.value = asset.tag;
+            inTag.disabled = true; // Normalmente não se muda o ID (Tag) na edição
+            inState.value = asset.state;
+        }
+
+        modal.style.display = 'flex';
+    }
+
+    function closeModal() {
+        document.getElementById('assetModal').style.display = 'none';
+    }
+
+    // Fechar modal se clicar fora
+    window.onclick = function(event) {
+        const modal = document.getElementById('assetModal');
+        if (event.target === modal) {
+            closeModal();
+        }
+    }
+
+    // Iniciar
+    window.onload = fetchAssets;
+</script>
+</body>
+</html>

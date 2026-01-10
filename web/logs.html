@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Asset Guard - System Logs</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- Estilos Gerais --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        h1 { font-size: 1.5em; margin: 0; color: #2c3e50; }
+
+        .btn-back {
+            text-decoration: none;
+            background-color: #e9ecef;
+            color: #333;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: flex; align-items: center; gap: 5px;
+            transition: 0.2s;
+        }
+        .btn-back:hover { background-color: #dbe2e8; }
+
+        .layout-container {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 200px;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            height: fit-content;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        .sidebar h3 {
+            margin-top: 0; font-size: 1em; color: #555;
+            border-bottom: 2px solid #007BFF; padding-bottom: 10px; margin-bottom: 15px;
+        }
+
+        .filter-option {
+            display: block; padding: 10px; margin-bottom: 5px; cursor: pointer;
+            border-radius: 6px; color: #666; transition: 0.2s;
+        }
+        .filter-option:hover { background-color: #f0f2f5; }
+        .filter-option.active { background-color: #e7f1ff; color: #007BFF; font-weight: bold; }
+
+        /* Conteúdo Principal */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Abas */
+        .tabs-container {
+            display: flex; background: white; padding: 10px;
+            border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); gap: 10px;
+            flex-wrap: wrap; /* Para não quebrar em ecrãs pequenos */
+        }
+
+        .tab-btn {
+            border: none; background: none; padding: 10px 20px; cursor: pointer;
+            font-size: 0.95em; color: #555; border-radius: 20px; transition: 0.3s;
+        }
+        .tab-btn:hover { background-color: #f0f0f0; }
+        .tab-btn.active { background-color: #007BFF; color: white; box-shadow: 0 2px 5px rgba(0,123,255,0.3); }
+
+        /* Card de Visualização */
+        .view-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            flex: 1;
+            min-height: 400px;
+            position: relative;
+        }
+
+        /* Estilo da Tabela */
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .data-table th { text-align: left; padding: 12px; background-color: #f8f9fa; color: #555; border-bottom: 2px solid #eee; }
+        .data-table td { padding: 12px; border-bottom: 1px solid #eee; font-size: 0.95em; }
+        .data-table tr:hover { background-color: #fafafa; }
+
+        /* Badges para Intrusão */
+        .alert-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
+        .bg-red { background-color: #f8d7da; color: #721c24; }
+        .bg-yellow { background-color: #fff3cd; color: #856404; }
+
+        .hidden { display: none; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>System Logs</h1>
+    <a href="dashboard.html" class="btn-back"><span>&#8592;</span> Back</a>
+</header>
+
+<div class="layout-container">
+
+    <aside class="sidebar">
+        <h3>Time Range</h3>
+        <div class="filter-option active" onclick="selectTime(this)">1 Hour</div>
+        <div class="filter-option" onclick="selectTime(this)">1 Day</div>
+        <div class="filter-option" onclick="selectTime(this)">1 Week</div>
+        <div class="filter-option" onclick="selectTime(this)">1 Month</div>
+    </aside>
+
+    <main class="main-content">
+
+        <div class="tabs-container">
+            <button class="tab-btn active" onclick="showGraph('temp', this)">Temperature</button>
+            <button class="tab-btn" onclick="showGraph('hum', this)">Humidity</button>
+            <button class="tab-btn" onclick="showTable('intrusion', this)">Intrusion</button>
+            <button class="tab-btn" onclick="showTable('access', this)">Accesses</button>
+            <button class="tab-btn" onclick="showTable('assets', this)">Assets</button>
+            <button class="tab-btn" onclick="showTable('users', this)">Users</button>
+        </div>
+
+        <div class="view-card">
+
+            <div id="chart-container" style="height: 100%; width: 100%;">
+                <canvas id="logsChart"></canvas>
+            </div>
+
+            <div id="table-container" class="hidden">
+                <h3 id="table-title" style="margin-top:0; color:#444;">Log Details</h3>
+                <table class="data-table">
+                    <thead id="table-head"></thead>
+                    <tbody id="table-body"></tbody>
+                </table>
+            </div>
+
+        </div>
+
+    </main>
+</div>
+<script>
+    let myChart = null;
+    let graphData = {
+        temp: { label: 'Temperature (°C)', color: '#ff6384', labels: [], data: [] },
+        hum:  { label: 'Humidity (%)', color: '#36a2eb', labels: [], data: [] }
+    };
+    let logsData = [];
+
+    // --- 1. COMUNICAÇÃO (Simplificada para o C++) ---
+    function fetchLogs() {
+        const activeTimeEl = document.querySelector('.filter-option.active');
+        const activeTabEl = document.querySelector('.tab-btn.active');
+        
+        // Envia o TEXTO exato do botão (ex: "Temperature", "1 Hour")
+        // Assim no C++ só fazes: if (json.logType == "Temperature") ...
+        const timeFilter = activeTimeEl ? activeTimeEl.innerText : "1 Hour";
+        const typeFilter = activeTabEl ? activeTabEl.innerText : "Temperature";
+
+        // Feedback visual "Loading" apenas na tabela
+        if (!document.getElementById('table-container').classList.contains('hidden')) {
+            document.getElementById('table-body').innerHTML = 
+                "<tr><td colspan='3' style='text-align:center; color:#888;'>Loading data...</td></tr>";
+        }
+
+        fetch('/api/logs/filter', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ timeRange: timeFilter, logType: typeFilter })
+        })
+        .then(res => res.json())
+        .then(data => {
+            // Se vierem dados de gráfico
+            if (data.graph) {
+                const labels = data.graph.labels || ['-40s', '-30s', '-20s', '-10s', 'Now'];
+                if (data.graph.temp) { graphData.temp.data = data.graph.temp; graphData.temp.labels = labels; }
+                if (data.graph.hum) { graphData.hum.data = data.graph.hum; graphData.hum.labels = labels; }
+            }
+            // Se vierem logs (lista)
+            if (data.logs) {
+                logsData = data.logs;
+            }
+
+            renderCurrentView(typeFilter);
+        })
+        .catch(err => console.error("Erro logs:", err));
+    }
+
+    // --- 2. INTERFACE (Tabs e Botões) ---
+    function showGraph(type, btn) {
+        updateButtons(btn);
+        document.getElementById('chart-container').classList.remove('hidden');
+        document.getElementById('table-container').classList.add('hidden');
+        fetchLogs();
+    }
+
+    function showTable(type, btn) {
+        updateButtons(btn);
+        document.getElementById('chart-container').classList.add('hidden');
+        document.getElementById('table-container').classList.remove('hidden');
+        fetchLogs();
+    }
+
+    function updateButtons(activeBtn) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        activeBtn.classList.add('active');
+    }
+
+    function selectTime(el) {
+        document.querySelectorAll('.filter-option').forEach(e => e.classList.remove('active'));
+        el.classList.add('active');
+        fetchLogs();
+    }
+
+    // --- 3. RENDERIZAÇÃO (Desenhar) ---
+    function renderCurrentView(activeType) {
+        // Se for gráfico
+        if (activeType === 'Temperature' || activeType === 'Humidity') {
+            const ctx = document.getElementById('logsChart').getContext('2d');
+            const key = activeType === 'Temperature' ? 'temp' : 'hum';
+            const data = graphData[key];
+
+            if (myChart) myChart.destroy();
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [{
+                        label: data.label, data: data.data,
+                        borderColor: data.color, backgroundColor: data.color + '20',
+                        fill: true, tension: 0.4
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false }
+            });
+        } 
+        // Se for tabela
+        else {
+            const tbody = document.getElementById('table-body');
+            let bodyHTML = "";
+            if (!logsData || logsData.length === 0) {
+                bodyHTML = "<tr><td colspan='3' style='text-align:center; color:#999;'>No logs found.</td></tr>";
+            } else {
+                logsData.forEach(row => {
+                    let badgeColor = row.type === 'Alert' ? 'bg-red' : 'bg-yellow';
+                    bodyHTML += `<tr>
+                        <td>${row.time}</td>
+                        <td><span class='alert-badge ${badgeColor}'>${row.type}</span></td>
+                        <td>${row.desc}</td>
+                    </tr>`;
+                });
+            }
+            tbody.innerHTML = bodyHTML;
+        }
+    }
+
+    window.onload = fetchLogs;
+    setInterval(fetchLogs, 3000);
+</script>
+</body>
+</html>

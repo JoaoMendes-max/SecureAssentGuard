@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Asset Guard - Login</title>
+    <style>
+        /* CSS: Define o aspeto visual (Estilo) */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9; /* Cor de fundo suave */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .login-card {
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px; /* Cantos arredondados */
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Sombra suave */
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+        }
+
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .input-group {
+            margin-bottom: 15px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* Garante que o padding não aumenta a largura */
+        }
+
+        /* Requisito do PDF: Botão destacado em cor primária (azul)  */
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007BFF; /* Azul Primário */
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #0056b3; /* Azul mais escuro ao passar o rato */
+        }
+
+        .error-msg {
+            color: red;
+            font-size: 0.8em;
+            margin-top: 10px;
+            display: none; /* Escondido por defeito */
+        }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <h2>Secure Asset Guard</h2>
+    <form id="loginForm">
+        <div class="input-group">
+            <label for="username">User</label>
+            <input type="text" id="username" name="username" required placeholder="Insira o utilizador">
+        </div>
+        <div class="input-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required placeholder="Insira a palavra-passe">
+        </div>
+        <button type="submit">Login</button>
+        <p class="error-msg" id="errorMsg">Credenciais inválidas!</p>
+    </form>
+</div>
+
+<script>
+    document.getElementById('loginForm').addEventListener('submit', function(event) {
+        event.preventDefault(); // Impede a página de recarregar
+
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+        const errorMsg = document.getElementById('errorMsg');
+
+        // AQUI ESTÁ A MUDANÇA: "fetch" envia o pedido ao teu C++
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: user, pass: pass })
+        })
+            .then(response => {
+                if (response.ok) {
+                    // Se o C++ disser "OK" (200)
+                    window.location.href = 'dashboard.html';
+                } else {
+                    // Se o C++ disser "Erro" (401)
+                    errorMsg.style.display = 'block';
+                    errorMsg.innerText = "Credenciais inválidas (Tenta: admin / 1234)";
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert("Erro: O servidor C++ não está a responder.");
+            });
+    });
+</script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Asset Guard - Dashboard</title>
+    <style>
+        /* --- Estilos Gerais --- */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        /* --- Cabeçalho (Header) --- */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 1.5em;
+            margin: 0;
+        }
+
+        .btn-logout {
+            background-color: #007BFF; /* Azul do documento */
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-logout:hover {
+            background-color: #0056b3;
+        }
+
+        /* --- Painéis de Estado (Quick Status) --- */
+        /* Baseado na pág. 48 do PDF: Barras cinzentas com status */
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+
+        .status-card {
+            background-color: #e0e0e0; /* Cinzento claro */
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+
+        /* Classes para cores de texto (Feedback visual) */
+        .status-label {
+            margin-right: 10px;
+        }
+
+        .text-green { color: #28a745; } /* Verde para "Secure/Locked" */
+        .text-red { color: #dc3545; }   /* Vermelho para alertas */
+        .text-blue { color: #17a2b8; }  /* Azul para temperatura */
+
+        /* --- Menu de Navegação (Botões Circulares) --- */
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 20px;
+            justify-items: center;
+            max-width: 800px;
+            margin: 0 auto; /* Centrar na página */
+        }
+
+        .nav-item {
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .nav-item:hover {
+            transform: scale(1.05); /* Efeito de zoom ao passar o rato */
+        }
+
+        .nav-circle {
+            width: 80px;
+            height: 80px;
+            background-color: #fff;
+            border-radius: 50%; /* Faz o círculo */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2em;
+            margin-bottom: 10px;
+            border: 2px solid #eee;
+        }
+
+        .nav-label {
+            font-size: 0.9em;
+            color: #555;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Secure Asset Guard - Dashboard</h1>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+</header>
+
+<section class="status-container">
+
+    <div class="status-card">
+        <span class="status-label">Security:</span>
+        <span id="securityStatus" class="text-green">Secure</span>
+    </div>
+
+    <div class="status-card">
+        <span class="status-label">Vault:</span>
+        <span id="vaultStatus" class="text-green">Locked</span>
+    </div>
+
+    <div class="status-card">
+        <span class="status-label">Temp/Humidity:</span>
+        <span id="tempHumValue" class="text-blue">Loading...</span>
+    </div>
+
+</section>
+
+<section class="nav-grid">
+
+    <div class="nav-item" onclick="window.location.href='sensors.html'">
+        <div class="nav-circle">🌡️</div>
+        <div class="nav-label">Sensors<br>Values</div>
+    </div>
+
+    <div class="nav-item" onclick="window.location.href='actuators.html'">
+        <div class="nav-circle">⚙️</div>
+        <div class="nav-label">Actuators<br>State</div>
+    </div>
+
+    <div class="nav-item" onclick="window.location.href='assets.html'">
+        <div class="nav-circle">💎</div>
+        <div class="nav-label">Assets</div>
+    </div>
+
+    <div class="nav-item" onclick="window.location.href='users.html'">
+        <div class="nav-circle">👤</div>
+        <div class="nav-label">Users</div>
+    </div>
+
+    <div class="nav-item" onclick="window.location.href='logs.html'">
+        <div class="nav-circle">🕒</div>
+        <div class="nav-label">Logs</div>
+    </div>
+
+    <div class="nav-item" onclick="window.location.href='settings.html'">
+        <div class="nav-circle">🔧</div>
+        <div class="nav-label">Settings</div>
+    </div>
+
+</section>
+
+<script>
+    function logout() {
+        window.location.href = 'login.html';
+    }
+
+    function updateDashboard() {
+        // AQUI ESTÁ A MUDANÇA: Pede os dados ao C++
+        fetch('/api/dashboard')
+            .then(response => response.json())
+            .then(data => {
+                // Preenche o HTML com o que veio do C++
+
+                // Atualiza Texto
+                document.getElementById('securityStatus').innerText = data.security;
+                document.getElementById('vaultStatus').innerText = data.vault;
+
+                // Atualiza Cor (Vermelho se ALERT, Verde se Secure)
+                const secEl = document.getElementById('securityStatus');
+                secEl.className = (data.security === "ALERT") ? "text-red" : "text-green";
+
+                // Atualiza Temperatura
+                document.getElementById('tempHumValue').innerText = `${data.temp.toFixed(1)}°C / ${data.hum.toFixed(1)}%`;
+            })
+            .catch(err => console.error("Erro ao comunicar com C++:", err));
+    }
+
+    // Atualiza assim que a página abre
+    window.onload = updateDashboard;
+
+    // Pede dados novos ao C++ a cada 1 segundo (para veres mexer)
+    setInterval(updateDashboard, 1000);
+</script>
+
+</body>
+</html>

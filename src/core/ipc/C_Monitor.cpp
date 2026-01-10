@@ -7,9 +7,20 @@ C_Monitor::C_Monitor() {
     if (pthread_mutex_init(&m_mutex, NULL) != 0){
         cerr << "Mutex init failed" << endl;
     }
+    /*
     if (pthread_cond_init(&m_cond, NULL) != 0) {
         cerr << "Cond init failed" << endl;
     }
+    */
+    pthread_condattr_t attr;
+    pthread_condattr_init(&attr);
+    pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+
+    if (pthread_cond_init(&m_cond, &attr) != 0) {
+        cerr << "Cond init failed" << endl;
+    }
+
+    pthread_condattr_destroy(&attr);
 }
 
 C_Monitor::~C_Monitor() {
@@ -34,7 +45,7 @@ void C_Monitor::signal() {
 bool C_Monitor::timedWait(int seconds) {
     // Calcular tempo absoluto (agora + seconds)
     struct timespec ts;
-    clock_gettime(CLOCK_REALTIME, &ts);
+    clock_gettime(CLOCK_MONOTONIC, &ts);
     ts.tv_sec += seconds;
 
     // Esperar com timeout

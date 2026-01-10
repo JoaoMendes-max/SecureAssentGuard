@@ -1,17 +1,20 @@
 #include "dDatabase.h"
-
+#include <iostream>
+#include <argon2.h>
 
 dDatabase::dDatabase(const std::string& dbPath,
                    C_Mqueue& mqDb,
                    C_Mqueue& mqRfidIn,C_Mqueue& mqRfidOut,
-                   C_Mqueue& mqFinger,C_Mqueue& m_mqToCheckMovement)
+                   C_Mqueue& mqFinger,C_Mqueue& m_mqToCheckMovement,
+                   C_Mqueue& mqToWeb)
     : m_db(nullptr),
       m_dbPath(dbPath),
       m_mqToDatabase(mqDb),      // <--- A receber aqui!
       m_mqToVerifyRoom(mqRfidIn),
       m_mqToLeaveRoom(mqRfidOut),
       m_mqToFingerprint(mqFinger),
-      m_mqToCheckMovement(m_mqToCheckMovement)
+      m_mqToCheckMovement(m_mqToCheckMovement),
+      m_mqToWeb(mqToWeb)
 {
 }
 
@@ -57,6 +60,7 @@ bool dDatabase::initializeSchema() {
         "Name TEXT, "
         "RFID_Card TEXT UNIQUE, "
         "FingerprintID INTEGER UNIQUE, " // O ID que vem do sensor biométrico
+        "Password TEXT, "
         "AccessLevel INTEGER, "
         "IsInside INTEGER DEFAULT 0);"   // 0 = Fora, 1 = Dentro
 
@@ -67,7 +71,8 @@ bool dDatabase::initializeSchema() {
         "Timestamp INTEGER, "
         "LogType INTEGER, "
         "Description TEXT,"
-        "Value INTEGER);"
+        "Value INTEGER),"
+        "Value2 INTEGER DEFAULT 0);"
 
 
         // 3. Assets: ID automático, Tag única para o inventário
@@ -105,6 +110,43 @@ bool dDatabase::initializeSchema() {
         return false;
     }
 
+    // Hash password "1234" with Argon2
+    const char* password = "1234";
+    char hash[128];
+    // Gerar salt aleatório (16 bytes)
+    uint8_t salt[16];
+    srand(time(nullptr));  // Seed do random
+    for (int i = 0; i < 16; i++) {
+        salt[i] = rand() % 256;
+    }
+
+    // Hash com Argon2id (16 MB RAM, 2 iterações, 1 thread)
+    argon2id_hash_encoded(
+        2,          // time_cost (iterações)
+        16384,      // memory_cost = 16 MB (16 * 1024)
+        1,          // parallelism (1 thread)
+        password, strlen(password),
+        salt, sizeof(salt),
+        32,         // hash length
+        hash, sizeof(hash)
+    );
+
+    // Insert initial sensor records
+    const char* insertSensors =
+        "INSERT OR IGNORE INTO Sensors (Type, Value) VALUES "
+        "('TEMPERATURE', 22.5), "
+        "('HUMIDITY', 45.0);";
+    sqlite3_exec(m_db, insertSensors, nullptr, nullptr, nullptr);
+
+    // Insert initial actuator records
+    const char* insertActuators =
+        "INSERT OR IGNORE INTO Actuators (Type, State) VALUES "
+        "('SERVO_ROOM', 1), "
+        "('SERVO_VAULT', 1), "
+        "('FAN', 0), "
+        "('ALARM', 0);";
+    sqlite3_exec(m_db, insertActuators, nullptr, nullptr, nullptr);
+
     return true;
 }
 
@@ -118,13 +160,25 @@ void dDatabase::processDbMessage(const DatabaseMsg &msg) {
             break;
         case DB_CMD_UPDATE_ASSET:
             handleScanInventory(msg.payload.rfidInventory);
+            break;
         case DB_CMD_WRITE_LOG:
             handleInsertLog(msg.payload.log);
             break;
         case DB_CMD_USER_IN_PIR:
             handleCheckUserInPir();
             break;
-
+        case DB_CMD_LOGIN:
+            handleLogin(msg.payload.login);
+            break;
+        case DB_CMD_GET_DASHBOARD:
+            handleGetDashboard();
+            break;
+        case DB_CMD_GET_SENSORS:
+            handleGetSensors();
+            break;
+        case DB_CMD_GET_ACTUATORS:
+            handleGetActuators();
+            break;
     }
 }
 
@@ -180,9 +234,12 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
     sqlite3_stmt* stmt;
 
     // 1. O SQL com placeholders (?) para segurança
+    /*
     const char* sql = "INSERT INTO Logs (LogType, EntityID, Value, Timestamp, Description) "
                       "VALUES (?, ?, ?, ?, ?);";
-
+*/
+    const char* sql = "INSERT INTO Logs (LogType, EntityID, Value, Value2, Timestamp, Description) "
+                  "VALUES (?, ?, ?, ?, ?, ?);";
     // 2. Preparar a query
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
 
@@ -195,6 +252,9 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
 
         // Value: 1 para Sucesso/Ligado, 0 para Falha/Desligado
         sqlite3_bind_int(stmt, 3, static_cast<int>(log.value));
+
+        sqlite3_bind_int(stmt, 4, static_cast<int>(log.value2));     // ← ADICIONAR!
+
 
         // Timestamp: Tempo Unix enviado pela thread
         sqlite3_bind_int(stmt, 4, static_cast<int>(log.timestamp));
@@ -215,6 +275,56 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
     } else {
         std::cerr << "[Erro dDatabase] Erro no prepare do SQL: "
                   << sqlite3_errmsg(m_db) << std::endl;
+    }
+
+    if (log.logType == LOG_TYPE_SENSOR) {
+        updateSensorTable(log.entityID, log.value, log.value2);
+    }
+    else if (log.logType == LOG_TYPE_ACTUATOR) {
+        updateActuatorTable(log.entityID, log.value);
+    }
+
+}
+
+
+void dDatabase::updateSensorTable(uint8_t entityID, uint16_t value, uint16_t value2) {
+    if (entityID == ID_SHT31) {
+        sqlite3_stmt* stmt;
+
+        const char* sqlTemp = "UPDATE Sensors SET Value = ? WHERE Type = 'TEMPERATURE';";
+        if (sqlite3_prepare_v2(m_db, sqlTemp, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_double(stmt, 1, (double)value);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+
+        const char* sqlHum = "UPDATE Sensors SET Value = ? WHERE Type = 'HUMIDITY';";
+        if (sqlite3_prepare_v2(m_db, sqlHum, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_double(stmt, 1, (double)value2);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+    }
+}
+
+void dDatabase::updateActuatorTable(uint8_t entityID, uint16_t value) {
+    sqlite3_stmt* stmt;
+    const char* type = nullptr;
+
+    switch(entityID) {
+        case ID_SERVO_ROOM:  type = "SERVO_ROOM";  break;
+        case ID_SERVO_VAULT: type = "SERVO_VAULT"; break;
+        case ID_FAN:         type = "FAN";         break;
+        case ID_ALARM_ACTUATOR: type = "ALARM";    break;
+        default: return;
+    }
+
+    const char* sql = "UPDATE Actuators SET State = ? WHERE Type = ?;";
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, value > 0 ? 1 : 0);
+        sqlite3_bind_text(stmt, 2, type, -1, SQLITE_STATIC);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
     }
 }
 
@@ -241,7 +351,7 @@ void dDatabase::handleCheckUserInPir() {
     m_mqToCheckMovement.send(&resp, sizeof(resp));
 }
 
-void dDatabase::handleScanInventory(const Data_RFID_Inventory& inventory) {
+void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
     sqlite3_stmt* stmt;
     uint32_t now = static_cast<uint32_t>(time(nullptr));
 
@@ -271,6 +381,18 @@ void dDatabase::handleScanInventory(const Data_RFID_Inventory& inventory) {
             if (sqlite3_step(stmt) != SQLITE_DONE) {
                 std::cerr << "[DB] Erro ao atualizar Tag: " << inventory.tagList[i] << std::endl;
             }
+            if (sqlite3_changes(m_db) == 0) {
+                const char* sqlInsert = "INSERT INTO Assets (Name, RFID_Tag, State, LastRead) VALUES ('Item Desconhecido', ?, 'IN', ?);";
+                sqlite3_stmt* stmtIns;
+
+                if (sqlite3_prepare_v2(m_db, sqlInsert, -1, &stmtIns, nullptr) == SQLITE_OK) {
+                    sqlite3_bind_text(stmtIns, 1, inventory.tagList[i], -1, SQLITE_STATIC);
+                    sqlite3_bind_int(stmtIns, 2, now);
+                    sqlite3_step(stmtIns);
+                    sqlite3_finalize(stmtIns);
+                    std::cout << "[DB] Novo ativo detetado e registado: " << inventory.tagList[i] << std::endl;
+                }
+            }
 
             // Limpar os binds para a próxima volta do loop
             sqlite3_reset(stmt);
@@ -281,4 +403,243 @@ void dDatabase::handleScanInventory(const Data_RFID_Inventory& inventory) {
     } else {
         std::cerr << "[DB] Erro no prepare do inventário: " << sqlite3_errmsg(m_db) << std::endl;
     }
+}
+
+
+void dDatabase::handleLogin(const LoginRequest& login) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+    nlohmann::json result;
+
+    const char* sql = "SELECT UserID, Name, AccessLevel, Password FROM Users WHERE Name = ?;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, login.username, -1, SQLITE_STATIC);
+
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* storedHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
+
+            // Verify password with Argon2
+            if (argon2i_verify(storedHash, login.password, strlen(login.password)) == ARGON2_OK) {
+                result["userId"] = sqlite3_column_int(stmt, 0);
+                result["username"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+                result["accessLevel"] = sqlite3_column_int(stmt, 2);
+                resp.success = true;
+            } else {
+                resp.success = false;
+                strncpy(resp.errorMsg, "Invalid credentials", sizeof(resp.errorMsg) - 1);
+                resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
+            }
+        } else {
+            resp.success = false;
+            strncpy(resp.errorMsg, "Invalid credentials", sizeof(resp.errorMsg) - 1);
+            resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    if (resp.success) {
+        std::string json = result.dump();
+        strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
+        resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleGetDashboard() {
+    nlohmann::json response;
+    sqlite3_stmt* stmt;
+
+    // Security status
+    const char* sql = "SELECT Description FROM Logs WHERE LogType = ? ORDER BY Timestamp DESC LIMIT 1;";
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, LOG_TYPE_ALERT);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["security"] = "ALERT";
+        } else {
+            response["security"] = "Secure";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Vault status
+    sql = "SELECT State FROM Actuators WHERE Type = 'SERVO_VAULT';";
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["vault"] = sqlite3_column_int(stmt, 0) > 0 ? "Locked" : "Unlocked";
+        } else {
+            response["vault"] = "Locked";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Temperature
+    sql = "SELECT Value FROM Sensors WHERE Type = 'TEMPERATURE';";
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["temp"] = sqlite3_column_double(stmt, 0);
+        } else {
+            response["temp"] = 22.5;
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Humidity
+    sql = "SELECT Value FROM Sensors WHERE Type = 'HUMIDITY';";
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["hum"] = sqlite3_column_double(stmt, 0);
+        } else {
+            response["hum"] = 45.0;
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    DbWebResponse resp = {};
+    resp.success = true;
+    std::string json = response.dump();
+    strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
+    resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleGetSensors() {
+    nlohmann::json response;
+    sqlite3_stmt* stmt;
+
+    // Environment (Temperature and Humidity)
+    const char* sqlTemp = "SELECT Value FROM Sensors WHERE Type = 'TEMPERATURE';";
+    if (sqlite3_prepare_v2(m_db, sqlTemp, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["env"]["temp"] = sqlite3_column_double(stmt, 0);
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    const char* sqlHum = "SELECT Value FROM Sensors WHERE Type = 'HUMIDITY';";
+    if (sqlite3_prepare_v2(m_db, sqlHum, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["env"]["hum"] = sqlite3_column_double(stmt, 0);
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Vault (last fingerprint access)
+    const char* sqlVault = "SELECT Description, Timestamp FROM Logs WHERE LogType = ? AND EntityID != 0 ORDER BY Timestamp DESC LIMIT 1;";
+    if (sqlite3_prepare_v2(m_db, sqlVault, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, LOG_TYPE_ACCESS);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            // Extract user from description
+            response["vault"]["user"] = "User";
+
+            // Convert timestamp to time string
+            time_t ts = sqlite3_column_int(stmt, 1);
+            struct tm* timeinfo = localtime(&ts);
+            char buffer[6];
+            strftime(buffer, sizeof(buffer), "%H:%M", timeinfo);
+            response["vault"]["time"] = buffer;
+        } else {
+            response["vault"]["user"] = "--";
+            response["vault"]["time"] = "--";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Vault door state
+    const char* sqlVaultDoor = "SELECT State FROM Actuators WHERE Type = 'SERVO_VAULT';";
+    if (sqlite3_prepare_v2(m_db, sqlVaultDoor, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["vault"]["door"] = sqlite3_column_int(stmt, 0) > 0 ? "Locked" : "Unlocked";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Room (who is inside)
+    const char* sqlRoom = "SELECT Name FROM Users WHERE IsInside = 1 LIMIT 1;";
+    if (sqlite3_prepare_v2(m_db, sqlRoom, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["room"]["rfidIn"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+        } else {
+            response["room"]["rfidIn"] = "--";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Room last entry time
+    const char* sqlRoomTime = "SELECT Timestamp FROM Logs WHERE LogType = ? ORDER BY Timestamp DESC LIMIT 1;";
+    if (sqlite3_prepare_v2(m_db, sqlRoomTime, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, LOG_TYPE_ACCESS);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            time_t ts = sqlite3_column_int(stmt, 0);
+            struct tm* timeinfo = localtime(&ts);
+            char buffer[6];
+            strftime(buffer, sizeof(buffer), "%H:%M", timeinfo);
+            response["room"]["timeIn"] = buffer;
+        } else {
+            response["room"]["timeIn"] = "--";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Room door state
+    const char* sqlRoomDoor = "SELECT State FROM Actuators WHERE Type = 'SERVO_ROOM';";
+    if (sqlite3_prepare_v2(m_db, sqlRoomDoor, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["room"]["door"] = sqlite3_column_int(stmt, 0) > 0 ? "Closed" : "Open";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    response["room"]["rfidOut"] = "--";
+    response["room"]["timeOut"] = "--";
+    response["uhf"] = "Idle";
+
+    DbWebResponse resp = {};
+    resp.success = true;
+    std::string json = response.dump();
+    strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
+    resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleGetActuators() {
+    nlohmann::json response;
+    sqlite3_stmt* stmt;
+
+    // Get all actuator states
+    const char* sql = "SELECT Type, State FROM Actuators;";
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            std::string type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            int state = sqlite3_column_int(stmt, 1);
+
+            if (type == "FAN") {
+                response["fan"]["state"] = state ? "ON" : "OFF";
+                response["fan"]["timestamp"] = "10:00";
+            } else if (type == "ALARM") {
+                response["buzzer"]["state"] = state ? "ACTIVE" : "INACTIVE";
+                response["buzzer"]["timestamp"] = "--";
+                response["led"]["state"] = state ? "ON" : "OFF";
+                response["led"]["timestamp"] = "--";
+            } else if (type == "SERVO_VAULT") {
+                response["vaultDoor"]["state"] = state ? "LOCKED" : "UNLOCKED";
+                response["vaultDoor"]["timestamp"] = "10:05";
+            } else if (type == "SERVO_ROOM") {
+                response["roomDoor"]["state"] = state ? "LOCKED" : "UNLOCKED";
+                response["roomDoor"]["timestamp"] = "09:00";
+            }
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    DbWebResponse resp = {};
+    resp.success = true;
+    std::string json = response.dump();
+    strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
+    resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
+
+    m_mqToWeb.send(&resp, sizeof(resp));
 }

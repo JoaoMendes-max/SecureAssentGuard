@@ -6,7 +6,6 @@
 #include "C_Mqueue.h"
 #include "C_RDM6300.h"
 #include "C_tSighandler.h"
-#include "C_tTestWorker.h"
 #include "C_YRM1001.h"
 
 using namespace std;

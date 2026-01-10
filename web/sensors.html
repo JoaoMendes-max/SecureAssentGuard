@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Asset Guard - Sensores</title>
+    <style>
+        /* --- Estilos Gerais --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Fonte mais moderna */
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Cabeçalho --- */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        h1 {
+            font-size: 1.5em;
+            margin: 0;
+            color: #2c3e50;
+        }
+
+        /* Botão de Voltar (Estilo Botão) */
+        .btn-back {
+            text-decoration: none;
+            background-color: #e9ecef;
+            color: #333;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-back:hover {
+            background-color: #dbe2e8;
+            transform: translateX(-2px);
+        }
+
+        /* --- Grid de Sensores --- */
+        .sensors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsivo: cria colunas automáticas */
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        /* --- Cartão do Sensor --- */
+        .sensor-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+            border-left: 5px solid #007BFF; /* Faixa colorida à esquerda */
+        }
+
+        .sensor-card:hover {
+            transform: translateY(-3px); /* Ligeiro levitar ao passar o rato */
+        }
+
+        /* Cores das faixas laterais por tipo */
+        .card-env { border-color: #17a2b8; } /* Azul Cyan */
+        .card-sec { border-color: #dc3545; } /* Vermelho */
+        .card-acc { border-color: #28a745; } /* Verde */
+        .card-inv { border-color: #ffc107; } /* Amarelo */
+
+        /* Cabeçalho do Cartão */
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .card-icon {
+            font-size: 1.5em;
+            margin-right: 10px;
+            background: #f0f2f5;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+        }
+
+        .card-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #555;
+        }
+
+        /* Linhas de Dados */
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 0.95em;
+        }
+
+        .data-label {
+            color: #777;
+        }
+
+        .data-value {
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Badges de Estado (Pequenas etiquetas coloridas) */
+        .status-badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+        }
+
+        .status-ok { background-color: #d4edda; color: #155724; } /* Verde Claro */
+        .status-alert { background-color: #f8d7da; color: #721c24; } /* Vermelho Claro */
+        .status-neutral { background-color: #e2e3e5; color: #383d41; } /* Cinza */
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>📊 View Sensors</h1>
+    <a href="dashboard.html" class="btn-back">
+        <span>&#8592;</span> Voltar
+    </a>
+</header>
+
+<div class="sensors-grid">
+
+    <div class="sensor-card card-env">
+        <div class="card-header">
+            <div class="card-icon">🌡️</div>
+            <div class="card-title">Environment (Vault)</div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Temperature</span>
+            <span class="data-value"><span id="env-temp">--</span> °C</span>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Humidity</span>
+            <span class="data-value"><span id="env-hum">--</span> %</span>
+        </div>
+    </div>
+
+    <div class="sensor-card card-sec">
+        <div class="card-header">
+            <div class="card-icon">🚨</div>
+            <div class="card-title">Security (Room)</div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Movement (PIR)</span>
+            <span id="sec-pir" class="status-badge status-neutral">Loading...</span>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Door Status</span>
+            <span id="sec-door" class="status-badge status-neutral">Loading...</span>
+        </div>
+    </div>
+
+    <div class="sensor-card card-acc">
+        <div class="card-header">
+            <div class="card-icon">🔐</div>
+            <div class="card-title">Access (Vault)</div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Vault Door</span>
+            <span id="acc-vault-door" class="status-badge status-neutral">Loading...</span>
+        </div>
+        <div style="margin-top: 10px; border-top: 1px dashed #eee; padding-top: 10px;">
+            <span class="data-label" style="font-size: 0.85em; display:block; margin-bottom:5px;">Last Fingerprint Scan:</span>
+            <div class="data-value" style="font-size: 0.9em;">
+                👤 <span id="acc-fp-user">--</span> <br>
+                🕒 <span id="acc-fp-time">--</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="sensor-card card-acc">
+        <div class="card-header">
+            <div class="card-icon">🚪</div>
+            <div class="card-title">Access (Room)</div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Room Door</span>
+            <span id="acc-room-door" class="status-badge status-neutral">Loading...</span>
+        </div>
+
+        <div style="margin-top: 10px; font-size: 0.9em;">
+            <div style="margin-bottom: 8px;">
+                <span class="data-label">Last RFID In:</span><br>
+                <span class="data-value">🏷️ <span id="rfid-in-id">--</span> | <span id="rfid-in-time">--</span></span>
+            </div>
+            <div>
+                <span class="data-label">Last RFID Out:</span><br>
+                <span class="data-value">🏷️ <span id="rfid-out-id">--</span> | <span id="rfid-out-time">--</span></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="sensor-card card-inv">
+        <div class="card-header">
+            <div class="card-icon">📦</div>
+            <div class="card-title">Inventory (UHF)</div>
+        </div>
+        <div class="data-row">
+            <span class="data-label">Scanner Status</span>
+            <span id="uhf-status" class="status-badge status-neutral">Idle</span>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Função auxiliar visual
+    function setBadge(elementId, text, type) {
+        const el = document.getElementById(elementId);
+        if(!el) return;
+        el.innerText = text;
+        el.className = 'status-badge'; // Reset classes
+
+        if (type === 'good') el.classList.add('status-ok');
+        else if (type === 'bad') el.classList.add('status-alert');
+        else el.classList.add('status-neutral');
+    }
+
+    function updateSensors() {
+        fetch('/api/sensors')
+            .then(res => res.json())
+            .then(data => {
+                // 1. Ambiente
+                document.getElementById('env-temp').innerText = data.env.temp.toFixed(1);
+                document.getElementById('env-hum').innerText = data.env.hum.toFixed(1);
+
+                // 2. Segurança (PIR e Porta)
+                setBadge('sec-pir', data.sec.motion, data.sec.motion === "No Movement" ? 'good' : 'bad');
+                setBadge('sec-door', data.sec.door, data.sec.door === "Closed" ? 'good' : 'bad');
+
+                // 3. Cofre
+                setBadge('acc-vault-door', data.vault.door, data.vault.door === "Locked" ? 'good' : 'bad');
+                document.getElementById('acc-fp-user').innerText = data.vault.user;
+                document.getElementById('acc-fp-time').innerText = data.vault.time;
+
+                // 4. Porta Entrada
+                setBadge('acc-room-door', data.room.door, data.room.door === "Closed" ? 'good' : 'bad');
+                document.getElementById('rfid-in-id').innerText = data.room.rfidIn;
+                document.getElementById('rfid-in-time').innerText = data.room.timeIn;
+                document.getElementById('rfid-out-id').innerText = data.room.rfidOut;
+                document.getElementById('rfid-out-time').innerText = data.room.timeOut;
+
+                // 5. UHF
+                setBadge('uhf-status', data.uhf, 'neutral');
+            })
+            .catch(err => console.error("Erro sensors:", err));
+    }
+
+    window.onload = updateSensors;
+    setInterval(updateSensors, 1000); // Atualiza a cada segundo
+</script>
+</body>
+</html>

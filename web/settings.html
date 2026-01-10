@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Asset Guard - Settings</title>
+    <style>
+        /* --- Estilos Gerais --- */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header Bonito --- */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            background: white;
+            padding: 15px 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        h1 { margin: 0; color: #2c3e50; font-size: 1.5em; }
+
+        /* Botão Voltar Consistente */
+        .btn-back {
+            text-decoration: none;
+            background-color: #e9ecef;
+            color: #333;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s ease;
+            font-size: 0.95em;
+        }
+
+        .btn-back:hover { background-color: #dbe2e8; transform: translateX(-2px); }
+
+        /* --- Layout --- */
+        .main-container { display: flex; gap: 40px; align-items: flex-start; flex: 1; }
+
+        .config-panel {
+            width: 300px; background: white; padding: 25px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; gap: 20px;
+        }
+        .panel-title { margin: 0 0 10px 0; font-size: 1.1em; color: #555; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        .input-group label { font-size: 0.9em; font-weight: 600; color: #666; }
+        .input-wrapper { position: relative; }
+        .input-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 1.2em; }
+        .input-field { width: 100%; padding: 12px 10px 12px 40px; border: 1px solid #ddd; border-radius: 8px; font-size: 1em; box-sizing: border-box; }
+        .input-field:focus { border-color: #007BFF; outline: none; }
+
+        .btn-save {
+            background-color: #007BFF; color: white; border: none; padding: 15px; font-size: 1em; font-weight: bold;
+            border-radius: 8px; cursor: pointer; transition: background 0.2s, transform 0.1s; margin-top: 10px;
+        }
+        .btn-save:hover { background-color: #0056b3; transform: translateY(-2px); }
+
+        .status-card { flex: 1; background: white; border-radius: 12px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 15px; color: #555; border-bottom: 2px solid #eee; width: 50%; }
+        td { padding: 15px; border-bottom: 1px solid #f0f0f0; font-size: 1.1em; color: #333; }
+        .value-text { font-weight: bold; color: #2c3e50; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>System Settings</h1>
+    <a href="dashboard.html" class="btn-back">
+        <span>&#8592;</span> Back
+    </a>
+</header>
+
+<div class="main-container">
+
+    <aside class="config-panel">
+        <h3 class="panel-title">Edit Configuration</h3>
+        <div class="input-group">
+            <label>Sampling Time (minutes)</label>
+            <div class="input-wrapper">
+                <span class="input-icon">⏱️</span>
+                <input type="number" id="inputTime" class="input-field">
+            </div>
+        </div>
+        <div class="input-group">
+            <label>Temperature Limit (°C)</label>
+            <div class="input-wrapper">
+                <span class="input-icon">🌡️</span>
+                <input type="number" id="inputTemp" class="input-field">
+            </div>
+        </div>
+        <button class="btn-save" onclick="saveSettings()">Save Changes</button>
+    </aside>
+
+    <main class="status-card">
+        <h3 class="panel-title">Current Active Settings</h3>
+        <table>
+            <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+            <tbody>
+            <tr><td>Temperature Limit</td><td><span id="displayTemp" class="value-text">40</span> °C</td></tr>
+            <tr><td>Sampling Time</td><td><span id="displayTime" class="value-text">10</span> minutes</td></tr>
+            </tbody>
+        </table>
+        <p style="margin-top: 20px; color: #888; font-size: 0.9em;">Last updated: <span id="lastUpdate">Just now</span></p>
+    </main>
+</div>
+
+<script>
+    function loadSettings() {
+        fetch('/api/settings')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('displayTemp').innerText = data.tempLimit;
+                document.getElementById('displayTime').innerText = data.sampleTime;
+                document.getElementById('inputTemp').value = data.tempLimit;
+                document.getElementById('inputTime').value = data.sampleTime;
+            });
+    }
+
+    function saveSettings() {
+        const newTime = document.getElementById('inputTime').value;
+        const newTemp = document.getElementById('inputTemp').value;
+
+        // Envia para o C++
+        fetch('/api/settings', {
+            method: 'POST',
+            body: JSON.stringify({ tempLimit: newTemp, sampleTime: newTime })
+        })
+            .then(res => res.json())
+            .then(data => {
+                if(data.status === 'saved') {
+                    alert("✅ Guardado no Servidor!");
+                    loadSettings(); // Recarrega para confirmar
+                }
+            });
+    }
+
+    window.onload = loadSettings;
+</script>
+</body>
+</html>

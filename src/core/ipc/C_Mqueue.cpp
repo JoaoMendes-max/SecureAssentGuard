@@ -48,6 +48,10 @@ bool C_Mqueue::send(const void* msg, size_t size, unsigned int prio) {
     return true;
 }
 
+/*
+ * o chat recomendou usar send nao bloqueante ou usar com time para enviar mq
+ */
+
 ssize_t C_Mqueue::receive(void* buffer, size_t size) {
     if (id == (mqd_t)-1) return -1;
 

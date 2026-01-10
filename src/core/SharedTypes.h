@@ -95,12 +95,14 @@ inline constexpr const char* ACTUATOR_NAMES[] = {
 
 inline constexpr const char* SENSOR_NAMES[] = {
     "TEMP_HUMIDITY",
-    "RFID_ENTR  Y",
+    "RFID_ENTRY",
     "RFID_INVENTORY",
     "FINGERPRINT",
+    /*
     "PIR_MOTION",
     "REED_ROOM",
     "REED_VAULT"
+    */
 };
 
 
@@ -139,6 +141,7 @@ struct DatabaseLog {
     LogType_enum logType;
     uint8_t entityID;
     uint16_t value;
+    uint16_t value2;     // Novo campo para humidade
     uint32_t timestamp;
     char description[48]{};
 
@@ -146,12 +149,22 @@ struct DatabaseLog {
         : logType(LOG_TYPE_SYSTEM),
           entityID(0),
           value(0),
+          value2(0),      // Inicializar o novo campo
+
           timestamp(0)
     {
         description[0] = '\0';
     }
 };
 
+/*
+ * Estrutura para pedido de login via interface web
+ * Contém as credenciais inseridas pelo utilizador no formulário web
+ */
+struct LoginRequest {
+    char username[64];  // Nome de utilizador (máx 63 caracteres + terminador)
+    char password[64];  // Password em texto claro (será hashada antes de comparar)
+};
 
 
 //databaseeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee shii
@@ -161,8 +174,17 @@ enum e_DbCommand {
     DB_CMD_LEAVE_ROOM_RFID,//
     DB_CMD_UPDATE_ASSET, // InventoryScan (Tabela Assets)
     DB_CMD_USER_IN_PIR,      // usado para ver se algum dos users esta inside
-    DB_CMD_WRITE_LOG         // Logs gerais: Vault, Movement, Actuators
+    DB_CMD_WRITE_LOG,         // Logs gerais: Vault, Movement, Actuators
+    DB_CMD_LOGIN,             // Autenticação de utilizador web
+    DB_CMD_GET_DASHBOARD,     // Obter dados para o dashboard
+    DB_CMD_GET_SENSORS,       // Obter estado dos sensores
+    DB_CMD_GET_ACTUATORS,      // Obter estado dos atuadores
+    DB_CMD_ADD_USER, // dar add a user
+    DB_CMD_DELETE_USER,
+    DB_CMD_UPDATE_TEMP_THRESHOLD,
+    DB_CMD_UPDATE_SAMPLING_TIME
 };
+
 
 
 // Mensagem de Pedido (Entrada no Daemon)
@@ -173,17 +195,30 @@ struct DatabaseMsg {
         char rfid[11];       // Para validar User ou atualizar Asset
         DatabaseLog log;     // Para registo de histórico
         Data_RFID_Inventory rfidInventory;
-
+        LoginRequest login; // Credenciais de login
     } payload;
 };
 
+union SystemSettings {
+    int tempThreshold;
+    int samplingInterval; // em segundos
+};
 
 //db response //possivelkmente vai ser mudada para struct
 struct AuthResponse {
+    e_DbCommand command;
     bool authorized;      //
-    uint32_t userId;      // O ID que a DB gerou automaticamente
+    uint8_t userId;      // O ID que a DB gerou automaticamente
     uint32_t accessLevel; //
     bool isInside;        // Para o LCD saber se diz "Bem-vindo" ou "Até à próxima"
+    SystemSettings settings;
+};
+
+
+struct DbWebResponse {
+    bool success;           // true se operação foi bem sucedida
+    char jsonData[8192];    // Dados da resposta em formato JSON (8KB)
+    char errorMsg[256];     // Mensagem de erro em caso de falha
 };
 
 #endif // SHAREDTYPES_H

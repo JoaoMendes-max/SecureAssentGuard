@@ -31,22 +31,6 @@ bool C_UART::openPort() {
 }
 
 
-/*
-
-bool C_UART::openPort() {
-    //logic to ignore dcd(data carrier detect)
-    m_fd = open(m_portPath.c_str(), O_RDWR | O_NOCTTY | O_NDELAY);
-
-    if (m_fd == -1) {
-        cerr<<("C_UART: Erro ao abrir porta\n");
-        return false;
-    }
-
-    fcntl(m_fd, F_SETFL, 0);
-
-    return true;
-}
-*/
 
 void C_UART::closePort() {
     if (m_fd != -1) {

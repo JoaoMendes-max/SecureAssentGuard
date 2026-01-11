@@ -8,39 +8,36 @@
 #include "nlohmann/json.hpp"
 #include <iostream>
 
-
 class dDatabase {
 public:
-    // O construtor agora recebe as TRÊS referências
     dDatabase(const std::string& dbPath,
               C_Mqueue& mqDb,
               C_Mqueue& mqRfidIn,
               C_Mqueue& mqRfidOut,
               C_Mqueue& mqFinger,
               C_Mqueue& mqCheckMovement,
-              C_Mqueue& mqToWeb);
+              C_Mqueue& mqToWeb,
+              C_Mqueue& mqToEnv);
     ~dDatabase();
 
     bool open();
     void close();
     bool initializeSchema();
     void processDbMessage(const DatabaseMsg& msg);
-    void handleInsertLog(const DatabaseLog& log);
 
 private:
     sqlite3* m_db;
     std::string m_dbPath;
 
-    // --- OS ATRIBUTOS ADEQUADOS ---
-    C_Mqueue& m_mqToDatabase;    // A que recebe os pedidos (input)
-    C_Mqueue& m_mqToVerifyRoom;    // responde a thread de entrada da sala rfid
-    C_Mqueue& m_mqToLeaveRoom;// a q responde a thread de saida da sala rfid
-    C_Mqueue& m_mqToFingerprint; // A que responde ao Dedo (output)
-    C_Mqueue& m_mqToCheckMovement;// a q responde ao pir
+    C_Mqueue& m_mqToDatabase;
+    C_Mqueue& m_mqToVerifyRoom;
+    C_Mqueue& m_mqToLeaveRoom;
+    C_Mqueue& m_mqToFingerprint;
+    C_Mqueue& m_mqToCheckMovement;
     C_Mqueue& m_mqToWeb;
+    C_Mqueue& m_mqToEnvThread;    // Para enviar novos thresholds de temperatura
 
-
-    // Handlers
+    // Handlers Originais
     void handleAccessRequest(const char* rfid, bool isEntering);
     void handleScanInventory(const Data_RFID_Inventory& inventory);
     void handleCheckUserInPir();
@@ -48,8 +45,29 @@ private:
     void handleGetDashboard();
     void handleGetSensors();
     void handleGetActuators();
+    void handleInsertLog(const DatabaseLog& log);
     void updateSensorTable(uint8_t entityID, uint16_t value, uint16_t value2);
     void updateActuatorTable(uint8_t entityID, uint16_t value);
+
+    // ↓ NOVOS HANDLERS ↓
+    void handleRegisterUser(const UserData& user);
+    void handleGetUsers();
+    void handleCreateUser(const UserData& user);
+    void handleModifyUser(const UserData& user);
+    void handleRemoveUser(int userId);
+
+    void handleGetAssets();
+    void handleCreateAsset(const AssetData& asset);
+    void handleModifyAsset(const AssetData& asset);
+    void handleRemoveAsset(const char* tag);
+
+    void handleGetSettings();
+    void handleUpdateSettings(const SystemSettings& settings);
+
+    void handleFilterLogs(const LogFilter& filter);
+
+    void handleAddFingerprint(int userId);
+    void handleDeleteFingerprint(int userId);
 };
 
 #endif

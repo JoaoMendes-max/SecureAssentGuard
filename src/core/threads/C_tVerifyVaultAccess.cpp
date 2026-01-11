@@ -32,7 +32,7 @@ void c_tVerifyVaultAccess::run() {
     while (true) {
         m_monitorfgp.wait();
 
-        ssize_t bytes = m_mqFromDatabase.timedReceive(&cmdMsg, sizeof(DatabaseMsg), 0);
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&cmdMsg, sizeof(AuthResponse), 0);
 
         if (bytes > 0) {
             if (cmdMsg.command == DB_CMD_ADD_USER) { // Precisas definir este comando no SharedTypes.h

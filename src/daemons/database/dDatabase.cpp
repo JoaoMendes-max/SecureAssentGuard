@@ -4,17 +4,21 @@
 
 dDatabase::dDatabase(const std::string& dbPath,
                    C_Mqueue& mqDb,
-                   C_Mqueue& mqRfidIn,C_Mqueue& mqRfidOut,
-                   C_Mqueue& mqFinger,C_Mqueue& m_mqToCheckMovement,
-                   C_Mqueue& mqToWeb)
+                   C_Mqueue& mqRfidIn,
+                   C_Mqueue& mqRfidOut,
+                   C_Mqueue& mqFinger,
+                   C_Mqueue& m_mqToCheckMovement,
+                   C_Mqueue& mqToWeb,
+                   C_Mqueue& mqToEnv)   // <-- NOVO
     : m_db(nullptr),
       m_dbPath(dbPath),
-      m_mqToDatabase(mqDb),      // <--- A receber aqui!
+      m_mqToDatabase(mqDb),
       m_mqToVerifyRoom(mqRfidIn),
       m_mqToLeaveRoom(mqRfidOut),
       m_mqToFingerprint(mqFinger),
       m_mqToCheckMovement(m_mqToCheckMovement),
-      m_mqToWeb(mqToWeb)
+      m_mqToWeb(mqToWeb),
+      m_mqToEnvThread(mqToEnv)      // <-- INICIALIZAR
 {
 }
 
@@ -54,28 +58,24 @@ bool dDatabase::initializeSchema() {
     }
 
     const char* sql =
-        // 1. Users: ID automático, RFID único para buscas rápidas
         "CREATE TABLE IF NOT EXISTS Users ("
         "UserID INTEGER PRIMARY KEY AUTOINCREMENT, "
         "Name TEXT, "
         "RFID_Card TEXT UNIQUE, "
-        "FingerprintID INTEGER UNIQUE, " // O ID que vem do sensor biométrico
+        "FingerprintID INTEGER UNIQUE, "
         "Password TEXT, "
         "AccessLevel INTEGER, "
-        "IsInside INTEGER DEFAULT 0);"   // 0 = Fora, 1 = Dentro
+        "IsInside INTEGER DEFAULT 0);"
 
-        // 2. Logs: ID automático para manter a ordem dos eventos
         "CREATE TABLE IF NOT EXISTS Logs ("
         "LogsID INTEGER PRIMARY KEY AUTOINCREMENT, "
         "EntityID INTEGER, "
         "Timestamp INTEGER, "
         "LogType INTEGER, "
-        "Description TEXT,"
-        "Value INTEGER),"
+        "Description TEXT, "
+        "Value INTEGER, "
         "Value2 INTEGER DEFAULT 0);"
 
-
-        // 3. Assets: ID automático, Tag única para o inventário
         "CREATE TABLE IF NOT EXISTS Assets ("
         "AssetID INTEGER PRIMARY KEY AUTOINCREMENT, "
         "Name TEXT, "
@@ -83,72 +83,75 @@ bool dDatabase::initializeSchema() {
         "State TEXT, "
         "LastRead INTEGER);"
 
-        // 4. Sensors: ID automático, procuramos pelo 'Type'
         "CREATE TABLE IF NOT EXISTS Sensors ("
         "SensorID INTEGER PRIMARY KEY AUTOINCREMENT, "
         "Type TEXT UNIQUE, "
         "Value REAL);"
 
-        // 5. Actuators: ID automático, procuramos pelo 'Type'
         "CREATE TABLE IF NOT EXISTS Actuators ("
         "ActuatorID INTEGER PRIMARY KEY AUTOINCREMENT, "
         "Type TEXT UNIQUE, "
         "State INTEGER);"
 
-        // 6. MainSystem: Apenas uma linha de configuração
-        "CREATE TABLE IF NOT EXISTS MainSystem ("
-        "ID INTEGER PRIMARY KEY AUTOINCREMENT, "
-        "TempThreshold REAL, "
-        "SamplingTime INTEGER);";
+        // ↓ NOVA TABELA DE CONFIGURAÇÃO ↓
+        "CREATE TABLE IF NOT EXISTS SystemSettings ("
+        "ID INTEGER PRIMARY KEY CHECK (ID = 1), "  // Só 1 linha!
+        "TempThreshold INTEGER DEFAULT 30, "
+        "SamplingTime INTEGER DEFAULT 600);";  // 10 minutos
 
     char* errMsg = nullptr;
     int rc = sqlite3_exec(m_db, sql, nullptr, nullptr, &errMsg);
 
     if (rc != SQLITE_OK) {
-        std::cerr << "Erro ao criar as tabelas: " << errMsg << std::endl;
+        std::cerr << "Erro ao criar tabelas: " << errMsg << std::endl;
         sqlite3_free(errMsg);
         return false;
     }
 
-    // Hash password "1234" with Argon2
+    // ↓ INICIALIZAR SETTINGS (se não existir) ↓
+    const char* initSettings =
+        "INSERT OR IGNORE INTO SystemSettings (ID, TempThreshold, SamplingTime) "
+        "VALUES (1, 30, 600);";
+    sqlite3_exec(m_db, initSettings, nullptr, nullptr, nullptr);
+
+    // Hash admin password
     const char* password = "1234";
     char hash[128];
-    // Gerar salt aleatório (16 bytes)
     uint8_t salt[16];
-    srand(time(nullptr));  // Seed do random
+    srand(time(nullptr));
     for (int i = 0; i < 16; i++) {
         salt[i] = rand() % 256;
     }
 
-    // Hash com Argon2id (16 MB RAM, 2 iterações, 1 thread)
-    argon2id_hash_encoded(
-        2,          // time_cost (iterações)
-        16384,      // memory_cost = 16 MB (16 * 1024)
-        1,          // parallelism (1 thread)
-        password, strlen(password),
-        salt, sizeof(salt),
-        32,         // hash length
-        hash, sizeof(hash)
-    );
+    argon2id_hash_encoded(2, 16384, 1, password, strlen(password),
+                         salt, sizeof(salt), 32, hash, sizeof(hash));
 
-    // Insert initial sensor records
+    // ↓ CRIAR USER ADMIN (se não existir) ↓
+    const char* createAdmin =
+        "INSERT OR IGNORE INTO Users (UserID, Name, Password, AccessLevel, FingerprintID) "
+        "VALUES (1, 'admin', ?, 2, 1);";  // AccessLevel 2 = Admin
+
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_db, createAdmin, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, hash, -1, SQLITE_STATIC);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+
+    // Insert sensores/atuadores
     const char* insertSensors =
         "INSERT OR IGNORE INTO Sensors (Type, Value) VALUES "
-        "('TEMPERATURE', 22.5), "
-        "('HUMIDITY', 45.0);";
+        "('TEMPERATURE', 22.5), ('HUMIDITY', 45.0);";
     sqlite3_exec(m_db, insertSensors, nullptr, nullptr, nullptr);
 
-    // Insert initial actuator records
     const char* insertActuators =
         "INSERT OR IGNORE INTO Actuators (Type, State) VALUES "
-        "('SERVO_ROOM', 1), "
-        "('SERVO_VAULT', 1), "
-        "('FAN', 0), "
-        "('ALARM', 0);";
+        "('SERVO_ROOM', 1), ('SERVO_VAULT', 1), ('FAN', 0), ('ALARM', 0);";
     sqlite3_exec(m_db, insertActuators, nullptr, nullptr, nullptr);
 
     return true;
 }
+
 
 void dDatabase::processDbMessage(const DatabaseMsg &msg) {
     switch (msg.command) {
@@ -179,9 +182,52 @@ void dDatabase::processDbMessage(const DatabaseMsg &msg) {
         case DB_CMD_GET_ACTUATORS:
             handleGetActuators();
             break;
+
+        // ↓ NOVOS HANDLERS ↓
+        case DB_CMD_REGISTER_USER:
+            handleRegisterUser(msg.payload.user);
+            break;
+        case DB_CMD_GET_USERS:
+            handleGetUsers();
+            break;
+        case DB_CMD_CREATE_USER:
+            handleCreateUser(msg.payload.user);
+            break;
+        case DB_CMD_MODIFY_USER:
+            handleModifyUser(msg.payload.user);
+            break;
+        case DB_CMD_REMOVE_USER:
+            handleRemoveUser(msg.payload.userId);
+            break;
+        case DB_CMD_GET_ASSETS:
+            handleGetAssets();
+            break;
+        case DB_CMD_CREATE_ASSET:
+            handleCreateAsset(msg.payload.asset);
+            break;
+        case DB_CMD_MODIFY_ASSET:
+            handleModifyAsset(msg.payload.asset);
+            break;
+        case DB_CMD_REMOVE_ASSET:
+            handleRemoveAsset(msg.payload.asset.tag);
+            break;
+        case DB_CMD_GET_SETTINGS:
+            handleGetSettings();
+            break;
+        case DB_CMD_UPDATE_SETTINGS:
+            handleUpdateSettings(msg.payload.settings);
+            break;
+        case DB_CMD_FILTER_LOGS:
+            handleFilterLogs(msg.payload.logFilter);
+            break;
+        case DB_CMD_ADD_USER:  // FINGERPRINT!
+            handleAddFingerprint(msg.payload.userId);
+            break;
+        case DB_CMD_DELETE_USER:  // FINGERPRINT!
+            handleDeleteFingerprint(msg.payload.userId);
+            break;
     }
 }
-
 
 
 void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
@@ -647,4 +693,429 @@ void dDatabase::handleGetActuators() {
     resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
 
     m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+
+void dDatabase::handleRegisterUser(const UserData& user) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+
+    // Hash da password
+    char hash[128];
+    uint8_t salt[16];
+    srand(time(nullptr) + rand());
+    for (int i = 0; i < 16; i++) salt[i] = rand() % 256;
+
+    argon2id_hash_encoded(2, 16384, 1, user.password, strlen(user.password),
+                         salt, sizeof(salt), 32, hash, sizeof(hash));
+
+    // CRIAR com AccessLevel = 0 (VIEWER apenas)
+    const char* sql =
+        "INSERT INTO Users (Name, Password, AccessLevel) VALUES (?, ?, 0);";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, user.name, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, hash, -1, SQLITE_STATIC);
+
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            resp.success = true;
+            strcpy(resp.jsonData, "{\"status\":\"ok\"}");
+        } else {
+            resp.success = false;
+            strcpy(resp.errorMsg, "User already exists");
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleGetUsers() {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+    nlohmann::json users = nlohmann::json::array();
+
+    const char* sql = "SELECT UserID, Name, RFID_Card, FingerprintID, AccessLevel FROM Users;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            nlohmann::json user;
+            user["id"] = sqlite3_column_int(stmt, 0);
+            user["name"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+
+            const char* rfid = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+            user["rfid"] = rfid ? rfid : "";
+
+            user["fingerprint"] = sqlite3_column_int(stmt, 3);
+
+            int level = sqlite3_column_int(stmt, 4);
+            if (level == 0) user["access"] = "Viewer";
+            else if (level == 1) user["access"] = "Room";
+            else user["access"] = "Room/Vault";
+
+            user["lastLogin"] = "N/A";  // Podes melhorar isto depois
+            users.push_back(user);
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    resp.success = true;
+    std::string json = users.dump();
+    strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleCreateUser(const UserData& user) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+
+    // Converter AccessLevel
+    int level = 1;  // Default Room
+    if (strcmp(user.password, "Room/Vault") == 0) level = 2;
+
+    const char* sql =
+        "INSERT INTO Users (Name, RFID_Card, FingerprintID, AccessLevel) "
+        "VALUES (?, ?, ?, ?);";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, user.name, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, user.rfid, -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 3, user.fingerprintID);
+        sqlite3_bind_int(stmt, 4, level);
+
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            resp.success = true;
+            strcpy(resp.jsonData, "{\"status\":\"ok\"}");
+
+            // Se tem fingerprint, avisar a thread!
+            if (user.fingerprintID > 0) {
+                AuthResponse cmd = {};
+                cmd.command = DB_CMD_ADD_USER;
+                cmd.payload.auth.userId = user.fingerprintID;
+                m_mqToFingerprint.send(&cmd, sizeof(cmd));
+            }
+        } else {
+            resp.success = false;
+            strcpy(resp.errorMsg, "Failed to create user");
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleModifyUser(const UserData& user) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+
+    int level = 1;
+    if (strcmp(user.password, "Room/Vault") == 0) level = 2;
+
+    const char* sql =
+        "UPDATE Users SET Name=?, RFID_Card=?, FingerprintID=?, AccessLevel=? "
+        "WHERE UserID=?;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, user.name, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, user.rfid, -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 3, user.fingerprintID);
+        sqlite3_bind_int(stmt, 4, level);
+        sqlite3_bind_int(stmt, 5, user.fingerprintID);  // ID é o mesmo!
+
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            resp.success = true;
+            strcpy(resp.jsonData, "{\"status\":\"ok\"}");
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleRemoveUser(int userId) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+
+    const char* sql = "DELETE FROM Users WHERE UserID = ?;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, userId);
+
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            resp.success = true;
+            strcpy(resp.jsonData, "{\"status\":\"ok\"}");
+
+            // Avisar thread para apagar fingerprint físico
+            AuthResponse cmd = {};
+            cmd.command = DB_CMD_DELETE_USER;
+            cmd.payload.auth.userId = userId;
+            m_mqToFingerprint.send(&cmd, sizeof(cmd));
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleGetAssets() {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+    nlohmann::json assets = nlohmann::json::array();
+
+    const char* sql = "SELECT Name, RFID_Tag, State, LastRead FROM Assets;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            nlohmann::json asset;
+            asset["name"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            asset["tag"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+            asset["state"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+
+            time_t ts = sqlite3_column_int(stmt, 3);
+            struct tm* timeinfo = localtime(&ts);
+            char buffer[20];
+            strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", timeinfo);
+            asset["lastSeen"] = buffer;
+
+            assets.push_back(asset);
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    resp.success = true;
+    std::string json = assets.dump();
+    strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleCreateAsset(const AssetData& asset) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+
+    const char* sql =
+        "INSERT INTO Assets (Name, RFID_Tag, State, LastRead) "
+        "VALUES (?, ?, ?, ?);";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, asset.name, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, asset.tag, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 3, asset.state, -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 4, (int)time(nullptr));
+
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            resp.success = true;
+            strcpy(resp.jsonData, "{\"status\":\"ok\"}");
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleModifyAsset(const AssetData& asset) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+
+    const char* sql =
+        "UPDATE Assets SET Name=?, State=? WHERE RFID_Tag=?;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, asset.name, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 2, asset.state, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 3, asset.tag, -1, SQLITE_STATIC);
+
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            resp.success = true;
+            strcpy(resp.jsonData, "{\"status\":\"ok\"}");
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleRemoveAsset(const char* tag) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+
+    const char* sql = "DELETE FROM Assets WHERE RFID_Tag = ?;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, tag, -1, SQLITE_STATIC);
+
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            resp.success = true;
+            strcpy(resp.jsonData, "{\"status\":\"ok\"}");
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleGetSettings() {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+    nlohmann::json settings;
+
+    const char* sql = "SELECT TempThreshold, SamplingTime FROM SystemSettings WHERE ID = 1;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            settings["tempLimit"] = sqlite3_column_int(stmt, 0);
+            settings["sampleTime"] = sqlite3_column_int(stmt, 1) / 60;  // Converter para minutos
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    resp.success = true;
+    std::string json = settings.dump();
+    strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleUpdateSettings(const SystemSettings& settings) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+
+    const char* sql = "UPDATE SystemSettings SET TempThreshold=?, SamplingTime=? WHERE ID=1;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, settings.tempThreshold);
+        sqlite3_bind_int(stmt, 2, settings.samplingInterval);
+
+        if (sqlite3_step(stmt) == SQLITE_DONE) {
+            resp.success = true;
+            strcpy(resp.jsonData, "{\"status\":\"saved\"}");
+
+            // Avisar thread de temperatura!
+            // CORRETO (envia 1 comando com ambos):
+            AuthResponse cmd = {};
+            cmd.command = DB_CMD_UPDATE_SETTINGS;
+            cmd.payload.settings.tempThreshold = settings.tempThreshold;
+            cmd.payload.settings.samplingInterval = settings.samplingInterval;
+            m_mqToEnvThread.send(&cmd, sizeof(cmd));
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleFilterLogs(const LogFilter& filter) {
+    sqlite3_stmt* stmt;
+    DbWebResponse resp = {};
+    nlohmann::json result;
+
+    // Calcular timestamp baseado no filtro
+    time_t now = time(nullptr);
+    time_t startTime = now;
+
+    if (strcmp(filter.timeRange, "1 Hour") == 0) startTime -= 3600;
+    else if (strcmp(filter.timeRange, "1 Day") == 0) startTime -= 86400;
+    else if (strcmp(filter.timeRange, "1 Week") == 0) startTime -= 604800;
+
+    // Se for Temperature ou Humidity -> Gráfico
+    if (strcmp(filter.logType, "Temperature") == 0 ||
+        strcmp(filter.logType, "Humidity") == 0) {
+
+        int sensorType = strcmp(filter.logType, "Temperature") == 0 ? 0 : 1;
+        const char* field = strcmp(filter.logType, "Temperature") == 0 ? "Value" : "Value2";
+
+        std::string colName = (strcmp(filter.logType, "Temperature") == 0) ? "Value" : "Value2";
+
+        // 2. Montar a query injetando o nome da coluna diretamente na string
+        std::string sqlStr = "SELECT Timestamp, " + colName +
+                             " FROM Logs WHERE LogType = ? AND EntityID = 0 AND Timestamp > ? "
+                             " ORDER BY Timestamp ASC LIMIT 50;"; // Mudei para ASC para o gráfico fazer sentido (esquerda -> direita)
+
+        if (sqlite3_prepare_v2(m_db, sqlStr.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
+            // Agora só fazemos bind de VALORES (o LogType e o Tempo)
+            sqlite3_bind_int(stmt, 1, LOG_TYPE_SENSOR);
+            sqlite3_bind_int(stmt, 2, (int)startTime);
+
+            nlohmann::json labels = nlohmann::json::array();
+            nlohmann::json data = nlohmann::json::array();
+
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                time_t ts = sqlite3_column_int(stmt, 0);
+                struct tm* timeinfo = localtime(&ts);
+                char buffer[6];
+                strftime(buffer, sizeof(buffer), "%H:%M", timeinfo);
+
+                labels.push_back(buffer);
+                data.push_back(sqlite3_column_double(stmt, 1));
+            }
+            sqlite3_finalize(stmt);
+
+            result["graph"]["labels"] = labels;
+            if (strcmp(filter.logType, "Temperature") == 0) {
+                result["graph"]["temp"] = data;
+            } else {
+                result["graph"]["hum"] = data;
+            }
+        }
+    }
+    // Outros tipos -> Lista
+    else {
+        int logTypeFilter = LOG_TYPE_SYSTEM;
+        if (strcmp(filter.logType, "Intrusion") == 0) logTypeFilter = LOG_TYPE_ALERT;
+        else if (strcmp(filter.logType, "Access") == 0) logTypeFilter = LOG_TYPE_ACCESS;
+
+        const char* sql =
+            "SELECT Timestamp, LogType, Description FROM Logs "
+            "WHERE LogType = ? AND Timestamp > ? "
+            "ORDER BY Timestamp DESC LIMIT 100;";
+
+        if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int(stmt, 1, logTypeFilter);
+            sqlite3_bind_int(stmt, 2, startTime);
+
+            nlohmann::json logs = nlohmann::json::array();
+
+            while (sqlite3_step(stmt) == SQLITE_ROW) {
+                nlohmann::json log;
+
+                time_t ts = sqlite3_column_int(stmt, 0);
+                struct tm* timeinfo = localtime(&ts);
+                char buffer[20];
+                strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M", timeinfo);
+                log["time"] = buffer;
+
+                int type = sqlite3_column_int(stmt, 1);
+                log["type"] = (type == LOG_TYPE_ALERT) ? "Alert" : "Info";
+
+                log["desc"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+
+                logs.push_back(log);
+            }
+            sqlite3_finalize(stmt);
+
+            result["logs"] = logs;
+        }
+    }
+
+    resp.success = true;
+    std::string json = result.dump();
+    strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
+
+    m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleAddFingerprint(int userId) {
+    // Simplesmente envia para a thread do cofre
+    AuthResponse cmd = {};
+    cmd.command = DB_CMD_ADD_USER;
+    cmd.payload.auth.userId = userId;
+    m_mqToFingerprint.send(&cmd, sizeof(cmd));
+}
+
+void dDatabase::handleDeleteFingerprint(int userId) {
+    AuthResponse cmd = {};
+    cmd.command = DB_CMD_DELETE_USER;
+    cmd.payload.auth.userId = userId;
+    m_mqToFingerprint.send(&cmd, sizeof(cmd));
 }

@@ -182,26 +182,62 @@ enum e_DbCommand {
     DB_CMD_ADD_USER, // dar add a user
     DB_CMD_DELETE_USER,
     DB_CMD_UPDATE_TEMP_THRESHOLD,
-    DB_CMD_UPDATE_SAMPLING_TIME
+    DB_CMD_UPDATE_SAMPLING_TIME,
+    DB_CMD_REGISTER_USER,          // Criar conta viewer
+    DB_CMD_GET_USERS,              // Listar utilizadores
+    DB_CMD_CREATE_USER,            // Admin cria user
+    DB_CMD_MODIFY_USER,            // Editar user
+    DB_CMD_REMOVE_USER,            // Apagar user
+    DB_CMD_GET_ASSETS,             // Listar assets
+    DB_CMD_CREATE_ASSET,           // Criar asset
+    DB_CMD_MODIFY_ASSET,           // Editar asset
+    DB_CMD_REMOVE_ASSET,           // Apagar asset
+    DB_CMD_GET_SETTINGS,           // Ler settings
+    DB_CMD_UPDATE_SETTINGS,        // Atualizar settings
+    DB_CMD_FILTER_LOGS             // Filtrar logs
 };
 
-
-
-// Mensagem de Pedido (Entrada no Daemon)
-struct DatabaseMsg {
-    e_DbCommand command;
-    //char respQueueName[32];  // Onde a thread espera a resposta (se necessário)
-    union {
-        char rfid[11];       // Para validar User ou atualizar Asset
-        DatabaseLog log;     // Para registo de histórico
-        Data_RFID_Inventory rfidInventory;
-        LoginRequest login; // Credenciais de login
-    } payload;
+// ADICIONAR estrutura para USER management
+struct UserData {
+    char name[64];
+    char rfid[11];
+    int fingerprintID;  // Mesmo que userID!
+    int accessLevel;    // 0=Viewer, 1=Room, 2=Room+Vault
+    char password[64];  // Só usado para login web
 };
 
-union SystemSettings {
+struct AssetData {
+    char name[64];
+    char tag[32];
+    char state[16];  // "Inside" ou "Outside"
+};
+
+struct LogFilter {
+    char timeRange[16];  // "1 Hour", "1 Day", "1 Week"
+    char logType[32];    // "Temperature", "Intrusion", etc
+};
+
+struct SystemSettings {
     int tempThreshold;
     int samplingInterval; // em segundos
+};
+
+
+
+// ATUALIZAR DatabaseMsg union:
+struct DatabaseMsg {
+    e_DbCommand command;
+    union {
+        char rfid[11];
+        DatabaseLog log;
+        Data_RFID_Inventory rfidInventory;
+        LoginRequest login;
+        UserData user;        // ← NOVO
+        AssetData asset;      // ← NOVO
+        SystemSettings settings; // ← NOVO
+        LogFilter logFilter;  // ← NOVO
+        int userId;           // Para comandos simples (delete, etc)
+    } payload;
 };
 
 //db response //possivelkmente vai ser mudada para struct

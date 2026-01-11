@@ -39,7 +39,6 @@ void C_tReadEnvSensor::run() {
     std::cout << "[tReadEnv] Thread em execução. A aguardar primeiro ciclo..."
               << std::endl;
 
-    AuthResponse cmdMsg = {};
 
     while (true) {
         // ========================================
@@ -47,18 +46,12 @@ void C_tReadEnvSensor::run() {
         // Retorna true se timeout, false se signal
         // ========================================
 
+        AuthResponse cmdMsg = {};
         ssize_t bytes = m_mqFromDb.timedReceive(&cmdMsg, sizeof(AuthResponse), 0);
 
-        if (bytes > 0) {
-            // Se recebeu mensagem, verifica o comando e atualiza
-            if (cmdMsg.command == DB_CMD_UPDATE_TEMP_THRESHOLD) {
-                m_tempThreshold = cmdMsg.payload.settings.tempThreshold;
-                std::cout << "[EnvSensor] Update Temp -> " << m_tempThreshold << std::endl;
-            }
-            else if (cmdMsg.command == DB_CMD_UPDATE_SAMPLING_TIME) {
-                m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
-                std::cout << "[EnvSensor] Update Time -> " << m_intervalSeconds << "s" << std::endl;
-            }
+        if (bytes > 0 && cmdMsg.command == DB_CMD_UPDATE_SETTINGS) {
+            m_tempThreshold = cmdMsg.payload.settings.tempThreshold;
+            m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
         }
 
         bool wasTimeout = m_monitor.timedWait(m_intervalSeconds);

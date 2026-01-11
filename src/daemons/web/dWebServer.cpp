@@ -17,7 +17,6 @@ dWebServer::~dWebServer() {
 bool dWebServer::start() {
     std::string addr = "http://0.0.0.0:" + std::to_string(m_port);
 
-    // ✅ Passamos 'this' como fn_data (4º parâmetro)
     if (mg_http_listen(&m_mgr, addr.c_str(), eventHandler, this) == nullptr) {
         std::cerr << "[WebServer] Failed to start on port " << m_port << std::endl;
         return false;
@@ -39,27 +38,37 @@ void dWebServer::run() {
     }
 }
 
-// ✅ Helper para comparar URIs (compatível com Mongoose 7.17)
+// ============================================
+// EVENT HANDLER (Router Principal)
+// ============================================
+
 bool dWebServer::matchUri(const struct mg_str* uri, const char* pattern) {
     size_t plen = strlen(pattern);
     return uri->len == plen && memcmp(uri->buf, pattern, plen) == 0;
 }
+bool dWebServer::matchPrefix(const struct mg_str* uri, const char* pattern) {
+    size_t plen = strlen(pattern);
+    // Verifica se o URI é maior ou igual ao pattern e se o início coincide
+    return uri->len >= plen && memcmp(uri->buf, pattern, plen) == 0;
+}
 
-// ✅ Event handler com 3 parâmetros
 void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
     if (ev == MG_EV_HTTP_MSG) {
         struct mg_http_message* hm = (struct mg_http_message*)ev_data;
-
-        // ✅ Recuperar 'this' do fn_data que foi passado no mg_http_listen
         dWebServer* self = (dWebServer*)c->fn_data;
 
-        // ✅ Comparação manual de URIs (sem mg_http_match_uri)
+        // ========== ROTAS PÚBLICAS (sem autenticação) ==========
         if (matchUri(&hm->uri, "/api/login")) {
             self->handleLogin(c, hm);
+        }
+        else if (matchUri(&hm->uri, "/api/register")) {
+            self->handleRegister(c, hm);
         }
         else if (matchUri(&hm->uri, "/api/logout")) {
             self->handleLogout(c, hm);
         }
+
+        // ========== ROTAS PROTEGIDAS (requerem autenticação) ==========
         else if (matchUri(&hm->uri, "/api/dashboard")) {
             self->handleDashboard(c, hm);
         }
@@ -69,38 +78,72 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
         else if (matchUri(&hm->uri, "/api/actuators")) {
             self->handleActuators(c, hm);
         }
+        else if (matchUri(&hm->uri, "/api/logs/filter")) {
+            self->handleLogsFilter(c, hm);
+        }
+
+        // ========== ROTAS ADMIN (requerem AccessLevel >= 1) ==========
+        else if (matchUri(&hm->uri, "/api/users")) {
+            self->handleUsers(c, hm);
+        }
+        else if (matchUri(&hm->uri, "/api/users")) {
+            self->handleUsers(c, hm);
+        }
+        else if (matchUri(&hm->uri, "/api/assets")) {
+            self->handleAssets(c, hm);
+        }
+        else if (matchPrefix(&hm->uri, "/api/users/")) { // <--- MUDANÇA AQUI
+            self->handleUsersById(c, hm);
+        }
+        else if (matchUri(&hm->uri, "/api/settings")) {
+            self->handleSettings(c, hm);
+        }
+
+        // ========== 404 ==========
         else {
             self->sendError(c, 404, "Endpoint not found");
         }
     }
 }
 
+// ============================================
+// AUTENTICAÇÃO
+// ============================================
+
 void dWebServer::handleLogin(struct mg_connection* c, struct mg_http_message* hm) {
     nlohmann::json body;
     try {
-        // ✅ body.ptr e body.len existem no Mongoose 7.17
         body = nlohmann::json::parse(std::string(hm->body.buf, hm->body.len));
     } catch (...) {
         sendError(c, 400, "Invalid JSON");
         return;
     }
 
-    nlohmann::json params;
-    params["user"] = body["user"];
-    params["pass"] = body["pass"];
+    DatabaseMsg msg = {};
+    msg.command = DB_CMD_LOGIN;
+    strncpy(msg.payload.login.username, body["user"].get<std::string>().c_str(), 63);
+    strncpy(msg.payload.login.password, body["pass"].get<std::string>().c_str(), 63);
 
-    nlohmann::json response = queryDatabase(DB_CMD_LOGIN, params);
+    if (!m_mqToDatabase.send(&msg, sizeof(msg))) {
+        sendError(c, 500, "Database unavailable");
+        return;
+    }
 
-    if (response.contains("error")) {
+    DbWebResponse resp = {};
+    ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+    if (bytes <= 0 || !resp.success) {
         sendError(c, 401, "Invalid credentials");
         return;
     }
 
+    nlohmann::json userData = nlohmann::json::parse(resp.jsonData);
+
     std::string token = generateToken();
     SessionData session;
-    session.userId = response["userId"];
-    session.username = response["username"];
-    session.accessLevel = response["accessLevel"];
+    session.userId = userData["userId"];
+    session.username = userData["username"];
+    session.accessLevel = userData["accessLevel"];
     session.expires = time(nullptr) + 3600;
 
     {
@@ -115,6 +158,35 @@ void dWebServer::handleLogin(struct mg_connection* c, struct mg_http_message* hm
     mg_http_reply(c, 200,
         ("Content-Type: application/json\r\nSet-Cookie: " + cookie + "\r\n").c_str(),
         "%s", json.c_str());
+}
+
+void dWebServer::handleRegister(struct mg_connection* c, struct mg_http_message* hm) {
+    nlohmann::json body;
+    try {
+        body = nlohmann::json::parse(std::string(hm->body.buf, hm->body.len));
+    } catch (...) {
+        sendError(c, 400, "Invalid JSON");
+        return;
+    }
+
+    DatabaseMsg msg = {};
+    msg.command = DB_CMD_REGISTER_USER;
+    strncpy(msg.payload.user.name, body["user"].get<std::string>().c_str(), 63);
+    strncpy(msg.payload.user.password, body["pass"].get<std::string>().c_str(), 63);
+
+    if (!m_mqToDatabase.send(&msg, sizeof(msg))) {
+        sendError(c, 500, "Database unavailable");
+        return;
+    }
+
+    DbWebResponse resp = {};
+    ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+    if (bytes > 0 && resp.success) {
+        sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+    } else {
+        sendError(c, 400, resp.errorMsg);
+    }
 }
 
 void dWebServer::handleLogout(struct mg_connection* c, struct mg_http_message* hm) {
@@ -141,6 +213,10 @@ void dWebServer::handleLogout(struct mg_connection* c, struct mg_http_message* h
         "%s", json.c_str());
 }
 
+// ============================================
+// DASHBOARD & VISUALIZAÇÃO (todos os users)
+// ============================================
+
 void dWebServer::handleDashboard(struct mg_connection* c, struct mg_http_message* hm) {
     SessionData session;
     if (!validateSession(hm, session)) {
@@ -148,14 +224,27 @@ void dWebServer::handleDashboard(struct mg_connection* c, struct mg_http_message
         return;
     }
 
-    nlohmann::json response = queryDatabase(DB_CMD_GET_DASHBOARD);
+    DatabaseMsg msg = {};
+    msg.command = DB_CMD_GET_DASHBOARD;
 
-    if (response.contains("error")) {
-        sendError(c, 500, response["error"]);
+    if (!m_mqToDatabase.send(&msg, sizeof(msg))) {
+        sendError(c, 500, "Database unavailable");
         return;
     }
 
-    sendJson(c, 200, response);
+    DbWebResponse resp = {};
+    ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+    if (bytes > 0 && resp.success) {
+        nlohmann::json data = nlohmann::json::parse(resp.jsonData);
+
+        // ✅ ADICIONAR isAdmin baseado no AccessLevel
+        data["isAdmin"] = (session.accessLevel >= 1);
+
+        sendJson(c, 200, data);
+    } else {
+        sendError(c, 500, "Failed to get dashboard data");
+    }
 }
 
 void dWebServer::handleSensors(struct mg_connection* c, struct mg_http_message* hm) {
@@ -165,14 +254,18 @@ void dWebServer::handleSensors(struct mg_connection* c, struct mg_http_message* 
         return;
     }
 
-    nlohmann::json response = queryDatabase(DB_CMD_GET_SENSORS);
+    DatabaseMsg msg = {};
+    msg.command = DB_CMD_GET_SENSORS;
+    m_mqToDatabase.send(&msg, sizeof(msg));
 
-    if (response.contains("error")) {
-        sendError(c, 500, response["error"]);
-        return;
+    DbWebResponse resp = {};
+    ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+    if (bytes > 0 && resp.success) {
+        sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+    } else {
+        sendError(c, 500, "Failed to get sensors");
     }
-
-    sendJson(c, 200, response);
 }
 
 void dWebServer::handleActuators(struct mg_connection* c, struct mg_http_message* hm) {
@@ -182,46 +275,361 @@ void dWebServer::handleActuators(struct mg_connection* c, struct mg_http_message
         return;
     }
 
-    nlohmann::json response = queryDatabase(DB_CMD_GET_ACTUATORS);
-
-    if (response.contains("error")) {
-        sendError(c, 500, response["error"]);
-        return;
-    }
-
-    sendJson(c, 200, response);
-}
-
-nlohmann::json dWebServer::queryDatabase(e_DbCommand cmd, const nlohmann::json& params) {
     DatabaseMsg msg = {};
-    msg.command = cmd;
-
-    if (cmd == DB_CMD_LOGIN) {
-        std::string user = params["user"];
-        std::string pass = params["pass"];
-        strncpy(msg.payload.login.username, user.c_str(), sizeof(msg.payload.login.username) - 1);
-        msg.payload.login.username[sizeof(msg.payload.login.username) - 1] = '\0';
-        strncpy(msg.payload.login.password, pass.c_str(), sizeof(msg.payload.login.password) - 1);
-        msg.payload.login.password[sizeof(msg.payload.login.password) - 1] = '\0';
-    }
-
-    if (!m_mqToDatabase.send(&msg, sizeof(msg))) {
-        return {{"error", "Failed to send to database"}};
-    }
+    msg.command = DB_CMD_GET_ACTUATORS;
+    m_mqToDatabase.send(&msg, sizeof(msg));
 
     DbWebResponse resp = {};
     ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
 
-    if (bytes <= 0) {
-        return {{"error", "Database timeout"}};
+    if (bytes > 0 && resp.success) {
+        sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+    } else {
+        sendError(c, 500, "Failed to get actuators");
     }
-
-    if (!resp.success) {
-        return {{"error", std::string(resp.errorMsg)}};
-    }
-
-    return nlohmann::json::parse(resp.jsonData);
 }
+
+void dWebServer::handleLogsFilter(struct mg_connection* c, struct mg_http_message* hm) {
+    SessionData session;
+    if (!validateSession(hm, session)) {
+        sendError(c, 401, "Not authenticated");
+        return;
+    }
+
+    nlohmann::json body;
+    try {
+        body = nlohmann::json::parse(std::string(hm->body.buf, hm->body.len));
+    } catch (...) {
+        sendError(c, 400, "Invalid JSON");
+        return;
+    }
+
+    DatabaseMsg msg = {};
+    msg.command = DB_CMD_FILTER_LOGS;
+    strncpy(msg.payload.logFilter.timeRange, body["timeRange"].get<std::string>().c_str(), 15);
+    strncpy(msg.payload.logFilter.logType, body["logType"].get<std::string>().c_str(), 31);
+
+    m_mqToDatabase.send(&msg, sizeof(msg));
+
+    DbWebResponse resp = {};
+    ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+    if (bytes > 0 && resp.success) {
+        sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+    } else {
+        sendError(c, 500, "Failed to filter logs");
+    }
+}
+
+// ============================================
+// USERS (ADMIN apenas)
+// ============================================
+
+void dWebServer::handleUsers(struct mg_connection* c, struct mg_http_message* hm) {
+    SessionData session;
+    if (!validateSession(hm, session)) {
+        sendError(c, 401, "Not authenticated");
+        return;
+    }
+
+    if (session.accessLevel < 1) {
+        sendError(c, 403, "Admin access required");
+        return;
+    }
+
+    // GET - Listar
+    if (mg_strcmp(hm->method, mg_str("GET")) == 0) {
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_GET_USERS;
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to get users");
+        }
+    }
+    // POST - Criar
+    else if (mg_strcmp(hm->method, mg_str("POST")) == 0) {
+        nlohmann::json body;
+        try {
+            body = nlohmann::json::parse(std::string(hm->body.buf, hm->body.len));
+        } catch (...) {
+            sendError(c, 400, "Invalid JSON");
+            return;
+        }
+
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_CREATE_USER;
+        strncpy(msg.payload.user.name, body["name"].get<std::string>().c_str(), 63);
+        strncpy(msg.payload.user.rfid, body["rfid"].get<std::string>().c_str(), 10);
+        msg.payload.user.fingerprintID = body.value("fingerprint", 0);
+        strncpy(msg.payload.user.password, body["access"].get<std::string>().c_str(), 63);
+
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to create user");
+        }
+    }
+}
+
+void dWebServer::handleUsersById(struct mg_connection* c, struct mg_http_message* hm) {
+    SessionData session;
+    if (!validateSession(hm, session)) {
+        sendError(c, 401, "Not authenticated");
+        return;
+    }
+
+    if (session.accessLevel < 1) {
+        sendError(c, 403, "Admin access required");
+        return;
+    }
+
+    // Extrair ID do URL: /api/users/5 -> "5"
+    std::string uri(hm->uri.buf, hm->uri.len);
+    std::string idStr = uri.substr(11);  // "/api/users/" = 11 chars
+    int userId = std::stoi(idStr);
+
+    // PUT - Editar
+    if (mg_strcmp(hm->method, mg_str("PUT")) == 0) {
+        nlohmann::json body;
+        try {
+            body = nlohmann::json::parse(std::string(hm->body.buf, hm->body.len));
+        } catch (...) {
+            sendError(c, 400, "Invalid JSON");
+            return;
+        }
+
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_MODIFY_USER;
+        strncpy(msg.payload.user.name, body["name"].get<std::string>().c_str(), 63);
+        strncpy(msg.payload.user.rfid, body["rfid"].get<std::string>().c_str(), 10);
+        msg.payload.user.fingerprintID = userId;  // ID não muda
+        strncpy(msg.payload.user.password, body["access"].get<std::string>().c_str(), 63);
+
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to modify user");
+        }
+    }
+    // DELETE - Apagar
+    else if (mg_strcmp(hm->method, mg_str("DELETE")) == 0) {
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_REMOVE_USER;
+        msg.payload.userId = userId;
+
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to delete user");
+        }
+    }
+}
+
+// ============================================
+// ASSETS (ADMIN apenas)
+// ============================================
+
+void dWebServer::handleAssets(struct mg_connection* c, struct mg_http_message* hm) {
+    SessionData session;
+    if (!validateSession(hm, session)) {
+        sendError(c, 401, "Not authenticated");
+        return;
+    }
+
+    if (session.accessLevel < 1) {
+        sendError(c, 403, "Admin access required");
+        return;
+    }
+
+    // GET - Listar
+    if (mg_strcmp(hm->method, mg_str("GET")) == 0) {
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_GET_ASSETS;
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to get assets");
+        }
+    }
+    // POST - Criar
+    else if (mg_strcmp(hm->method, mg_str("POST")) == 0) {
+        nlohmann::json body;
+        try {
+            body = nlohmann::json::parse(std::string(hm->body.buf, hm->body.len));
+        } catch (...) {
+            sendError(c, 400, "Invalid JSON");
+            return;
+        }
+
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_CREATE_ASSET;
+        strncpy(msg.payload.asset.name, body["name"].get<std::string>().c_str(), 63);
+        strncpy(msg.payload.asset.tag, body["tag"].get<std::string>().c_str(), 31);
+        strncpy(msg.payload.asset.state, body["state"].get<std::string>().c_str(), 15);
+
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to create asset");
+        }
+    }
+}
+
+void dWebServer::handleAssetsById(struct mg_connection* c, struct mg_http_message* hm) {
+    SessionData session;
+    if (!validateSession(hm, session)) {
+        sendError(c, 401, "Not authenticated");
+        return;
+    }
+
+    if (session.accessLevel < 1) {
+        sendError(c, 403, "Admin access required");
+        return;
+    }
+
+    // Extrair TAG do URL
+    std::string uri(hm->uri.buf, hm->uri.len);
+    std::string tag = uri.substr(12);  // "/api/assets/" = 12 chars
+
+    // PUT - Editar
+    if (mg_strcmp(hm->method, mg_str("PUT")) == 0) {
+        nlohmann::json body;
+        try {
+            body = nlohmann::json::parse(std::string(hm->body.buf, hm->body.len));
+        } catch (...) {
+            sendError(c, 400, "Invalid JSON");
+            return;
+        }
+
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_MODIFY_ASSET;
+        strncpy(msg.payload.asset.name, body["name"].get<std::string>().c_str(), 63);
+        strncpy(msg.payload.asset.tag, tag.c_str(), 31);
+        strncpy(msg.payload.asset.state, body["state"].get<std::string>().c_str(), 15);
+
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to modify asset");
+        }
+    }
+    // DELETE - Apagar
+    else if (mg_strcmp(hm->method, mg_str("DELETE")) == 0) {
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_REMOVE_ASSET;
+        strncpy(msg.payload.asset.tag, tag.c_str(), 31);
+
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to delete asset");
+        }
+    }
+}
+
+// ============================================
+// SETTINGS (ADMIN apenas)
+// ============================================
+
+void dWebServer::handleSettings(struct mg_connection* c, struct mg_http_message* hm) {
+    SessionData session;
+    if (!validateSession(hm, session)) {
+        sendError(c, 401, "Not authenticated");
+        return;
+    }
+
+    if (session.accessLevel < 1) {
+        sendError(c, 403, "Admin access required");
+        return;
+    }
+
+    // GET - Ler
+    if (mg_strcmp(hm->method, mg_str("GET")) == 0) {
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_GET_SETTINGS;
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to get settings");
+        }
+    }
+    // POST - Atualizar
+    else if (mg_strcmp(hm->method, mg_str("POST")) == 0) {
+        nlohmann::json body;
+        try {
+            body = nlohmann::json::parse(std::string(hm->body.buf, hm->body.len));
+        } catch (...) {
+            sendError(c, 400, "Invalid JSON");
+            return;
+        }
+
+        DatabaseMsg msg = {};
+        msg.command = DB_CMD_UPDATE_SETTINGS;
+        msg.payload.settings.tempThreshold = body["tempLimit"];
+        msg.payload.settings.samplingInterval = body["sampleTime"].get<int>() * 60;  // Min -> Seg
+
+        m_mqToDatabase.send(&msg, sizeof(msg));
+
+        DbWebResponse resp = {};
+        ssize_t bytes = m_mqFromDatabase.timedReceive(&resp, sizeof(resp), 2);
+
+        if (bytes > 0 && resp.success) {
+            sendJson(c, 200, nlohmann::json::parse(resp.jsonData));
+        } else {
+            sendError(c, 500, "Failed to update settings");
+        }
+    }
+}
+
+// ============================================
+// UTILITÁRIOS
+// ============================================
 
 std::string dWebServer::generateToken() {
     static std::random_device rd;

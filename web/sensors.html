@@ -167,21 +167,6 @@
         </div>
     </div>
 
-    <div class="sensor-card card-sec">
-        <div class="card-header">
-            <div class="card-icon">🚨</div>
-            <div class="card-title">Security (Room)</div>
-        </div>
-        <div class="data-row">
-            <span class="data-label">Movement (PIR)</span>
-            <span id="sec-pir" class="status-badge status-neutral">Loading...</span>
-        </div>
-        <div class="data-row">
-            <span class="data-label">Door Status</span>
-            <span id="sec-door" class="status-badge status-neutral">Loading...</span>
-        </div>
-    </div>
-
     <div class="sensor-card card-acc">
         <div class="card-header">
             <div class="card-icon">🔐</div>
@@ -255,11 +240,7 @@
                 // 1. Ambiente
                 document.getElementById('env-temp').innerText = data.env.temp.toFixed(1);
                 document.getElementById('env-hum').innerText = data.env.hum.toFixed(1);
-
-                // 2. Segurança (PIR e Porta)
-                setBadge('sec-pir', data.sec.motion, data.sec.motion === "No Movement" ? 'good' : 'bad');
-                setBadge('sec-door', data.sec.door, data.sec.door === "Closed" ? 'good' : 'bad');
-
+               
                 // 3. Cofre
                 setBadge('acc-vault-door', data.vault.door, data.vault.door === "Locked" ? 'good' : 'bad');
                 document.getElementById('acc-fp-user').innerText = data.vault.user;

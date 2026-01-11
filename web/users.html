@@ -17,7 +17,7 @@
             flex-direction: column;
         }
 
-        /* --- Header Bonito --- */
+        /* --- Header --- */
         header {
             display: flex;
             align-items: center;
@@ -31,7 +31,6 @@
 
         h1 { margin: 0; color: #2c3e50; font-size: 1.5em; }
 
-        /* Botão Voltar Consistente */
         .btn-back {
             text-decoration: none;
             background-color: #e9ecef;
@@ -39,18 +38,16 @@
             padding: 8px 15px;
             border-radius: 8px;
             font-weight: bold;
-            display: flex;
-            align-items: center;
-            gap: 5px;
+            display: flex; align-items: center; gap: 5px;
             transition: all 0.2s ease;
             font-size: 0.95em;
         }
-
         .btn-back:hover { background-color: #dbe2e8; transform: translateX(-2px); }
 
         /* --- Layout --- */
         .main-container { display: flex; gap: 30px; align-items: flex-start; flex: 1; }
 
+        /* Sidebar */
         .actions-sidebar {
             display: flex; flex-direction: column; gap: 15px; width: 200px;
             background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
@@ -68,7 +65,13 @@
         /* Tabela */
         .table-card { flex: 1; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
         table { width: 100%; border-collapse: collapse; }
-        thead th { text-align: left; padding: 15px; background-color: #f8f9fa; color: #555; border-bottom: 2px solid #eee; font-weight: 600; }
+
+        /* CABEÇALHO DA TABELA */
+        thead th {
+            text-align: left; padding: 15px; background-color: #f8f9fa; color: #555;
+            border-bottom: 2px solid #eee; font-weight: 600;
+        }
+
         tbody td { padding: 15px; border-bottom: 1px solid #eee; color: #333; }
         tbody tr { cursor: pointer; transition: background 0.2s; }
         tbody tr:hover { background-color: #f1f1f1; }
@@ -110,8 +113,17 @@
 
     <main class="table-card">
         <table>
-            <thead><tr><th>User Name</th><th>User ID / Tag</th><th>Access Type</th><th>Last Login</th></tr></thead>
-            <tbody id="usersTableBody"></tbody>
+            <thead>
+            <tr>
+                <th>User Name</th>
+                <th>RFID Tag</th>
+                <th>Fingerprint ID</th>
+                <th>Access Type</th>
+                <th>Last Login</th>
+            </tr>
+            </thead>
+            <tbody id="usersTableBody">
+            </tbody>
         </table>
     </main>
 </div>
@@ -119,12 +131,30 @@
 <div class="modal-overlay" id="userModal">
     <div class="modal-box">
         <h2 id="modalTitle" style="margin-top:0;">Add User</h2>
-        <div class="form-group"><label>Name</label><input type="text" id="inputName"></div>
-        <div class="form-group"><label>ID (RFID/Finger)</label><input type="text" id="inputId"></div>
+
         <div class="form-group">
-            <label>Access</label>
-            <select id="inputAccess"><option value="Room/Vault">Room & Vault</option><option value="Room">Room Only</option></select>
+            <label>Name</label>
+            <input type="text" id="inputName" placeholder="Ex: João Silva">
         </div>
+
+        <div class="form-group">
+            <label>RFID Tag (Card)</label>
+            <input type="text" id="inputRFID" placeholder="Ex: E200300">
+        </div>
+
+        <div class="form-group">
+            <label>Fingerprint ID</label>
+            <input type="number" id="inputFinger" placeholder="Ex: 5 (0 se não tiver)">
+        </div>
+
+        <div class="form-group">
+            <label>Access Level</label>
+            <select id="inputAccess">
+                <option value="Room">Room Only</option>
+                <option value="Room/Vault">Room & Vault</option>
+            </select>
+        </div>
+
         <div class="modal-actions">
             <button class="btn-cancel" onclick="closeModal()">Cancel</button>
             <button class="btn-save" onclick="saveUser()">Save</button>
@@ -135,7 +165,7 @@
 <script>
     let users = [];
     let selectedIndex = -1;
-    let currentMode = 'add'; // 'add' ou 'edit'
+    let currentMode = 'add';
 
     // --- 1. LEITURA (GET) ---
     function fetchUsers() {
@@ -148,24 +178,31 @@
             .catch(err => console.error("Erro ao carregar users:", err));
     }
 
+    // MUDANÇA AQUI: Renderiza as colunas separadas
     function renderTable() {
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '';
+
         users.forEach((user, index) => {
             const tr = document.createElement('tr');
             if (index === selectedIndex) tr.classList.add('selected');
-            
-            // Selecionar linha ao clicar
-            tr.onclick = () => { 
-                selectedIndex = (selectedIndex === index) ? -1 : index; 
-                renderTable(); 
+
+            tr.onclick = () => {
+                selectedIndex = (selectedIndex === index) ? -1 : index;
+                renderTable();
             };
 
             const badge = user.access.includes("Vault") ? 'access-full' : 'access-room';
-            tr.innerHTML = `<td style="font-weight:500;">${user.name}</td>
-                            <td>${user.id}</td>
-                            <td><span class="access-badge ${badge}">${user.access}</span></td>
-                            <td>${user.lastLogin}</td>`;
+
+            // Preenche as colunas com os dados separados
+            // Se fingerprint for 0 ou nulo, mostra "--"
+            tr.innerHTML = `
+                <td style="font-weight:500;">${user.name}</td>
+                <td>${user.rfid || '--'}</td>
+                <td>${(user.fingerprint && user.fingerprint > 0) ? user.fingerprint : '--'}</td>
+                <td><span class="access-badge ${badge}">${user.access}</span></td>
+                <td>${user.lastLogin}</td>
+            `;
             tbody.appendChild(tr);
         });
     }
@@ -173,39 +210,47 @@
     // --- 2. GRAVAR (POST ou PUT) ---
     function saveUser() {
         const name = document.getElementById('inputName').value;
-        const id = document.getElementById('inputId').value;
+        const rfid = document.getElementById('inputRFID').value;
+        const finger = document.getElementById('inputFinger').value;
         const access = document.getElementById('inputAccess').value;
 
-        if (!name || !id) {
-            alert("Por favor preencha o Nome e o ID.");
+        // Validação: Precisa pelo menos de Nome e RFID
+        if (!name || !rfid) {
+            alert("Por favor preencha o Nome e o RFID Tag.");
             return;
         }
 
         let url = '/api/users';
         let method = 'POST';
 
-        // Se for edição, mudamos para PUT e apontamos para o ID específico
         if (currentMode === 'edit') {
-            url = '/api/users/' + encodeURIComponent(id);
+            // Usa o ID interno da BD para identificar o user na edição
+            const internalId = users[selectedIndex].id;
+            url = '/api/users/' + internalId;
             method = 'PUT';
         }
 
         fetch(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, id: id, access: access })
+            body: JSON.stringify({
+                name: name,
+                rfid: rfid,
+                fingerprint: parseInt(finger) || 0, // Garante que é número
+                access: access
+            })
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'ok') {
-                closeModal();
-                fetchUsers(); // Atualiza a lista
-                selectedIndex = -1; // Limpa a seleção
-            } else {
-                alert("Erro ao gravar: " + (data.message || "Erro desconhecido"));
-            }
-        })
-        .catch(err => alert("Erro de comunicação: " + err));
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    closeModal();
+                    fetchUsers();
+                    selectedIndex = -1;
+                } else {
+                    alert("Erro ao gravar: " + (data.message || "Erro desconhecido"));
+                }
+            })
+            .catch(err => alert("Erro de comunicação: " + err));
     }
 
     // --- 3. REMOVER (DELETE) ---
@@ -216,41 +261,46 @@
         }
 
         const userToDelete = users[selectedIndex];
-        if (!confirm(`Tem a certeza que deseja remover o utilizador "${userToDelete.name}" (ID: ${userToDelete.id})?`)) {
+        if (!confirm(`Tem a certeza que deseja remover "${userToDelete.name}"?`)) {
             return;
         }
 
-        fetch('/api/users/' + encodeURIComponent(userToDelete.id), {
+        // Usa o ID interno para apagar
+        fetch('/api/users/' + userToDelete.id, {
             method: 'DELETE'
         })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'ok') {
-                selectedIndex = -1;
-                fetchUsers();
-            } else {
-                alert("Erro ao remover: " + data.message);
-            }
-        })
-        .catch(err => alert("Erro ao tentar remover: " + err));
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    selectedIndex = -1;
+                    fetchUsers();
+                } else {
+                    alert("Erro ao remover: " + data.message);
+                }
+            })
+            .catch(err => alert("Erro ao tentar remover: " + err));
     }
 
-    // --- FUNÇÕES DE INTERFACE (Modal) ---
+    // --- INTERFACE DO MODAL ---
     function openModal(mode) {
         const modal = document.getElementById('userModal');
         const title = document.getElementById('modalTitle');
+
+        // Elementos do Form
         const inName = document.getElementById('inputName');
-        const inId = document.getElementById('inputId');
+        const inRFID = document.getElementById('inputRFID');
+        const inFinger = document.getElementById('inputFinger');
         const inAccess = document.getElementById('inputAccess');
 
         currentMode = mode;
 
         if (mode === 'add') {
             title.innerText = "Add New User";
+            // Limpar tudo
             inName.value = '';
-            inId.value = '';
-            inId.disabled = false; // Pode escrever o ID novo
-            inAccess.value = 'Room/Vault'; // Valor por defeito
+            inRFID.value = '';
+            inFinger.value = '';
+            inAccess.value = 'Room';
         } else if (mode === 'edit') {
             if (selectedIndex === -1) {
                 alert("Selecione um utilizador para editar!");
@@ -258,9 +308,10 @@
             }
             const user = users[selectedIndex];
             title.innerText = "Modify User";
+            // Preencher com dados existentes
             inName.value = user.name;
-            inId.value = user.id;
-            inId.disabled = true; // Não se deve mudar o ID principal na edição
+            inRFID.value = user.rfid;
+            inFinger.value = user.fingerprint || '';
             inAccess.value = user.access;
         }
 
@@ -271,7 +322,6 @@
         document.getElementById('userModal').style.display = 'none';
     }
 
-    // Fechar ao clicar fora
     window.onclick = function(event) {
         const modal = document.getElementById('userModal');
         if (event.target === modal) {

@@ -148,22 +148,22 @@
         <div class="nav-label">Actuators<br>State</div>
     </div>
 
-    <div class="nav-item" onclick="window.location.href='assets.html'">
-        <div class="nav-circle">💎</div>
-        <div class="nav-label">Assets</div>
-    </div>
-
-    <div class="nav-item" onclick="window.location.href='users.html'">
-        <div class="nav-circle">👤</div>
-        <div class="nav-label">Users</div>
-    </div>
-
     <div class="nav-item" onclick="window.location.href='logs.html'">
         <div class="nav-circle">🕒</div>
         <div class="nav-label">Logs</div>
     </div>
 
-    <div class="nav-item" onclick="window.location.href='settings.html'">
+    <div id="btn-assets" class="nav-item" style="display: none;" onclick="window.location.href='assets.html'">
+        <div class="nav-circle">💎</div>
+        <div class="nav-label">Assets</div>
+    </div>
+
+    <div id="btn-users" class="nav-item" style="display: none;" onclick="window.location.href='users.html'">
+        <div class="nav-circle">👤</div>
+        <div class="nav-label">Users</div>
+    </div>
+
+    <div id="btn-settings" class="nav-item" style="display: none;" onclick="window.location.href='settings.html'">
         <div class="nav-circle">🔧</div>
         <div class="nav-label">Settings</div>
     </div>
@@ -176,24 +176,28 @@
     }
 
     function updateDashboard() {
-        // AQUI ESTÁ A MUDANÇA: Pede os dados ao C++
         fetch('/api/dashboard')
             .then(response => response.json())
             .then(data => {
-                // Preenche o HTML com o que veio do C++
-
-                // Atualiza Texto
+                // 1. Atualizar valores normais
                 document.getElementById('securityStatus').innerText = data.security;
                 document.getElementById('vaultStatus').innerText = data.vault;
 
-                // Atualiza Cor (Vermelho se ALERT, Verde se Secure)
                 const secEl = document.getElementById('securityStatus');
                 secEl.className = (data.security === "ALERT") ? "text-red" : "text-green";
 
-                // Atualiza Temperatura
                 document.getElementById('tempHumValue').innerText = `${data.temp.toFixed(1)}°C / ${data.hum.toFixed(1)}%`;
+
+                // 2. LÓGICA DE ADMIN (NOVO)
+                // Se o JSON disser que isAdmin é true, mostramos os botões
+                if (data.isAdmin === true) {
+                    document.getElementById('btn-assets').style.display = 'block';
+                    document.getElementById('btn-users').style.display = 'block';
+                    document.getElementById('btn-settings').style.display = 'block';
+                }
+                // Caso contrário continuam escondidos (não precisamos de else porque já estão display:none no HTML)
             })
-            .catch(err => console.error("Erro ao comunicar com C++:", err));
+            .catch(err => console.error("Erro dashboard:", err));
     }
 
     // Atualiza assim que a página abre

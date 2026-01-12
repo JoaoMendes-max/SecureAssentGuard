@@ -83,17 +83,17 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
         }
 
         // ========== ROTAS ADMIN (requerem AccessLevel >= 1) ==========
-        else if (matchUri(&hm->uri, "/api/users")) {
-            self->handleUsers(c, hm);
+        else if (matchPrefix(&hm->uri, "/api/assets/")) {
+            self->handleAssetsById(c, hm);
+        }
+        else if (matchPrefix(&hm->uri, "/api/users/")) { // <--- MUDANÇA AQUI
+            self->handleUsersById(c, hm);
         }
         else if (matchUri(&hm->uri, "/api/users")) {
             self->handleUsers(c, hm);
         }
         else if (matchUri(&hm->uri, "/api/assets")) {
             self->handleAssets(c, hm);
-        }
-        else if (matchPrefix(&hm->uri, "/api/users/")) { // <--- MUDANÇA AQUI
-            self->handleUsersById(c, hm);
         }
         else if (matchUri(&hm->uri, "/api/settings")) {
             self->handleSettings(c, hm);
@@ -367,8 +367,14 @@ void dWebServer::handleUsers(struct mg_connection* c, struct mg_http_message* hm
         strncpy(msg.payload.user.name, body["name"].get<std::string>().c_str(), 63);
         strncpy(msg.payload.user.rfid, body["rfid"].get<std::string>().c_str(), 10);
         msg.payload.user.fingerprintID = body.value("fingerprint", 0);
-        strncpy(msg.payload.user.password, body["access"].get<std::string>().c_str(), 63);
-
+        std::string access = body["access"].get<std::string>();
+        if (access == "Room") {
+            msg.payload.user.accessLevel = 1;
+        } else if (access == "Room/Vault") {
+            msg.payload.user.accessLevel = 2;
+        } else {
+            msg.payload.user.accessLevel = 0;  // Viewer
+        }
         m_mqToDatabase.send(&msg, sizeof(msg));
 
         DbWebResponse resp = {};

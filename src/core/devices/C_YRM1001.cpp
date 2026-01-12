@@ -345,7 +345,7 @@ bool C_YRM1001::isTagSeen(const char* epc, char tagList[][32], int tagCount){
  * ============================================ */
 bool C_YRM1001::read(SensorData* data) {
     if (!data) return false;
-
+    powerOn();
     std::cout << "[YRM1001] ========== START SCAN ==========" << std::endl;
 
      /* ========== 2. CLEAR UART BUFFER ========== */

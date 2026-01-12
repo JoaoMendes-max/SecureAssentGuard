@@ -86,7 +86,7 @@ bool dDatabase::initializeSchema() {
         "CREATE TABLE IF NOT EXISTS Sensors ("
         "SensorID INTEGER PRIMARY KEY AUTOINCREMENT, "
         "Type TEXT UNIQUE, "
-        "Value REAL);"
+        "Value INTEGER);" // mudei para integer porque tinha metido a temp e hum e dar valores certos :)
 
         "CREATE TABLE IF NOT EXISTS Actuators ("
         "ActuatorID INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -793,7 +793,6 @@ void dDatabase::handleGetUsers() {
             else if (level == 1) user["access"] = "Room";
             else user["access"] = "Room/Vault";
 
-            user["lastLogin"] = "N/A";  // Podes melhorar isto depois
             users.push_back(user);
         }
         sqlite3_finalize(stmt);
@@ -810,9 +809,7 @@ void dDatabase::handleCreateUser(const UserData& user) {
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
-    // Converter AccessLevel
-    int level = 1;  // Default Room
-    if (strcmp(user.password, "Room/Vault") == 0) level = 2;
+    int level = user.accessLevel;
 
     const char* sql =
         "INSERT INTO Users (Name, RFID_Card, FingerprintID, AccessLevel) "
@@ -849,8 +846,7 @@ void dDatabase::handleModifyUser(const UserData& user) {
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
-    int level = 1;
-    if (strcmp(user.password, "Room/Vault") == 0) level = 2;
+    int level = user.accessLevel;
 
     const char* sql =
         "UPDATE Users SET Name=?, RFID_Card=?, FingerprintID=?, AccessLevel=? "

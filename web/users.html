@@ -119,7 +119,6 @@
                 <th>RFID Tag</th>
                 <th>Fingerprint ID</th>
                 <th>Access Type</th>
-                <th>Last Login</th>
             </tr>
             </thead>
             <tbody id="usersTableBody">
@@ -201,7 +200,6 @@
                 <td>${user.rfid || '--'}</td>
                 <td>${(user.fingerprint && user.fingerprint > 0) ? user.fingerprint : '--'}</td>
                 <td><span class="access-badge ${badge}">${user.access}</span></td>
-                <td>${user.lastLogin}</td>
             `;
             tbody.appendChild(tr);
         });

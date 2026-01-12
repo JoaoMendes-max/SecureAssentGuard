@@ -462,10 +462,16 @@ void dDatabase::handleLogin(const LoginRequest& login) {
     DbWebResponse resp = {};
     nlohmann::json result;
 
-    const char* sql = "SELECT UserID, Name, AccessLevel, Password FROM Users WHERE Name = ?;";
+    // ✅ ADICIONAR "_viewer" ao nome automaticamente
+    char fullName[70];
+    snprintf(fullName, sizeof(fullName), "%s_viewer", login.username);
+
+    // Só procura users COM password (viewers)
+    const char* sql = "SELECT UserID, Name, AccessLevel, Password FROM Users "
+                      "WHERE Name = ? AND Password IS NOT NULL;";
 
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, login.username, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_STATIC);  // ← Mudou aqui
 
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             const char* storedHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
@@ -473,7 +479,15 @@ void dDatabase::handleLogin(const LoginRequest& login) {
             // Verify password with Argon2
             if (argon2i_verify(storedHash, login.password, strlen(login.password)) == ARGON2_OK) {
                 result["userId"] = sqlite3_column_int(stmt, 0);
-                result["username"] = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+
+                // ✅ REMOVER "_viewer" ao mostrar ao user
+                const char* dbName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
+                std::string displayName(dbName);
+                if (displayName.size() > 7 && displayName.substr(displayName.size() - 7) == "_viewer") {
+                    displayName = displayName.substr(0, displayName.size() - 7);
+                }
+                result["username"] = displayName;
+
                 result["accessLevel"] = sqlite3_column_int(stmt, 2);
                 resp.success = true;
             } else {
@@ -700,6 +714,31 @@ void dDatabase::handleRegisterUser(const UserData& user) {
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
+    // ✅ PASSO 1: Adicionar "_viewer" ao nome
+    char fullName[70];
+    snprintf(fullName, sizeof(fullName), "%s_viewer", user.name);
+
+    // ✅ PASSO 2: VERIFICAR se já existe antes de criar
+    const char* checkSql = "SELECT COUNT(*) FROM Users WHERE Name = ?;";
+    int count = 0;
+
+    if (sqlite3_prepare_v2(m_db, checkSql, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_STATIC);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            count = sqlite3_column_int(stmt, 0);
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // Se já existe, rejeitar
+    if (count > 0) {
+        resp.success = false;
+        strcpy(resp.errorMsg, "Username already taken");
+        m_mqToWeb.send(&resp, sizeof(resp));
+        return;  // ← IMPORTANTE: Sair aqui!
+    }
+
+    // ✅ PASSO 3: Se não existe, criar normalmente
     // Hash da password
     char hash[128];
     uint8_t salt[16];
@@ -709,12 +748,11 @@ void dDatabase::handleRegisterUser(const UserData& user) {
     argon2id_hash_encoded(2, 16384, 1, user.password, strlen(user.password),
                          salt, sizeof(salt), 32, hash, sizeof(hash));
 
-    // CRIAR com AccessLevel = 0 (VIEWER apenas)
-    const char* sql =
-        "INSERT INTO Users (Name, Password, AccessLevel) VALUES (?, ?, 0);";
+    // Inserir na BD
+    const char* sql = "INSERT INTO Users (Name, Password, AccessLevel) VALUES (?, ?, 0);";
 
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        sqlite3_bind_text(stmt, 1, user.name, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, hash, -1, SQLITE_STATIC);
 
         if (sqlite3_step(stmt) == SQLITE_DONE) {
@@ -722,7 +760,7 @@ void dDatabase::handleRegisterUser(const UserData& user) {
             strcpy(resp.jsonData, "{\"status\":\"ok\"}");
         } else {
             resp.success = false;
-            strcpy(resp.errorMsg, "User already exists");
+            strcpy(resp.errorMsg, "Database error");
         }
         sqlite3_finalize(stmt);
     }
@@ -735,7 +773,9 @@ void dDatabase::handleGetUsers() {
     DbWebResponse resp = {};
     nlohmann::json users = nlohmann::json::array();
 
-    const char* sql = "SELECT UserID, Name, RFID_Card, FingerprintID, AccessLevel FROM Users;";
+    const char* sql = "SELECT UserID, Name, RFID_Card, FingerprintID, AccessLevel "
+                          "FROM Users "
+                          "WHERE (RFID_Card IS NOT NULL OR FingerprintID IS NOT NULL);";
 
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {

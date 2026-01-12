@@ -757,7 +757,7 @@ void dDatabase::handleRegisterUser(const UserData& user) {
 
         if (sqlite3_step(stmt) == SQLITE_DONE) {
             resp.success = true;
-            strcpy(resp.jsonData, "{\"status\":\"ok\"}");
+            strcpy(resp.jsonData, R"({"status":"ok"})");
         } else {
             resp.success = false;
             strcpy(resp.errorMsg, "Database error");

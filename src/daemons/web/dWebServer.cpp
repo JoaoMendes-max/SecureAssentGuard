@@ -365,7 +365,7 @@ void dWebServer::handleUsers(struct mg_connection* c, struct mg_http_message* hm
         DatabaseMsg msg = {};
         msg.command = DB_CMD_CREATE_USER;
         strncpy(msg.payload.user.name, body["name"].get<std::string>().c_str(), 63);
-        strncpy(msg.payload.user.rfid, body["rfid"].get<std::string>().c_str(), 10);
+        strncpy(msg.payload.user.rfid, body["rfid"].get<std::string>().c_str(), 10); // nao tenho a certeza desta shit por causa dos \0
         msg.payload.user.fingerprintID = body.value("fingerprint", 0);
         std::string access = body["access"].get<std::string>();
         if (access == "Room") {
@@ -417,10 +417,17 @@ void dWebServer::handleUsersById(struct mg_connection* c, struct mg_http_message
 
         DatabaseMsg msg = {};
         msg.command = DB_CMD_MODIFY_USER;
+        msg.payload.user.userID = userId;
+
         strncpy(msg.payload.user.name, body["name"].get<std::string>().c_str(), 63);
         strncpy(msg.payload.user.rfid, body["rfid"].get<std::string>().c_str(), 10);
-        msg.payload.user.fingerprintID = userId;  // ID não muda
-        strncpy(msg.payload.user.password, body["access"].get<std::string>().c_str(), 63);
+        msg.payload.user.fingerprintID = body.value("fingerprint", 0);  // ← CORRIGIDO
+        // 3. CORRECÇÃO DO ACESSO (Onde antes usavas a password)
+        std::string accessStr = body["access"].get<std::string>();
+        msg.payload.user.accessLevel = (accessStr == "Room/Vault") ? 2 : 1; // Converte string para número
+
+        // A password fica vazia (terminador nulo no início), pois não se edita a pass aqui
+        msg.payload.user.password[0] = '\0';
 
         m_mqToDatabase.send(&msg, sizeof(msg));
 

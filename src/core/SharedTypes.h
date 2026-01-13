@@ -199,6 +199,7 @@ enum e_DbCommand {
 
 // ADICIONAR estrutura para USER management
 struct UserData {
+    int userID;         // ← NOVO (ID da BD)
     char name[64];
     char rfid[11];
     int fingerprintID;  // Mesmo que userID!

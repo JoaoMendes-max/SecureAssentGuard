@@ -159,11 +159,17 @@
         </div>
         <div class="data-row">
             <span class="data-label">Temperature</span>
-            <span class="data-value"><span id="env-temp">--</span> °C</span>
+            <span class="data-value">
+        <span id="env-temp">--</span> °C
+        <span style="font-size: 0.8em; color: #888;"> @ <span id="env-temp-time">--:--</span></span>
+    </span>
         </div>
         <div class="data-row">
             <span class="data-label">Humidity</span>
-            <span class="data-value"><span id="env-hum">--</span> %</span>
+            <span class="data-value">
+        <span id="env-hum">--</span> %
+        <span style="font-size: 0.8em; color: #888;"> @ <span id="env-hum-time">--:--</span></span>
+    </span>
         </div>
     </div>
 
@@ -240,6 +246,11 @@
                 // 1. Ambiente
                 document.getElementById('env-temp').innerText = data.env.temp.toFixed(1);
                 document.getElementById('env-hum').innerText = data.env.hum.toFixed(1);
+
+                // ✅ ADICIONAR: Atualizar timestamps
+                document.getElementById('env-temp-time').innerText = data.env.tempTime || '--:--';
+                document.getElementById('env-hum-time').innerText = data.env.humTime || '--:--';
+                ;
                
                 // 3. Cofre
                 setBadge('acc-vault-door', data.vault.door, data.vault.door === "Locked" ? 'good' : 'bad');

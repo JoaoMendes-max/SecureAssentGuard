@@ -86,12 +86,14 @@ bool dDatabase::initializeSchema() {
         "CREATE TABLE IF NOT EXISTS Sensors ("
         "SensorID INTEGER PRIMARY KEY AUTOINCREMENT, "
         "Type TEXT UNIQUE, "
-        "Value INTEGER);" // mudei para integer porque tinha metido a temp e hum e dar valores certos :)
+        "Value INTEGER, " // mudei para integer porque tinha metido a temp e hum e dar valores certos :)
+        "LastUpdate INTEGER DEFAULT 0);" // <--- NOVA COLUNA!
 
         "CREATE TABLE IF NOT EXISTS Actuators ("
         "ActuatorID INTEGER PRIMARY KEY AUTOINCREMENT, "
         "Type TEXT UNIQUE, "
-        "State INTEGER);"
+        "State INTEGER, "
+        "LastUpdate INTEGER DEFAULT 0) ;" // mesma niggalhice de cima
 
         // ↓ NOVA TABELA DE CONFIGURAÇÃO ↓
         "CREATE TABLE IF NOT EXISTS SystemSettings ("
@@ -327,36 +329,38 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
     }
 
     if (log.logType == LOG_TYPE_SENSOR) {
-        updateSensorTable(log.entityID, log.value, log.value2);
+        updateSensorTable(log.entityID, log.value, log.value2, log.timestamp);
     }
     else if (log.logType == LOG_TYPE_ACTUATOR) {
-        updateActuatorTable(log.entityID, log.value);
+        updateActuatorTable(log.entityID, log.value, log.timestamp);
     }
 
 }
 
 
-void dDatabase::updateSensorTable(uint8_t entityID, uint16_t value, uint16_t value2) {
+void dDatabase::updateSensorTable(uint8_t entityID, uint16_t value, uint16_t value2, uint32_t timestamp) {
     if (entityID == ID_SHT31) {
         sqlite3_stmt* stmt;
 
-        const char* sqlTemp = "UPDATE Sensors SET Value = ? WHERE Type = 'TEMPERATURE';";
+        const char* sqlTemp = "UPDATE Sensors SET Value = ?, LastUpdate = ? WHERE Type = 'TEMPERATURE';";
         if (sqlite3_prepare_v2(m_db, sqlTemp, -1, &stmt, nullptr) == SQLITE_OK) {
-            sqlite3_bind_double(stmt, 1, (double)value);
+            sqlite3_bind_double(stmt, 1, value);
+            sqlite3_bind_int(stmt, 2, timestamp); // <-- Novo bind
             sqlite3_step(stmt);
             sqlite3_finalize(stmt);
         }
 
-        const char* sqlHum = "UPDATE Sensors SET Value = ? WHERE Type = 'HUMIDITY';";
+        const char* sqlHum = "UPDATE Sensors SET Value = ? , LastUpdate = ? WHERE Type = 'HUMIDITY';";
         if (sqlite3_prepare_v2(m_db, sqlHum, -1, &stmt, nullptr) == SQLITE_OK) {
-            sqlite3_bind_double(stmt, 1, (double)value2);
+            sqlite3_bind_double(stmt, 1, value2);
+            sqlite3_bind_int(stmt, 2, timestamp); // <-- Novo bind
             sqlite3_step(stmt);
             sqlite3_finalize(stmt);
         }
     }
 }
 
-void dDatabase::updateActuatorTable(uint8_t entityID, uint16_t value) {
+void dDatabase::updateActuatorTable(uint8_t entityID, uint16_t value, uint32_t timestamp) {
     sqlite3_stmt* stmt;
     const char* type = nullptr;
 
@@ -368,10 +372,11 @@ void dDatabase::updateActuatorTable(uint8_t entityID, uint16_t value) {
         default: return;
     }
 
-    const char* sql = "UPDATE Actuators SET State = ? WHERE Type = ?;";
+    const char* sql = "UPDATE Actuators SET State = ?, LastUpdate = ? WHERE Type = ?;";
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int(stmt, 1, value > 0 ? 1 : 0);
-        sqlite3_bind_text(stmt, 2, type, -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 2, static_cast<int>(timestamp)); // <-- GUARDAR O TEMPO
+        sqlite3_bind_text(stmt, 3, type, -1, SQLITE_STATIC);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
     }
@@ -408,7 +413,7 @@ void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
 
     // 1. Marcar todos os ativos como 'OUT'
     // Se um objeto não aparecer no scan, assume-se que saiu do cofre.
-    const char* sqlReset = "UPDATE Assets SET State = 'OUT';";
+    const char* sqlReset = "UPDATE Assets SET State = 'Outside';";
     int rc = sqlite3_exec(m_db, sqlReset, nullptr, nullptr, nullptr);
 
     if (rc != SQLITE_OK) {
@@ -417,7 +422,7 @@ void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
     }
 
     // 2. Preparar a query de atualização (usamos placeholders '?' por performance)
-    const char* sqlUpdate = "UPDATE Assets SET State = 'IN', LastRead = ? WHERE RFID_Tag = ?;";
+    const char* sqlUpdate = "UPDATE Assets SET State = 'Inside', LastRead = ? WHERE RFID_Tag = ?;";
 
     if (sqlite3_prepare_v2(m_db, sqlUpdate, -1, &stmt, nullptr) == SQLITE_OK) {
 
@@ -433,7 +438,7 @@ void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
                 std::cerr << "[DB] Erro ao atualizar Tag: " << inventory.tagList[i] << std::endl;
             }
             if (sqlite3_changes(m_db) == 0) {
-                const char* sqlInsert = "INSERT INTO Assets (Name, RFID_Tag, State, LastRead) VALUES ('Item Desconhecido', ?, 'IN', ?);";
+                const char* sqlInsert = "INSERT INTO Assets (Name, RFID_Tag, State, LastRead) VALUES ('Item Desconhecido', ?, 'Inside', ?);";
                 sqlite3_stmt* stmtIns;
 
                 if (sqlite3_prepare_v2(m_db, sqlInsert, -1, &stmtIns, nullptr) == SQLITE_OK) {
@@ -574,32 +579,50 @@ void dDatabase::handleGetSensors() {
     nlohmann::json response;
     sqlite3_stmt* stmt;
 
-    // Environment (Temperature and Humidity)
-    const char* sqlTemp = "SELECT Value FROM Sensors WHERE Type = 'TEMPERATURE';";
-    if (sqlite3_prepare_v2(m_db, sqlTemp, -1, &stmt, nullptr) == SQLITE_OK) {
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            response["env"]["temp"] = sqlite3_column_double(stmt, 0);
+    // =========================================================
+    // 1. ENVIRONMENT (Optimizado com Timestamp)
+    // =========================================================
+    // Lemos TUDO de uma vez (Value e LastUpdate) para ser mais rápido
+    const char* sqlEnv = "SELECT Type, Value, LastUpdate FROM Sensors;";
+
+    if (sqlite3_prepare_v2(m_db, sqlEnv, -1, &stmt, nullptr) == SQLITE_OK) {
+        while (sqlite3_step(stmt) == SQLITE_ROW) {
+            std::string type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+            double value = sqlite3_column_double(stmt, 1);
+            time_t ts = sqlite3_column_int(stmt, 2); // <--- LER A HORA!
+
+            // Formatar Hora
+            char timeBuf[10] = "--:--";
+            if (ts > 0) {
+                struct tm* timeinfo = localtime(&ts);
+                strftime(timeBuf, sizeof(timeBuf), "%H:%M", timeinfo);
+            }
+
+            if (type == "TEMPERATURE") {
+                response["env"]["temp"] = value;
+                response["env"]["tempTime"] = timeBuf; // Envia hora para o site
+            }
+            else if (type == "HUMIDITY") {
+                response["env"]["hum"] = value;
+                response["env"]["humTime"] = timeBuf; // Envia hora para o site
+            }
         }
         sqlite3_finalize(stmt);
     }
 
-    const char* sqlHum = "SELECT Value FROM Sensors WHERE Type = 'HUMIDITY';";
-    if (sqlite3_prepare_v2(m_db, sqlHum, -1, &stmt, nullptr) == SQLITE_OK) {
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            response["env"]["hum"] = sqlite3_column_double(stmt, 0);
-        }
-        sqlite3_finalize(stmt);
-    }
+    // =========================================================
+    // 2. VAULT (Último acesso)
+    // =========================================================
+    const char* sqlVault =
+        "SELECT Description, Timestamp FROM Logs "
+        "WHERE LogType = ? AND EntityID != 0 "
+        "ORDER BY Timestamp DESC LIMIT 1;";
 
-    // Vault (last fingerprint access)
-    const char* sqlVault = "SELECT Description, Timestamp FROM Logs WHERE LogType = ? AND EntityID != 0 ORDER BY Timestamp DESC LIMIT 1;";
     if (sqlite3_prepare_v2(m_db, sqlVault, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int(stmt, 1, LOG_TYPE_ACCESS);
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            // Extract user from description
-            response["vault"]["user"] = "User";
 
-            // Convert timestamp to time string
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            response["vault"]["user"] = "User";
             time_t ts = sqlite3_column_int(stmt, 1);
             struct tm* timeinfo = localtime(&ts);
             char buffer[6];
@@ -612,7 +635,7 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    // Vault door state
+    // Porta do Cofre
     const char* sqlVaultDoor = "SELECT State FROM Actuators WHERE Type = 'SERVO_VAULT';";
     if (sqlite3_prepare_v2(m_db, sqlVaultDoor, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -621,7 +644,9 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    // Room (who is inside)
+    // =========================================================
+    // 3. ROOM - QUEM ESTÁ DENTRO
+    // =========================================================
     const char* sqlRoom = "SELECT Name FROM Users WHERE IsInside = 1 LIMIT 1;";
     if (sqlite3_prepare_v2(m_db, sqlRoom, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -632,10 +657,16 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    // Room last entry time
-    const char* sqlRoomTime = "SELECT Timestamp FROM Logs WHERE LogType = ? ORDER BY Timestamp DESC LIMIT 1;";
+    // =========================================================
+    // 4. ROOM - HORA DE ENTRADA
+    // =========================================================
+    const char* sqlRoomTime =
+        "SELECT Timestamp FROM Logs WHERE LogType = ? "
+        "ORDER BY Timestamp DESC LIMIT 1;";
+
     if (sqlite3_prepare_v2(m_db, sqlRoomTime, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int(stmt, 1, LOG_TYPE_ACCESS);
+
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             time_t ts = sqlite3_column_int(stmt, 0);
             struct tm* timeinfo = localtime(&ts);
@@ -648,7 +679,7 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    // Room door state
+    // Porta da Sala
     const char* sqlRoomDoor = "SELECT State FROM Actuators WHERE Type = 'SERVO_ROOM';";
     if (sqlite3_prepare_v2(m_db, sqlRoomDoor, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -657,10 +688,67 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    response["room"]["rfidOut"] = "--";
-    response["room"]["timeOut"] = "--";
-    response["uhf"] = "Idle";
+    // =========================================================
+    // 5. ROOM - QUEM SAIU (A tua versão com JOIN - Excelente)
+    // =========================================================
+    const char* sqlRoomOut =
+        "SELECT u.Name, l.Timestamp FROM Logs l "
+        "JOIN Users u ON l.EntityID = u.UserID "
+        "WHERE l.LogType = ? AND l.Description LIKE '%SAIU%' "
+        "ORDER BY l.Timestamp DESC LIMIT 1;";
 
+    if (sqlite3_prepare_v2(m_db, sqlRoomOut, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, LOG_TYPE_ACCESS);
+
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            const char* userName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
+
+            // Tratamento do nome (opcional, mas recomendado limpar se for viewer)
+            std::string displayName(userName ? userName : "Unknown");
+            // Se quiseres podes descomentar a limpeza do _viewer aqui, mas assim também funciona
+
+            response["room"]["rfidOut"] = displayName;
+
+            time_t ts = sqlite3_column_int(stmt, 1);
+            struct tm* timeinfo = localtime(&ts);
+            char buffer[6];
+            strftime(buffer, sizeof(buffer), "%H:%M", timeinfo);
+            response["room"]["timeOut"] = buffer;
+        } else {
+            response["room"]["rfidOut"] = "--";
+            response["room"]["timeOut"] = "--";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // =========================================================
+    // 6. UHF (A tua versão com Timeout - Excelente)
+    // =========================================================
+    const char* sqlUHF =
+        "SELECT Timestamp FROM Logs WHERE LogType = ? "
+        "ORDER BY Timestamp DESC LIMIT 1;";
+
+    if (sqlite3_prepare_v2(m_db, sqlUHF, -1, &stmt, nullptr) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, LOG_TYPE_INVENTORY);
+
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            time_t lastScan = sqlite3_column_int(stmt, 0);
+            time_t now = time(nullptr);
+
+            if ((now - lastScan) < 300) { // 5 minutos
+                response["uhf"] = "Active";
+            } else {
+                response["uhf"] = "Idle";
+            }
+        } else {
+            response["uhf"] = "Never Scanned";
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    // =========================================================
+    // 7. Envio
+    // =========================================================
     DbWebResponse resp = {};
     resp.success = true;
     std::string json = response.dump();
@@ -675,26 +763,34 @@ void dDatabase::handleGetActuators() {
     sqlite3_stmt* stmt;
 
     // Get all actuator states
-    const char* sql = "SELECT Type, State FROM Actuators;";
+    const char* sql = "SELECT Type, State, LastUpdate FROM Actuators;";
+
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
             std::string type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
             int state = sqlite3_column_int(stmt, 1);
+            time_t ts = sqlite3_column_int(stmt, 2); // <-- LER O TEMPO DIRETO
+            // Formatar a hora bonita (HH:MM)
+            char timeBuf[6] = "--:--";
+            if (ts > 0) { // Só formata se houver data válida
+                struct tm* ti = localtime(&ts);
+                strftime(timeBuf, sizeof(timeBuf), "%H:%M", ti);
+            }
 
             if (type == "FAN") {
                 response["fan"]["state"] = state ? "ON" : "OFF";
-                response["fan"]["timestamp"] = "10:00";
+                response["fan"]["timestamp"] = timeBuf;
             } else if (type == "ALARM") {
                 response["buzzer"]["state"] = state ? "ACTIVE" : "INACTIVE";
-                response["buzzer"]["timestamp"] = "--";
+                response["buzzer"]["timestamp"] = timeBuf; // nem aqui , PORQUE NAO TINHA
                 response["led"]["state"] = state ? "ON" : "OFF";
-                response["led"]["timestamp"] = "--";
+                response["led"]["timestamp"] = timeBuf; // nao sei se aqui era suposto ter
             } else if (type == "SERVO_VAULT") {
                 response["vaultDoor"]["state"] = state ? "LOCKED" : "UNLOCKED";
-                response["vaultDoor"]["timestamp"] = "10:05";
+                response["vaultDoor"]["timestamp"] = timeBuf;
             } else if (type == "SERVO_ROOM") {
                 response["roomDoor"]["state"] = state ? "LOCKED" : "UNLOCKED";
-                response["roomDoor"]["timestamp"] = "09:00";
+                response["roomDoor"]["timestamp"] = timeBuf;
             }
         }
         sqlite3_finalize(stmt);
@@ -775,7 +871,8 @@ void dDatabase::handleGetUsers() {
 
     const char* sql = "SELECT UserID, Name, RFID_Card, FingerprintID, AccessLevel "
                           "FROM Users "
-                          "WHERE (RFID_Card IS NOT NULL OR FingerprintID IS NOT NULL);";
+                          "WHERE (RFID_Card IS NOT NULL OR FingerprintID IS NOT NULL)"
+                          "AND AccessLevel > 0;";
 
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -789,8 +886,7 @@ void dDatabase::handleGetUsers() {
             user["fingerprint"] = sqlite3_column_int(stmt, 3);
 
             int level = sqlite3_column_int(stmt, 4);
-            if (level == 0) user["access"] = "Viewer";
-            else if (level == 1) user["access"] = "Room";
+            if (level == 1) user["access"] = "Room";
             else user["access"] = "Room/Vault";
 
             users.push_back(user);
@@ -809,7 +905,6 @@ void dDatabase::handleCreateUser(const UserData& user) {
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
-    int level = user.accessLevel;
 
     const char* sql =
         "INSERT INTO Users (Name, RFID_Card, FingerprintID, AccessLevel) "
@@ -819,7 +914,7 @@ void dDatabase::handleCreateUser(const UserData& user) {
         sqlite3_bind_text(stmt, 1, user.name, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, user.rfid, -1, SQLITE_STATIC);
         sqlite3_bind_int(stmt, 3, user.fingerprintID);
-        sqlite3_bind_int(stmt, 4, level);
+        sqlite3_bind_int(stmt, 4, user.accessLevel);
 
         if (sqlite3_step(stmt) == SQLITE_DONE) {
             resp.success = true;
@@ -846,7 +941,6 @@ void dDatabase::handleModifyUser(const UserData& user) {
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
-    int level = user.accessLevel;
 
     const char* sql =
         "UPDATE Users SET Name=?, RFID_Card=?, FingerprintID=?, AccessLevel=? "
@@ -856,8 +950,8 @@ void dDatabase::handleModifyUser(const UserData& user) {
         sqlite3_bind_text(stmt, 1, user.name, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, user.rfid, -1, SQLITE_STATIC);
         sqlite3_bind_int(stmt, 3, user.fingerprintID);
-        sqlite3_bind_int(stmt, 4, level);
-        sqlite3_bind_int(stmt, 5, user.fingerprintID);  // ID é o mesmo!
+        sqlite3_bind_int(stmt, 4, user.accessLevel);
+        sqlite3_bind_int(stmt, 5, user.userID);
 
         if (sqlite3_step(stmt) == SQLITE_DONE) {
             resp.success = true;
@@ -1053,25 +1147,24 @@ void dDatabase::handleFilterLogs(const LogFilter& filter) {
     if (strcmp(filter.timeRange, "1 Hour") == 0) startTime -= 3600;
     else if (strcmp(filter.timeRange, "1 Day") == 0) startTime -= 86400;
     else if (strcmp(filter.timeRange, "1 Week") == 0) startTime -= 604800;
+    else if (strcmp(filter.timeRange, "1 Month") == 0) startTime -= 2592000;
 
     // Se for Temperature ou Humidity -> Gráfico
     if (strcmp(filter.logType, "Temperature") == 0 ||
         strcmp(filter.logType, "Humidity") == 0) {
 
-        int sensorType = strcmp(filter.logType, "Temperature") == 0 ? 0 : 1;
-        const char* field = strcmp(filter.logType, "Temperature") == 0 ? "Value" : "Value2";
-
         std::string colName = (strcmp(filter.logType, "Temperature") == 0) ? "Value" : "Value2";
 
         // 2. Montar a query injetando o nome da coluna diretamente na string
         std::string sqlStr = "SELECT Timestamp, " + colName +
-                             " FROM Logs WHERE LogType = ? AND EntityID = 0 AND Timestamp > ? "
+                             " FROM Logs WHERE LogType = ? AND EntityID = ? AND Timestamp > ? "
                              " ORDER BY Timestamp ASC LIMIT 50;"; // Mudei para ASC para o gráfico fazer sentido (esquerda -> direita)
 
         if (sqlite3_prepare_v2(m_db, sqlStr.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
             // Agora só fazemos bind de VALORES (o LogType e o Tempo)
             sqlite3_bind_int(stmt, 1, LOG_TYPE_SENSOR);
-            sqlite3_bind_int(stmt, 2, (int)startTime);
+            sqlite3_bind_int(stmt, 2, ID_SHT31); // Usar o ID correto do sensor
+            sqlite3_bind_int(stmt, 3, (int)startTime);
 
             nlohmann::json labels = nlohmann::json::array();
             nlohmann::json data = nlohmann::json::array();
@@ -1099,7 +1192,9 @@ void dDatabase::handleFilterLogs(const LogFilter& filter) {
     else {
         int logTypeFilter = LOG_TYPE_SYSTEM;
         if (strcmp(filter.logType, "Intrusion") == 0) logTypeFilter = LOG_TYPE_ALERT;
-        else if (strcmp(filter.logType, "Access") == 0) logTypeFilter = LOG_TYPE_ACCESS;
+        else if (strcmp(filter.logType, "Accesses") == 0) logTypeFilter = LOG_TYPE_ACCESS;
+        else if (strcmp(filter.logType, "Assets") == 0) logTypeFilter = LOG_TYPE_INVENTORY;   // ← NOVO
+        else if (strcmp(filter.logType, "Users") == 0) logTypeFilter = LOG_TYPE_ACCESS;       // ← NOVO
 
         const char* sql =
             "SELECT Timestamp, LogType, Description FROM Logs "

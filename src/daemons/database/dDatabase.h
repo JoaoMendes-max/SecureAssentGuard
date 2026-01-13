@@ -46,8 +46,8 @@ private:
     void handleGetSensors();
     void handleGetActuators();
     void handleInsertLog(const DatabaseLog& log);
-    void updateSensorTable(uint8_t entityID, uint16_t value, uint16_t value2);
-    void updateActuatorTable(uint8_t entityID, uint16_t value);
+    void updateSensorTable(uint8_t entityID, uint16_t value, uint16_t value2, uint32_t timestamp);
+    void updateActuatorTable(uint8_t entityID, uint16_t value, uint32_t timestamp);
 
     // ↓ NOVOS HANDLERS ↓
     void handleRegisterUser(const UserData& user);

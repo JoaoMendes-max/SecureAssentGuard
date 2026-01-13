@@ -13,6 +13,12 @@ include_directories(
         src/core/threads
         src/daemons
         src/daemons/database # <--- ADICIONADO para encontrar dDatabase.h
+        src/daemons/web # <--- ADICIONADO para encontrar dDatabase.h
+
+)
+
+set(SHARED_SOURCES
+        src/core/ipc/C_Mqueue.cpp    # Para abrir, enviar e receber mensagens nas filas POSIX
 )
 
 # =========================================================
@@ -48,9 +54,7 @@ add_executable(SecureAssetCore
         src/core/threads/C_tVerifyVaultAccess.cpp
         src/core/threads/C_tCheckMovement.cpp
         src/core/threads/C_tLeaveRoomAccess.cpp
-        src/core/threads/C_tLeaveRoomAccess.h
         src/core/threads/C_tSighandler.cpp
-
 )
 
 target_link_libraries(SecureAssetCore

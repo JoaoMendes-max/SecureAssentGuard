@@ -65,7 +65,7 @@ int main() {
     C_Mqueue mqFinger("/mq_finger", 512, 10, true);
     C_Mqueue mqMove("/mq_move", 512, 10, true);
     C_Mqueue mqToWeb("/mq_db_to_web", sizeof(DbWebResponse), 10, true);
-    C_Mqueue mqToaa("/mq_db_to_web", sizeof(DbWebResponse), 10, true);
+    C_Mqueue mqToaa("/mq_db_to_env", 512, 10, true);
 
 
     dDatabase db("secure_asset.db", mqToDb, mqRfidIn, mqRfidOut, mqFinger, mqMove, mqToWeb,mqToaa);

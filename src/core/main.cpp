@@ -1,5 +1,152 @@
 #include <iostream>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <csignal>
+#include <cstdlib>
+#include "C_SecureAsset.h"
+
+// ============================================
+// GLOBAL FLAG FOR GRACEFUL SHUTDOWN
+// ============================================
+volatile sig_atomic_t g_shutdown = 0;
+
+void signalHandler(int signum) {
+    std::cout << "\n[Main] Sinal " << signum << " recebido. A encerrar..." << std::endl;
+    g_shutdown = 1;
+}
+
+int main() {
+    std::cout << "======================================" << std::endl;
+    std::cout << "  SECURE ASSET GUARD - Iniciando...  " << std::endl;
+    std::cout << "  PID Principal: " << getpid() << std::endl;
+    std::cout << "======================================" << std::endl;
+
+    // ============================================
+    // SETUP SIGNAL HANDLERS (CTRL+C, SIGTERM)
+    // ============================================
+    signal(SIGINT, signalHandler);   // Ctrl+C
+    signal(SIGTERM, signalHandler);  // kill command
+
+    // ============================================
+    // FORK DATABASE DAEMON
+    // ============================================
+    pid_t pid_db = fork();
+
+    if (pid_db == -1) {
+        std::cerr << "[ERRO] Falha ao criar processo Database" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    if (pid_db == 0) {
+        // CHILD PROCESS - Database Daemon
+        std::cout << "[Database] PID: " << getpid() << std::endl;
+        execl("./daemon_db", "daemon_db", nullptr);
+
+        // If execl fails
+        std::cerr << "[ERRO] Falha ao executar daemon_db" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "[Main] Database daemon lançado (PID: " << pid_db << ")" << std::endl;
+
+    // ============================================
+    // FORK WEB SERVER DAEMON
+    // ============================================
+    pid_t pid_web = fork();
+
+    if (pid_web == -1) {
+        std::cerr << "[ERRO] Falha ao criar processo WebServer" << std::endl;
+        kill(pid_db, SIGTERM);  // Cleanup database process
+        waitpid(pid_db, nullptr, 0);
+        return EXIT_FAILURE;
+    }
+
+    if (pid_web == 0) {
+        // CHILD PROCESS - Web Server Daemon
+        std::cout << "[WebServer] PID: " << getpid() << std::endl;
+        execl("./daemon_web", "daemon_web", nullptr);
+
+        // If execl fails
+        std::cerr << "[ERRO] Falha ao executar daemon_web" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "[Main] WebServer daemon lançado (PID: " << pid_web << ")" << std::endl;
+
+    // Give daemons time to initialize
+    sleep(2);
+
+    // ============================================
+    // INITIALIZE CORE SYSTEM (SINGLETON)
+    // ============================================
+    std::cout << "[Core] A inicializar sistema de hardware..." << std::endl;
+
+    C_SecureAsset* core = C_SecureAsset::getInstance();
+
+    if (!core->init()) {
+        std::cerr << "[ERRO CRÍTICO] Falha ao inicializar Core!" << std::endl;
+
+        // Cleanup child processes
+        kill(pid_db, SIGTERM);
+        kill(pid_web, SIGTERM);
+        waitpid(pid_db, nullptr, 0);
+        waitpid(pid_web, nullptr, 0);
+
+        C_SecureAsset::destroyInstance();
+        return EXIT_FAILURE;
+    }
+
+    // ============================================
+    // START ALL THREADS
+    // ============================================
+    core->start();
+
+    std::cout << "\n======================================" << std::endl;
+    std::cout << "  SISTEMA OPERACIONAL" << std::endl;
+    std::cout << "  Pressione Ctrl+C para parar" << std::endl;
+    std::cout << "======================================\n" << std::endl;
+
+    // ============================================
+    // MAIN LOOP - Wait for shutdown signal
+    // ============================================
+    while (!g_shutdown) {
+        sleep(1);  // Low CPU usage while waiting
+    }
+
+    // ============================================
+    // GRACEFUL SHUTDOWN
+    // ============================================
+    std::cout << "\n[Main] A encerrar sistema..." << std::endl;
+
+    // Stop core threads
+    core->stop();
+    core->waitForThreads();
+
+    // Terminate child processes
+    std::cout << "[Main] A terminar Database daemon..." << std::endl;
+    kill(pid_db, SIGTERM);
+
+    std::cout << "[Main] A terminar WebServer daemon..." << std::endl;
+    kill(pid_web, SIGTERM);
+
+    // Wait for child processes to finish
+    std::cout << "[Main] A aguardar término dos processos..." << std::endl;
+    waitpid(pid_db, nullptr, 0);
+    waitpid(pid_web, nullptr, 0);
+
+    // Cleanup singleton
+    C_SecureAsset::destroyInstance();
+
+    std::cout << "\n======================================" << std::endl;
+    std::cout << "  SISTEMA ENCERRADO" << std::endl;
+    std::cout << "======================================" << std::endl;
+
+    return EXIT_SUCCESS;
+}
+
+/*#include <iostream>
+#include <unistd.h>
 #include "C_Fingerprint.h"
 #include "C_UART.h"
 #include "C_GPIO.h"
@@ -9,8 +156,9 @@
 #include "C_YRM1001.h"
 
 using namespace std;
-/*
+
 int main() {
+
     cout << "=== TESTE DE VERIFICACAO (MATCH) ===" << endl;
 
     // 1. Hardware Setup
@@ -55,11 +203,12 @@ int main() {
             // Timeout (Ninguém pôs o dedo em 5s)
             cout << "." << flush;
         }
+
     }
 
     return 0;
-}*/
-
+}
+*/
 /*
  * cout << "--- DEBUG: ADICIONAR USER 1 ---" << endl;
 
@@ -159,7 +308,7 @@ int main() {
     return 0;
 }*/
 
-
+/*
 #include <cstring>
 
 
@@ -192,3 +341,80 @@ int main() {
     cout << "[SIMULADOR] Teste terminado." << endl;
     return 0;
 }
+*/
+/*
+#include <iostream>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
+#include <cstdlib>
+#include "C_SecureAsset.h"
+
+int main() {
+    std::cout << "======================================" << std::endl;
+    std::cout << "  SECURE ASSET GUARD - Iniciando...  " << std::endl;
+    std::cout << "  PID Principal: " << getpid() << std::endl;
+    std::cout << "======================================" << std::endl;
+
+    pid_t pid_db = fork();
+
+    if (pid_db == -1) {
+        std::cerr << "[ERRO] Falha ao criar processo Database" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    if (pid_db == 0) {
+        std::cout << "[Database] PID: " << getpid() << std::endl;
+        execl("./daemon_db", "daemon_db", nullptr);
+        std::cerr << "[ERRO] Falha ao executar daemon_db" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "[Main] Database daemon lançado (PID: " << pid_db << ")" << std::endl;
+
+    pid_t pid_web = fork();
+
+    if (pid_web == -1) {
+        std::cerr << "[ERRO] Falha ao criar processo WebServer" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    if (pid_web == 0) {
+        std::cout << "[WebServer] PID: " << getpid() << std::endl;
+        execl("./daemon_web", "daemon_web", nullptr);
+        std::cerr << "[ERRO] Falha ao executar daemon_web" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "[Main] WebServer daemon lançado (PID: " << pid_web << ")" << std::endl;
+
+    sleep(2);
+
+    std::cout << "[Core] A inicializar sistema de hardware..." << std::endl;
+
+    C_SecureAsset& core = C_SecureAsset::getInstance();
+
+    if (!core.initialize()) {
+        std::cerr << "[ERRO] Falha ao inicializar Core!" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    core.startThreads();
+
+    std::cout << "[Core] Sistema operacional. Pressione Ctrl+C para parar." << std::endl;
+
+    core.run();
+
+    std::cout << "[Main] A encerrar sistema..." << std::endl;
+
+    kill(pid_db, SIGTERM);
+    kill(pid_web, SIGTERM);
+
+    waitpid(pid_db, nullptr, 0);
+    waitpid(pid_web, nullptr, 0);
+
+    return 0;
+}
+
+*/

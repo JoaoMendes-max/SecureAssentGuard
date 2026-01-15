@@ -308,10 +308,10 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
 
 
         // Timestamp: Tempo Unix enviado pela thread
-        sqlite3_bind_int(stmt, 4, static_cast<int>(log.timestamp));
+        sqlite3_bind_int(stmt, 5, static_cast<int>(log.timestamp));
 
         // Description: O texto gerado pela generateDescription()
-        sqlite3_bind_text(stmt, 5, log.description, -1, SQLITE_STATIC);
+        sqlite3_bind_text(stmt, 6, log.description, -1, SQLITE_STATIC);
 
         // 4. Executar a inserção no ficheiro .db
         if (sqlite3_step(stmt) != SQLITE_DONE) {

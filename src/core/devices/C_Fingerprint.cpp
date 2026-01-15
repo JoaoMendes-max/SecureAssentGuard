@@ -32,7 +32,6 @@ void C_Fingerprint::sleep() {
 
 bool C_Fingerprint::read(SensorData* data) {
     uint8_t idHigh = 0, idLow = 0;
-    wakeUp();
     // Send MATCH command with a 5-second timeout
     // This allows time for the sensor to process the image if the finger is already placed
     uint8_t status = executeCommand(CMD_MATCH, 0, 0, 0, &idHigh, &idLow, 5.0);
@@ -51,7 +50,6 @@ bool C_Fingerprint::read(SensorData* data) {
         }
     }
     // Return true if communication was successful, even if authentication failed
-    sleep();
     return (status != ACK_TIMEOUT);
 }
 

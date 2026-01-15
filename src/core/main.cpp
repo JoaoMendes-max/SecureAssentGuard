@@ -41,7 +41,7 @@ int main() {
     if (pid_db == 0) {
         // CHILD PROCESS - Database Daemon
         std::cout << "[Database] PID: " << getpid() << std::endl;
-        execl("./daemon_db", "daemon_db", nullptr);
+        execl("./dDatabase", "dDatabase", nullptr);
 
         // If execl fails
         std::cerr << "[ERRO] Falha ao executar daemon_db" << std::endl;
@@ -65,7 +65,7 @@ int main() {
     if (pid_web == 0) {
         // CHILD PROCESS - Web Server Daemon
         std::cout << "[WebServer] PID: " << getpid() << std::endl;
-        execl("./daemon_web", "daemon_web", nullptr);
+        execl("./dWebServer", "dWebServer", nullptr);
 
         // If execl fails
         std::cerr << "[ERRO] Falha ao executar daemon_web" << std::endl;

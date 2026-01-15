@@ -15,7 +15,7 @@ dWebServer::~dWebServer() {
 }
 
 bool dWebServer::start() {
-    std::string addr = "http://0.0.0.0:" + std::to_string(m_port);
+    std::string addr = "http://10.42.0.163:" + std::to_string(m_port) + "/";
 
     if (mg_http_listen(&m_mgr, addr.c_str(), eventHandler, this) == nullptr) {
         std::cerr << "[WebServer] Failed to start on port " << m_port << std::endl;
@@ -99,9 +99,35 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
             self->handleSettings(c, hm);
         }
 
-        // ========== 404 ==========
+        // ========== REDIRECIONAMENTO E FICHEIROS ESTÁTICOS ==========
+
+        // Se o utilizador não pedir nada (apenas /), manda para o login
+        else if (matchUri(&hm->uri, "/")) {
+            mg_http_reply(c, 302, "Location: /login.html\r\n", "");
+        }
+
+        // Para tudo o resto (HTMLs, CSS, JS), tentamos servir o ficheiro
         else {
-            self->sendError(c, 404, "Endpoint not found");
+            // 1. Verificar proteção para páginas de Admin
+            SessionData session;
+            bool logado = self->validateSession(hm, session);
+
+            if (matchUri(&hm->uri, "/users.html") ||
+                matchUri(&hm->uri, "/settings.html") ||
+                matchUri(&hm->uri, "/assets.html")) {
+
+                if (!logado || session.accessLevel < 1) {
+                    // Não é admin? Chuta para o login
+                    mg_http_reply(c, 302, "Location: /login.html\r\n", "");
+                    return;
+                }
+                }
+
+            // 2. Tenta encontrar e enviar o ficheiro da pasta ./web
+            struct mg_http_serve_opts opts;
+            memset(&opts, 0, sizeof(opts));
+            opts.root_dir = "./web";
+            mg_http_serve_dir(c, hm, &opts);
         }
     }
 }

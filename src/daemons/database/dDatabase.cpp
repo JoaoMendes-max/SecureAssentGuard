@@ -131,7 +131,7 @@ bool dDatabase::initializeSchema() {
     // ↓ CRIAR USER ADMIN (se não existir) ↓
     const char* createAdmin =
         "INSERT OR IGNORE INTO Users (UserID, Name, Password, AccessLevel, FingerprintID) "
-        "VALUES (1, 'admin', ?, 2, 1);";  // AccessLevel 2 = Admin
+        "VALUES (1, 'admin_viewer', ?, 2, 1);";  // AccessLevel 2 = Admin
 
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, createAdmin, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -482,7 +482,7 @@ void dDatabase::handleLogin(const LoginRequest& login) {
             const char* storedHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
 
             // Verify password with Argon2
-            if (argon2i_verify(storedHash, login.password, strlen(login.password)) == ARGON2_OK) {
+            if (argon2id_verify(storedHash, login.password, strlen(login.password)) == ARGON2_OK) {
                 result["userId"] = sqlite3_column_int(stmt, 0);
 
                 // ✅ REMOVER "_viewer" ao mostrar ao user

@@ -5,7 +5,7 @@
       <paths name="rasp">
         <serverdata>
           <mappings>
-            <mapping deploy="/root/secureasset" local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/SecureAsset" local="$PROJECT_DIR$" web="/" />
           </mappings>
         </serverdata>
       </paths>

@@ -31,7 +31,7 @@ void c_tVerifyVaultAccess::run() {
 
     while (true) {
         m_monitorfgp.wait();
-
+        m_fingerprint.wakeUp();
         ssize_t bytes = m_mqFromDatabase.timedReceive(&cmdMsg, sizeof(AuthResponse), 0);
 
         if (bytes > 0) {
@@ -57,6 +57,8 @@ void c_tVerifyVaultAccess::run() {
                 sendLog(0,false);
             }
         }
+
+        m_fingerprint.sleep();
     }
 
 }

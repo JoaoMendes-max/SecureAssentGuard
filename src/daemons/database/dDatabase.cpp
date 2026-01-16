@@ -222,12 +222,7 @@ void dDatabase::processDbMessage(const DatabaseMsg &msg) {
         case DB_CMD_FILTER_LOGS:
             handleFilterLogs(msg.payload.logFilter);
             break;
-        case DB_CMD_ADD_USER:  // FINGERPRINT!
-            handleAddFingerprint(msg.payload.userId);
-            break;
-        case DB_CMD_DELETE_USER:  // FINGERPRINT!
-            handleDeleteFingerprint(msg.payload.userId);
-            break;
+        default: ;
     }
 }
 
@@ -901,7 +896,7 @@ void dDatabase::handleGetUsers() {
     m_mqToWeb.send(&resp, sizeof(resp));
 }
 
-void dDatabase::handleCreateUser(const UserData& user) {
+    void dDatabase::handleCreateUser(const UserData& user) {
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -1236,17 +1231,3 @@ void dDatabase::handleFilterLogs(const LogFilter& filter) {
     m_mqToWeb.send(&resp, sizeof(resp));
 }
 
-void dDatabase::handleAddFingerprint(int userId) {
-    // Simplesmente envia para a thread do cofre
-    AuthResponse cmd = {};
-    cmd.command = DB_CMD_ADD_USER;
-    cmd.payload.auth.userId = userId;
-    m_mqToFingerprint.send(&cmd, sizeof(cmd));
-}
-
-void dDatabase::handleDeleteFingerprint(int userId) {
-    AuthResponse cmd = {};
-    cmd.command = DB_CMD_DELETE_USER;
-    cmd.payload.auth.userId = userId;
-    m_mqToFingerprint.send(&cmd, sizeof(cmd));
-}

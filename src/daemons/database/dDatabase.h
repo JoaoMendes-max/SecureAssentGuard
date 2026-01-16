@@ -66,8 +66,7 @@ private:
 
     void handleFilterLogs(const LogFilter& filter);
 
-    void handleAddFingerprint(int userId);
-    void handleDeleteFingerprint(int userId);
+
 };
 
 #endif

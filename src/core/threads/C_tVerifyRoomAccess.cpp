@@ -22,8 +22,10 @@ C_tVerifyRoomAccess::~C_tVerifyRoomAccess() {
 void C_tVerifyRoomAccess::run() {
     std::cout << "[VerifyRoomAccess] Thread em execução. À espera de tags..." << std::endl;
 
-    while (true) {
-        m_monitorrfid.wait();
+    while (!stopRequested()) {
+        if (m_monitorrfid.timedWait(1)) {
+            continue;
+        }
         SensorData data={};// confitma esta merda de criar locais !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
         // 1. Tentar ler uma tag do sensor RDM6300
@@ -40,7 +42,7 @@ void C_tVerifyRoomAccess::run() {
 
             // 3. ESPERA RESPOSTA DA DB
             AuthResponse resp={};
-            if (m_mqToVerifyRoom.receive(&resp, sizeof(resp)) > 0) {
+            if (m_mqToVerifyRoom.timedReceive(&resp, sizeof(resp), 1) > 0) {
                 //se tiver autorizado so vai mandar o log de acesso
                 if (resp.payload.auth.authorized) {
                     std::cout << "[RFID] Acesso Autorizado! UserID: " << resp.payload.auth.userId << std::endl;
@@ -49,7 +51,14 @@ void C_tVerifyRoomAccess::run() {
                     m_mqToActuator.send(&cmd, sizeof(cmd));
                     sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel, true);
 
-                    m_monitorservoroom.wait();
+                    while (!stopRequested()) {
+                        if (!m_monitorservoroom.timedWait(1)) {
+                            break;
+                        }
+                    }
+                    if (stopRequested()) {
+                        break;
+                    }
                     cmd = {ID_SERVO_ROOM, 90};//para ficar preso
                     m_mqToActuator.send(&cmd, sizeof(cmd));
                 }

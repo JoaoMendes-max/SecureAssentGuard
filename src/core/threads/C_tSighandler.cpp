@@ -1,4 +1,5 @@
 #include "C_tSighandler.h"
+#include <cerrno>
 
 
 
@@ -47,11 +48,19 @@ void C_tSighandler::run() {
 
     std::cout << "[Sighandler] Pronto. À espera de eventos de hardware..." << std::endl;
 
-    while (true) {
-        //wait for signals
-        int sig = sigwaitinfo(&m_sigSet, &info);
+    while (!stopRequested()) {
+        //wait for signals (com timeout para permitir shutdown limpo)
+        struct timespec timeout;
+        timeout.tv_sec = 1;
+        timeout.tv_nsec = 0;
+        int sig = sigtimedwait(&m_sigSet, &info, &timeout);
 
-        if (sig < 0) continue;
+        if (sig < 0) {
+            if (errno == EAGAIN) {
+                continue;
+            }
+            continue;
+        }
 
         int pino = info.si_int; // O pino GPIO que veio do teu driver
 

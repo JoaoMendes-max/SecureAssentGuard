@@ -13,8 +13,10 @@ C_tInventoryScan::C_tInventoryScan(C_Monitor& m_monitorservovault, C_YRM1001& m_
 void C_tInventoryScan::run() {
     std::cout << "[InventoryScan] Thread iniciada. Monitorizando cofre..." << std::endl;
 
-    while (true) {
-        m_monitorservovault.wait(); // Acordado por um timer ou sensor de fecho de porta
+    while (!stopRequested()) {
+        if (m_monitorservovault.timedWait(1)) {
+            continue;
+        }
 
         SensorData data = {};
 

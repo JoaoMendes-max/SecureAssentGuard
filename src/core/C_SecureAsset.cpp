@@ -372,15 +372,24 @@ void C_SecureAsset::start() {
 void C_SecureAsset::stop() {
     std::cout << "[SecureAsset] A parar sistema..." << std::endl;
 
-    // Cancel threads (in reverse order)
-    if (m_thread_check_movement) m_thread_check_movement->cancel();
-    if (m_thread_env_sensor) m_thread_env_sensor->cancel();
-    if (m_thread_inventory) m_thread_inventory->cancel();
-    if (m_thread_verify_vault) m_thread_verify_vault->cancel();
-    if (m_thread_leave_room) m_thread_leave_room->cancel();
-    if (m_thread_verify_room) m_thread_verify_room->cancel();
-    if (m_thread_actuator) m_thread_actuator->cancel();
-    if (m_thread_sighandler) m_thread_sighandler->cancel();
+    // Request threads to stop (cooperative shutdown)
+    if (m_thread_check_movement) m_thread_check_movement->requestStop();
+    if (m_thread_env_sensor) m_thread_env_sensor->requestStop();
+    if (m_thread_inventory) m_thread_inventory->requestStop();
+    if (m_thread_verify_vault) m_thread_verify_vault->requestStop();
+    if (m_thread_leave_room) m_thread_leave_room->requestStop();
+    if (m_thread_verify_room) m_thread_verify_room->requestStop();
+    if (m_thread_actuator) m_thread_actuator->requestStop();
+    if (m_thread_sighandler) m_thread_sighandler->requestStop();
+
+    // Wake monitors to allow threads to exit promptly
+    m_monitor_reed_room.signal();
+    m_monitor_reed_vault.signal();
+    m_monitor_pir.signal();
+    m_monitor_fingerprint.signal();
+    m_monitor_rfid_entry.signal();
+    m_monitor_rfid_exit.signal();
+    m_monitor_env_sensor.signal();
 
     std::cout << "[SecureAsset] Sistema parado" << std::endl;
 }

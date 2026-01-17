@@ -40,7 +40,7 @@ void C_tReadEnvSensor::run() {
               << std::endl;
 
 
-    while (true) {
+    while (!stopRequested()) {
         // ========================================
         // ESPERA PERIÓDICA (usa timedWait do monitor!)
         // Retorna true se timeout, false se signal

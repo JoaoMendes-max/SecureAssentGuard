@@ -25,8 +25,10 @@ C_tLeaveRoomAccess::~C_tLeaveRoomAccess() {
 void C_tLeaveRoomAccess::run() {
     std::cout << "[LeaveRoom] Thread em execução. À espera de tags para sair..." << std::endl;
 
-    while (true) {
-        m_monitorrfid.wait();
+    while (!stopRequested()) {
+        if (m_monitorrfid.timedWait(1)) {
+            continue;
+        }
         SensorData data = {};
 
         // 1. Leitura do sensor interno
@@ -42,7 +44,7 @@ void C_tLeaveRoomAccess::run() {
 
             // 3. Resposta da DB
             AuthResponse resp = {};
-            if (m_mqToLeaveRoom.receive(&resp, sizeof(resp)) > 0) {
+            if (m_mqToLeaveRoom.timedReceive(&resp, sizeof(resp), 1) > 0) {
 
                 if (resp.payload.auth.authorized) {
                     std::cout << "[RFID-EXIT] Saída Autorizada! UserID: " << resp.payload.auth.userId << std::endl;
@@ -55,8 +57,14 @@ void C_tLeaveRoomAccess::run() {
                     // 5. Log de Saída
                     sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel);
 
-
-                    m_monitorservoroom.wait();
+                    while (!stopRequested()) {
+                        if (!m_monitorservoroom.timedWait(1)) {
+                            break;
+                        }
+                    }
+                    if (stopRequested()) {
+                        break;
+                    }
                     cmd = {ID_SERVO_ROOM, 90};//para ficar preso
                     m_mqToActuator.send(&cmd, sizeof(cmd));
 

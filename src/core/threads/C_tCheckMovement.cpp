@@ -9,15 +9,17 @@ C_tCheckMovement::C_tCheckMovement(C_Mqueue& m_mqToCheckMovement, C_Mqueue& m_mq
 {
 }
 void C_tCheckMovement::run() {
-    while (true) {
-        m_monitor.wait();
+    while (!stopRequested()) {
+        if (m_monitor.timedWait(1)) {
+            continue;
+        }
 
         DatabaseMsg msg = {};
         msg.command = DB_CMD_USER_IN_PIR;
         m_mqToDatabase.send(&msg, sizeof(msg));
 
         AuthResponse resp = {};
-        if (m_mqToCheckMovement.receive(&resp, sizeof(resp)) > 0) {
+        if (m_mqToCheckMovement.timedReceive(&resp, sizeof(resp), 1) > 0) {
             // Se authorized for FALSE, significa que não há ninguém autorizado lá dentro
             if (!resp.payload.auth.authorized) {
                 std::cout << "[ALERTA] Movimento sem utilizadores na sala! ATIVANDO ALARME." << std::endl;

@@ -29,8 +29,10 @@ void c_tVerifyVaultAccess::run() {
 
     AuthResponse cmdMsg = {}; // Buffer para receber comandos da DB
 
-    while (true) {
-        m_monitorfgp.wait();
+    while (!stopRequested()) {
+        if (m_monitorfgp.timedWait(1)) {
+            continue;
+        }
         m_fingerprint.wakeUp();
         ssize_t bytes = m_mqFromDatabase.timedReceive(&cmdMsg, sizeof(AuthResponse), 0);
 
@@ -49,7 +51,14 @@ void c_tVerifyVaultAccess::run() {
                 //manda log de acesso bem sucedido
                 sendLog(data.data.fingerprint.userID,true);
 
-                m_monitorservovault.wait();
+                while (!stopRequested()) {
+                    if (!m_monitorservovault.timedWait(1)) {
+                        break;
+                    }
+                }
+                if (stopRequested()) {
+                    break;
+                }
                 cmd = {ID_SERVO_VAULT, 90};//para ficar preso
                 m_mqToActuator.send(&cmd, sizeof(cmd));
             }else {

@@ -76,3 +76,12 @@ void C_Thread::cancel() {
     // Envia um pedido de terminação forçada. (Usar com extrema cautela!)
     pthread_cancel(m_thread);
 }
+
+
+void C_Thread::requestStop() {
+    m_stopRequested.store(true, std::memory_order_relaxed);
+}
+
+bool C_Thread::stopRequested() const {
+    return m_stopRequested.load(std::memory_order_relaxed);
+}

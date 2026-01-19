@@ -19,55 +19,85 @@ C_tVerifyRoomAccess::~C_tVerifyRoomAccess() {
     // O fecho das queues é feito pelos objetos C_Mqueue no processo principal
 }
 
+
 void C_tVerifyRoomAccess::run() {
-    std::cout << "[VerifyRoomAccess] Thread em execução. À espera de tags..." << std::endl;
+    std::cout << "[VerifyRoomAccess] Thread iniciada. À espera de tags..." << std::endl;
 
-    while (true) {
-        m_monitorrfid.wait();
-        SensorData data={};// confitma esta merda de criar locais !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // 1. LOOP PRINCIPAL: Vigilância do RFID de entrada
+    while (!stopRequested()) {
 
-        // 1. Tentar ler uma tag do sensor RDM6300
+        // Espera pelo sinal do sensor RFID (1 segundo de cada vez)
+        if (m_monitorrfid.timedWait(1)) {
+            continue;
+        }
+
+        SensorData data = {}; // Limpo a cada nova deteção
+
+        // Tentar ler a tag do sensor
         if (m_rfidEntry.read(&data)) {
-            // O ID da tag está aqui: sData.data.rfid_single.tagID
             char* rfidRead = data.data.rfid_single.tagID;
             std::cout << "[RFID] Cartão lido: " << rfidRead << std::endl;
 
             // 2. PEDIDO À BASE DE DADOS
-            DatabaseMsg msg={};
+            DatabaseMsg msg = {};
             msg.command = DB_CMD_ENTER_ROOM_RFID;
-            strncpy(msg.payload.rfid, rfidRead, 11);//so para copiar o q esta no rfid porque nao podemos usar = supostamente
+            strncpy(msg.payload.rfid, rfidRead, 11);
             m_mqToDatabase.send(&msg, sizeof(msg));
 
-            // 3. ESPERA RESPOSTA DA DB
-            AuthResponse resp={};
-            if (m_mqToVerifyRoom.receive(&resp, sizeof(resp)) > 0) {
-                //se tiver autorizado so vai mandar o log de acesso
-                if (resp.payload.auth.authorized) {
-                    std::cout << "[RFID] Acesso Autorizado! UserID: " << resp.payload.auth.userId << std::endl;
-                    m_failedAttempts = 0;
-                    ActuatorCmd cmd = {ID_SERVO_ROOM, 0};//para ficar solto
-                    m_mqToActuator.send(&cmd, sizeof(cmd));
-                    sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel, true);
+            // 3. LOOP INTERNO: Espera pela Resposta da DB
+            while (!stopRequested()) {
+                AuthResponse resp = {};
+                ssize_t bytes = m_mqToVerifyRoom.timedReceive(&resp, sizeof(resp), 1);
 
-                    m_monitorservoroom.wait();
-                    cmd = {ID_SERVO_ROOM, 90};//para ficar preso
-                    m_mqToActuator.send(&cmd, sizeof(cmd));
+                if (bytes > 0) {
+                    // RESPOSTA RECEBIDA
+                    if (resp.payload.auth.authorized) {
+                        std::cout << "[RFID] Acesso Autorizado! UserID: " << (int)resp.payload.auth.userId << std::endl;
+                        m_failedAttempts = 0;
+
+                        // Abrir porta (0 graus)
+                        ActuatorCmd cmd = {ID_SERVO_ROOM, 0};
+                        m_mqToActuator.send(&cmd, sizeof(cmd));
+                        sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel, true);
+
+                        // 4. ESPERA PELO FECHO DA PORTA (Servo)
+                        while (!stopRequested()) {
+                            if (!m_monitorservoroom.timedWait(1)) {
+                                break; // Porta fechou (recebeu sinal)
+                            }
+                        }
+
+                        if (stopRequested()) break;
+
+                        // Trancar porta (90 graus)
+                        cmd = {ID_SERVO_ROOM, 90};
+                        m_mqToActuator.send(&cmd, sizeof(cmd));
+                    }
+                    else {
+                        // ACESSO NEGADO
+                        m_failedAttempts++;
+                        std::cerr << "[RFID] Negado! Tentativa " << m_failedAttempts << "/" << m_maxAttempts << std::endl;
+
+                        if (m_failedAttempts >= m_maxAttempts) {
+                            m_failedAttempts = 0;
+                            ActuatorCmd alarm = {ID_ALARM_ACTUATOR, 1};
+                            m_mqToActuator.send(&alarm, sizeof(alarm));
+                            sendLog(0, 0, false);
+                        }
+                    }
+                    break; // Sai do loop da DB e volta a esperar novo cartão
+                }
+                if (bytes < 0 && errno == ETIMEDOUT) {
+                    continue; // DB lenta, insiste na leitura
                 }
                 else {
-                    m_failedAttempts++;
-                    std::cerr << "[RFID] Negado! Tentativa " << m_failedAttempts << "/" << m_maxAttempts << std::endl;
-                    if (m_failedAttempts >= m_maxAttempts) {
-                        ActuatorCmd msg1;
-                        m_failedAttempts = 0;
-                        msg1.actuatorID=ID_ALARM_ACTUATOR;
-                        msg1.value=1;
-                        m_mqToActuator.send(&msg1, sizeof(msg1));
-                        sendLog(0, 0, false);
-                    }
+                    break; // Erro na fila
                 }
             }
         }
     }
+
+    std::cout << "[VerifyRoomAccess] Thread terminada com sucesso." << std::endl;
 }
 
 void C_tVerifyRoomAccess::generateDescription(uint8_t userId, bool authorized, char* buffer, size_t size) {

@@ -45,13 +45,13 @@ C_SecureAsset::C_SecureAsset()
       m_alarm(m_gpio_alarm_led, m_gpio_alarm_buzzer),
 
       // MESSAGE QUEUES
-      m_mq_to_database("/mq_to_db", sizeof(DatabaseMsg), 20, true),
+      m_mq_to_database("/mq_to_db", sizeof(DatabaseMsg), 20, false),
       m_mq_to_actuator("/mq_to_actuator", sizeof(ActuatorCmd), 20, true),
-      m_mq_to_verify_room("/mq_rfid_in", sizeof(AuthResponse), 10, true),
-      m_mq_to_leave_room("/mq_rfid_out", sizeof(AuthResponse), 10, true),
-      m_mq_to_check_movement("/mq_move", sizeof(AuthResponse), 10, true),
-      m_mq_to_vault("/mq_finger", sizeof(AuthResponse), 10, true),
-      m_mq_to_env_sensor("/mq_db_to_env", sizeof(AuthResponse), 10, true),
+      m_mq_to_verify_room("/mq_rfid_in", sizeof(AuthResponse), 10, false),
+      m_mq_to_leave_room("/mq_rfid_out", sizeof(AuthResponse), 10, false),
+      m_mq_to_check_movement("/mq_move", sizeof(AuthResponse), 10, false),
+      m_mq_to_vault("/mq_finger", sizeof(AuthResponse), 10, false),
+      m_mq_to_env_sensor("/mq_db_to_env", sizeof(AuthResponse), 10, false),
 
       // MONITORS (default constructed)
       m_monitor_reed_room(),
@@ -73,7 +73,6 @@ C_SecureAsset::C_SecureAsset()
 // ============================================
 C_SecureAsset::~C_SecureAsset() {
     std::cout << "[SecureAsset] Destrutor executado" << std::endl;
-    stop();
 }
 
 // ============================================
@@ -96,21 +95,7 @@ void C_SecureAsset::destroyInstance() {
     }
 }
 
-// ============================================
-// INITIALIZE HARDWARE (GPIO, UART, I2C, PWM)
-// ============================================
-bool C_SecureAsset::initHardware() {
-    std::cout << "[SecureAsset] A inicializar Hardware..." << std::endl;
 
-    // I2C (for temperature sensor)
-    if (!m_i2c_temp_sensor.init()) {
-        std::cerr << "[ERRO] Falha ao inicializar I2C" << std::endl;
-        return false;
-    }
-
-    std::cout << "[SecureAsset] Hardware inicializado com sucesso" << std::endl;
-    return true;
-}
 
 // ============================================
 // INITIALIZE SENSORS
@@ -199,9 +184,11 @@ void C_SecureAsset::createThreads() {
     // Signal Handler (MUST be first - handles hardware interrupts)
     m_thread_sighandler = std::make_unique<C_tSighandler>(
         m_monitor_reed_room,
+        m_monitor_reed_vault,
         m_monitor_pir,
         m_monitor_fingerprint,
-        m_monitor_rfid_entry
+        m_monitor_rfid_entry,
+        m_monitor_rfid_exit
     );
 
     // Verify Room Access (RFID Entry)
@@ -282,28 +269,23 @@ bool C_SecureAsset::init() {
     C_tSighandler::setupSignalBlock();
     std::cout << "[SecureAsset] Sinais bloqueados (herança para threads)" << std::endl;
 
-    // Step 1: Initialize Hardware Layer
-    if (!initHardware()) {
-        std::cerr << "[ERRO CRÍTICO] Inicialização do hardware falhou!" << std::endl;
-        return false;
-    }
 
-    // Step 2: Initialize Sensors
+    // Step 1: Initialize Sensors
     if (!initSensors()) {
         std::cerr << "[ERRO CRÍTICO] Inicialização dos sensores falhou!" << std::endl;
         return false;
     }
 
-    // Step 3: Initialize Actuators
+    // Step 2: Initialize Actuators
     if (!initActuators()) {
         std::cerr << "[ERRO CRÍTICO] Inicialização dos atuadores falhou!" << std::endl;
         return false;
     }
 
-    // Step 4: Setup Actuators List
+    // Step 3: Setup Actuators List
     initActuatorsList();
 
-    // Step 5: Create Threads (but don't start yet)
+    // Step 4: Create Threads (but don't start yet)
     createThreads();
 
     std::cout << "============================================" << std::endl;
@@ -370,19 +352,23 @@ void C_SecureAsset::start() {
 // STOP ALL THREADS
 // ============================================
 void C_SecureAsset::stop() {
-    std::cout << "[SecureAsset] A parar sistema..." << std::endl;
+    if (m_thread_check_movement) m_thread_check_movement->requestStop();
+    if (m_thread_env_sensor) m_thread_env_sensor->requestStop();
+    if (m_thread_inventory) m_thread_inventory->requestStop();
+    if (m_thread_verify_vault) m_thread_verify_vault->requestStop();
+    if (m_thread_leave_room) m_thread_leave_room->requestStop();
+    if (m_thread_verify_room) m_thread_verify_room->requestStop();
+    if (m_thread_actuator) m_thread_actuator->requestStop();
+    if (m_thread_sighandler) m_thread_sighandler->requestStop();
 
-    // Cancel threads (in reverse order)
-    if (m_thread_check_movement) m_thread_check_movement->cancel();
-    if (m_thread_env_sensor) m_thread_env_sensor->cancel();
-    if (m_thread_inventory) m_thread_inventory->cancel();
-    if (m_thread_verify_vault) m_thread_verify_vault->cancel();
-    if (m_thread_leave_room) m_thread_leave_room->cancel();
-    if (m_thread_verify_room) m_thread_verify_room->cancel();
-    if (m_thread_actuator) m_thread_actuator->cancel();
-    if (m_thread_sighandler) m_thread_sighandler->cancel();
-
-    std::cout << "[SecureAsset] Sistema parado" << std::endl;
+    // Wake monitors to allow threads to exit promptly
+    m_monitor_reed_room.signal();
+    m_monitor_reed_vault.signal();
+    m_monitor_pir.signal();
+    m_monitor_fingerprint.signal();
+    m_monitor_rfid_entry.signal();
+    m_monitor_rfid_exit.signal();
+    m_monitor_env_sensor.signal();
 }
 
 // ============================================

@@ -126,20 +126,24 @@ void C_tAct::run() {
     cout << MODULE_NAME << " Iniciada..." << endl;
     ActuatorCmd msg;
 
-    while (true) {
+    while (!stopRequested()) {
         // Bloqueia até receber mensagem (0% CPU)
-        ssize_t bytes = m_mqToActuator.receive(&msg, sizeof(msg));
+        ssize_t bytes = m_mqToActuator.timedReceive(&msg, sizeof(msg), 1);
 
         if (bytes == sizeof(ActuatorCmd)) {
             processMessage(msg);
         } else if (bytes < 0) {
-            cerr << MODULE_NAME << " ERRO: Falha na fila " << strerror(errno) << endl;
-            // Erro fatal (ex: fila destruída). Sai do loop.
-            break;
+            if (errno == ETIMEDOUT) {
+                continue;
+            }
+            if (stopRequested()) {
+                break;
+            }
         } else {
             cerr << MODULE_NAME << " AVISO: Mensagem corrompida (" << bytes << " bytes)" << endl;
         }
     }
+    stopAlarmTimer();
 
     cout << MODULE_NAME << " Terminada" << endl;
 }

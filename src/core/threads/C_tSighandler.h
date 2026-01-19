@@ -4,6 +4,7 @@
 #define SECUREASSETGUARD_C_TSIGHANDLER_H
 
 #include <csignal>
+#include <cerrno>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -18,16 +19,18 @@
 
 class C_tSighandler : public C_Thread {
 
-    C_Monitor& m_monReed;
+    C_Monitor& m_monReed_room;
+    C_Monitor& m_monReed_vault;
     C_Monitor& m_monPIR;
     C_Monitor& m_monFinger;
-    C_Monitor& m_monRFID;
+    C_Monitor& m_monRFID_entry;
+    C_Monitor& m_monRFID_exit;
 
     int m_fd;
     sigset_t m_sigSet;
 
 public:
-    C_tSighandler(C_Monitor& reed, C_Monitor& pir, C_Monitor& finger, C_Monitor& rfid);
+    C_tSighandler(C_Monitor& reed_room,C_Monitor& reed_vault, C_Monitor& pir, C_Monitor& finger, C_Monitor& rfid_entry,C_Monitor& rfid_exit);
 
      ~C_tSighandler() override;
 

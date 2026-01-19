@@ -4,7 +4,7 @@
 #include <ctime>
 
 C_tInventoryScan::C_tInventoryScan(C_Monitor& m_monitorservovault, C_YRM1001& m_rfidInventoy, C_Mqueue& m_mqToDatabase)
-    : m_monitorservovault(m_monitorservovault),
+    : C_Thread(PRIO_HIGH), m_monitorservovault(m_monitorservovault),
       m_rfidInventoy(m_rfidInventoy),
       m_mqToDatabase(m_mqToDatabase)
 {
@@ -13,8 +13,10 @@ C_tInventoryScan::C_tInventoryScan(C_Monitor& m_monitorservovault, C_YRM1001& m_
 void C_tInventoryScan::run() {
     std::cout << "[InventoryScan] Thread iniciada. Monitorizando cofre..." << std::endl;
 
-    while (true) {
-        m_monitorservovault.wait(); // Acordado por um timer ou sensor de fecho de porta
+    while (!stopRequested()) {
+        if (m_monitorservovault.timedWait(1)) {
+            continue;
+        }
 
         SensorData data = {};
 

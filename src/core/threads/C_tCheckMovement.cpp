@@ -1,37 +1,67 @@
 #include "C_tCheckMovement.h"
 #include <iostream>
+#include <cerrno>
 
 C_tCheckMovement::C_tCheckMovement(C_Mqueue& m_mqToCheckMovement, C_Mqueue& m_mqToDatabase,C_Mqueue& m_mqToActuator,C_Monitor& m_monitor)
-    : m_monitor(m_monitor),
+    : C_Thread(PRIO_HIGH), m_monitor(m_monitor),
       m_mqToActuator(m_mqToActuator),
       m_mqToDatabase(m_mqToDatabase),
       m_mqToCheckMovement(m_mqToCheckMovement)
 {
 }
+
+
 void C_tCheckMovement::run() {
-    while (true) {
-        m_monitor.wait();
+
+    while (!stopRequested()) {
+
+        if (m_monitor.timedWait(1)) {
+            continue;
+        }
 
         DatabaseMsg msg = {};
         msg.command = DB_CMD_USER_IN_PIR;
         m_mqToDatabase.send(&msg, sizeof(msg));
 
         AuthResponse resp = {};
-        if (m_mqToCheckMovement.receive(&resp, sizeof(resp)) > 0) {
-            // Se authorized for FALSE, significa que não há ninguém autorizado lá dentro
-            if (!resp.payload.auth.authorized) {
-                std::cout << "[ALERTA] Movimento sem utilizadores na sala! ATIVANDO ALARME." << std::endl;
+        // 2. LOOP INTERNO: Insistência na resposta da Base de Dados
+        while (!stopRequested()) {
 
-                // 4. MANDAR ATIVAR O ALARME
-                ActuatorCmd alarm = {ID_ALARM_ACTUATOR, 1};
-                m_mqToActuator.send(&alarm, sizeof(alarm));
+            ssize_t bytes = m_mqToCheckMovement.timedReceive(&resp, sizeof(resp), 1);
 
-                sendLog(false);
-            } else {
-                std::cout << "[CheckMovement] Movimento ignorado: Utilizadores presentes." << std::endl;
+            if (bytes > 0) {
+                // SUCESSO: Recebemos a resposta da DB!
+                if (!resp.payload.auth.authorized) {
+                    std::cout << "[ALERTA] Movimento NÃO autorizado! ATIVANDO ALARME." << std::endl;
+
+                    ActuatorCmd alarm = {ID_ALARM_ACTUATOR, 1};
+                    m_mqToActuator.send(&alarm, sizeof(alarm));
+
+                    sendLog(false);
+                } else {
+                    std::cout << "[CheckMovement] Movimento autorizado: Utilizadores presentes." << std::endl;
+                }
+
+                // Saímos deste loop interno para voltar a esperar por novo movimento no monitor
+                break;
+            }
+            if (bytes < 0 && errno == ETIMEDOUT) {
+                // TIMEOUT DA DB: A base de dados ainda não respondeu.
+                // O continue aqui volta ao topo deste loop interno (while da queue).
+                // NÃO volta para o monitor lá em cima!
+                std::cout << "[CheckMovement] DB ainda não respondeu... a tentar ler a fila novamente." << std::endl;
+                continue;
+            }
+            else {
+                // ERRO REAL na Message Queue (ex: fila fechada/destruída)
+                std::cerr << "[CheckMovement] Erro crítico na Message Queue. A sair da espera." << std::endl;
+                break;
             }
         }
+
     }
+
+    std::cout << "[CheckMovement] Thread terminada com sucesso." << std::endl;
 }
 
 void C_tCheckMovement::sendLog(bool authorized) {

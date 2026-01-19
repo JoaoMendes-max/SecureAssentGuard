@@ -4,6 +4,9 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
+#include <cerrno>   // <--- Faltava este
+#include <cstring>  // <--- Faltava este
+
 using namespace std;
 
 C_PWM::C_PWM(int chip, int channel)
@@ -19,24 +22,37 @@ C_PWM::~C_PWM()
 
 bool C_PWM::init()
 {
-    string exportPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip)+ "/export";
+    string pwmPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) + "/pwm" + to_string(m_pwmChannel);
 
+    // 1. Verifica se já existe para evitar o erro de EBUSY
+    if (access(pwmPath.c_str(), F_OK) == 0)
+    {
+        return true;
+    }
+
+    // 2. Tenta exportar
+    string exportPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) + "/export";
     int fd = open(exportPath.c_str(), O_WRONLY);
     if (fd < 0)
     {
-        cerr << "Erro ao abrir export\n";
+        // Aqui usamos o strerror para perceber se o erro é de permissão ou caminho
+        cerr << "Erro ao abrir export: " << strerror(errno) << endl;
         return false;
     }
 
     string channel = to_string(m_pwmChannel);
     if (write(fd, channel.c_str(), channel.size()) < 0)
     {
-        cerr << "Erro ao exportar PWM\n";
-        close(fd);
-        return false;
+        if (errno != EBUSY) // Se for outro erro que não "já ocupado"
+        {
+            cerr << "Erro ao exportar PWM: " << strerror(errno) << endl;
+            close(fd);
+            return false;
+        }
     }
 
     close(fd);
+
     return true;
 }
 

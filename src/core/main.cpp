@@ -29,6 +29,16 @@ int main() {
     signal(SIGTERM, signalHandler);  // kill command
 
     // ============================================
+    // Init DRIVER
+    // ============================================
+    std::cout << "[Main] A carregar driver de interrupções..." << std::endl;
+    // Usamos o caminho absoluto que vimos no teu terminal
+    if (system("insmod /root/my_irq.ko") != 0) {
+        std::cerr << "[AVISO] Falha ao carregar driver ou já estava carregado." << std::endl;
+    }
+
+
+    // ============================================
     // FORK DATABASE DAEMON
     // ============================================
     pid_t pid_db = fork();
@@ -117,6 +127,7 @@ int main() {
     // ============================================
     // GRACEFUL SHUTDOWN
     // ============================================
+
     std::cout << "\n[Main] A encerrar sistema..." << std::endl;
 
     // Stop core threads
@@ -138,12 +149,72 @@ int main() {
     // Cleanup singleton
     C_SecureAsset::destroyInstance();
 
+
+
     std::cout << "\n======================================" << std::endl;
     std::cout << "  SISTEMA ENCERRADO" << std::endl;
     std::cout << "======================================" << std::endl;
 
+    std::cout << "  A REMOVER DRIVER" << std::endl;
+    system("rmmod my_irq");
+
     return EXIT_SUCCESS;
 }
+/*
+#include <iostream>
+#include <iomanip>   // Para formatar as casas decimais
+#include <unistd.h>  // Para o sleep
+#include "C_I2C.h"
+#include "C_TH_SHT30.h"
+
+using namespace std;
+
+int main() {
+    cout << "===========================================" << endl;
+    cout << "=== TESTE DE LEITURA: SENSOR SHT30 (I2C) ===" << endl;
+    cout << "===========================================" << endl;
+
+    // 1. Hardware Setup
+    // Barramento 1 da Raspberry Pi, Endereço 0x44 (SHT30 padrão)
+    C_I2C i2cBus(1, 0x44);
+    C_TH_SHT30 sensorTH(i2cBus);
+
+    // 2. Inicialização
+    if (!sensorTH.init()) {
+        cerr << "[ERRO] Nao foi possivel inicializar o sensor SHT30." << endl;
+        cerr << "Verifica se o comando 'i2cdetect -y 1' mostra o endereco 0x44." << endl;
+        return -1;
+    }
+
+    cout << "[INFO] Sensor detectado e pronto." << endl;
+    cout << "A ler dados a cada 2 segundos..." << endl;
+    cout << "-------------------------------------------" << endl;
+
+    // 3. Loop de Leitura
+    while (true) {
+        SensorData data;
+
+        // Tenta ler do sensor (usando o teu métod com Clock Stretching)
+        if (sensorTH.read(&data)) {
+
+            // Sucesso na leitura
+            cout << ">> [DADOS RECEBIDOS]" << endl;
+            cout << fixed << setprecision(2); // Fixar 2 casas decimais
+            cout << "   Temperatura: " << data.data.tempHum.temp << " C" << endl;
+            cout << "   Humidade:    " << data.data.tempHum.hum  << " %" << endl;
+            cout << "-------------------------------------------" << endl;
+
+        } else {
+            // Falha na leitura (pode ser erro de CRC ou mau contacto)
+            cerr << "[AVISO] Falha na leitura do sensor! A tentar novamente..." << endl;
+        }
+
+        // Espera 2 segundos entre leituras
+        sleep(2);
+    }
+
+    return 0;
+}*/
 
 /*#include <iostream>
 #include <unistd.h>

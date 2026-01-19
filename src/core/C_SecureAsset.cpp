@@ -181,7 +181,7 @@ void C_SecureAsset::initActuatorsList() {
 void C_SecureAsset::createThreads() {
     std::cout << "[SecureAsset] A criar threads..." << std::endl;
 
-    // Signal Handler (MUST be first - handles hardware interrupts)
+    // Signal Handler (MUST be first - handles hardware interrupts) pila
     m_thread_sighandler = std::make_unique<C_tSighandler>(
         m_monitor_reed_room,
         m_monitor_reed_vault,

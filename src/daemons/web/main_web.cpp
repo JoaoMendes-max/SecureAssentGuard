@@ -5,8 +5,8 @@
 int main() {
     std::cout << "[WebServer] Starting daemon..." << std::endl;
 
-    C_Mqueue mqToDb("/mq_to_db", sizeof(DatabaseMsg), 10, false);
-    C_Mqueue mqFromDb("/mq_db_to_web", sizeof(DbWebResponse), 10, false);
+    C_Mqueue mqToDb("/mq_to_db", sizeof(DatabaseMsg), 10, true);
+    C_Mqueue mqFromDb("/mq_db_to_web", sizeof(DbWebResponse), 10, true);
 
     dWebServer server(mqToDb, mqFromDb, 8080);
 

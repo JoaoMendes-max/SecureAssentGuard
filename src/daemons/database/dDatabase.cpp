@@ -1230,4 +1230,3 @@ void dDatabase::handleFilterLogs(const LogFilter& filter) {
 
     m_mqToWeb.send(&resp, sizeof(resp));
 }
-

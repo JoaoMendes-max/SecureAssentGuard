@@ -4,7 +4,7 @@
 #include <ctime>
 
 C_tInventoryScan::C_tInventoryScan(C_Monitor& m_monitorservovault, C_YRM1001& m_rfidInventoy, C_Mqueue& m_mqToDatabase)
-    : C_Thread(PRIO_HIGH), m_monitorservovault(m_monitorservovault),
+    : C_Thread(PRIO_LOW), m_monitorservovault(m_monitorservovault),
       m_rfidInventoy(m_rfidInventoy),
       m_mqToDatabase(m_mqToDatabase)
 {

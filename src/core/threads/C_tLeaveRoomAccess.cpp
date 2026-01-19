@@ -8,7 +8,7 @@ C_tLeaveRoomAccess::C_tLeaveRoomAccess(C_Monitor& monitorrfid, C_Monitor& monito
                                        C_Mqueue& mqDB,
                                        C_Mqueue& mqFromDB,
                                        C_Mqueue& mqAct)
-    : m_monitorrfid( monitorrfid),
+    :C_Thread(PRIO_MEDIUM), m_monitorrfid( monitorrfid),
       m_monitorservoroom( monitorservoroom),
       m_rfidExit(rfid),
       m_mqToDatabase(mqDB),

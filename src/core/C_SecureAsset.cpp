@@ -45,13 +45,13 @@ C_SecureAsset::C_SecureAsset()
       m_alarm(m_gpio_alarm_led, m_gpio_alarm_buzzer),
 
       // MESSAGE QUEUES
-      m_mq_to_database("/mq_to_db", sizeof(DatabaseMsg), 20, false),
+      m_mq_to_database("/mq_to_db", sizeof(DatabaseMsg), 20, true),
       m_mq_to_actuator("/mq_to_actuator", sizeof(ActuatorCmd), 20, true),
-      m_mq_to_verify_room("/mq_rfid_in", sizeof(AuthResponse), 10, false),
-      m_mq_to_leave_room("/mq_rfid_out", sizeof(AuthResponse), 10, false),
-      m_mq_to_check_movement("/mq_move", sizeof(AuthResponse), 10, false),
-      m_mq_to_vault("/mq_finger", sizeof(AuthResponse), 10, false),
-      m_mq_to_env_sensor("/mq_db_to_env", sizeof(AuthResponse), 10, false),
+      m_mq_to_verify_room("/mq_rfid_in", sizeof(AuthResponse), 10, true),
+      m_mq_to_leave_room("/mq_rfid_out", sizeof(AuthResponse), 10, true),
+      m_mq_to_check_movement("/mq_move", sizeof(AuthResponse), 10, true),
+      m_mq_to_vault("/mq_finger", sizeof(AuthResponse), 10, true),
+      m_mq_to_env_sensor("/mq_db_to_env", sizeof(AuthResponse), 10, true),
 
       // MONITORS (default constructed)
       m_monitor_reed_room(),

@@ -3,7 +3,7 @@
 #include <cerrno>
 
 C_tCheckMovement::C_tCheckMovement(C_Mqueue& m_mqToCheckMovement, C_Mqueue& m_mqToDatabase,C_Mqueue& m_mqToActuator,C_Monitor& m_monitor)
-    : C_Thread(PRIO_HIGH), m_monitor(m_monitor),
+    : C_Thread(PRIO_MEDIUM), m_monitor(m_monitor),
       m_mqToActuator(m_mqToActuator),
       m_mqToDatabase(m_mqToDatabase),
       m_mqToCheckMovement(m_mqToCheckMovement)

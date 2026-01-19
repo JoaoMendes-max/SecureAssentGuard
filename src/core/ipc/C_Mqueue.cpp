@@ -32,6 +32,7 @@ C_Mqueue::~C_Mqueue() {
     if (id != (mqd_t)-1) {
         mq_close(id);
     }
+    mq_unlink(name.c_str());
 }
 
 bool C_Mqueue::send(const void* msg, size_t size, unsigned int prio) {

@@ -60,12 +60,12 @@ int main() {
 int main() {
     C_Mqueue mqToDb("/mq_to_db",sizeof(DatabaseMsg),10,true);
     // Filas de Saída (Onde a DB responde às threads do Core)
-    C_Mqueue mqRfidIn("/mq_rfid_in", 512, 10, true);
-    C_Mqueue mqRfidOut("/mq_rfid_out", 512, 10, true);
-    C_Mqueue mqFinger("/mq_finger", 512, 10, true);
-    C_Mqueue mqMove("/mq_move", 512, 10, true);
+    C_Mqueue mqRfidIn("/mq_rfid_in", sizeof(AuthResponse), 10, true);
+    C_Mqueue mqRfidOut("/mq_rfid_out", sizeof(AuthResponse), 10, true);
+    C_Mqueue mqFinger("/mq_finger", sizeof(AuthResponse), 10, true);
+    C_Mqueue mqMove("/mq_move", sizeof(AuthResponse), 10,true);
     C_Mqueue mqToWeb("/mq_db_to_web", sizeof(DbWebResponse), 10, true);
-    C_Mqueue mqToenv("/mq_db_to_env", 512, 10, true);
+    C_Mqueue mqToenv("/mq_db_to_env", sizeof(AuthResponse), 10, true);
 
 
     dDatabase db("secure_asset.db", mqToDb, mqRfidIn, mqRfidOut, mqFinger, mqMove, mqToWeb,mqToenv);
@@ -96,9 +96,6 @@ int main() {
 
             // Chama a função da classe para decidir o que fazer com a mensagem
             db.processDbMessage(msg);
-        } else {
-            // Pequena pausa para não fritar o CPU se houver algum erro de leitura
-            usleep(10000);
         }
     }
 

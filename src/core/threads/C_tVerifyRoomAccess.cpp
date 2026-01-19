@@ -4,7 +4,7 @@
 #include <ctime>
 // O construtor inicializa todas as referências passadas pelo processo principal
 C_tVerifyRoomAccess::C_tVerifyRoomAccess(C_Monitor& monitorrfid, C_Monitor& m_monitorservoroom, C_RDM6300& rfid, C_Mqueue& mqDB, C_Mqueue& mqFromDB,C_Mqueue& mqAct)
-    : m_monitorrfid(monitorrfid),
+    : C_Thread(PRIO_MEDIUM),m_monitorrfid(monitorrfid),
       m_monitorservoroom(m_monitorservoroom),
       m_rfidEntry(rfid),
       m_mqToDatabase(mqDB), // Fila de saída para a Base de Dados
@@ -36,16 +36,18 @@ void C_tVerifyRoomAccess::run() {
         // Tentar ler a tag do sensor
         if (m_rfidEntry.read(&data)) {
             char* rfidRead = data.data.rfid_single.tagID;
-            std::cout << "[RFID] Cartão lido: " << rfidRead << std::endl;
+            std::cout << "[RFID entry] Cartão lido: " << rfidRead << std::endl;
 
             // 2. PEDIDO À BASE DE DADOS
             DatabaseMsg msg = {};
             msg.command = DB_CMD_ENTER_ROOM_RFID;
             strncpy(msg.payload.rfid, rfidRead, 11);
             m_mqToDatabase.send(&msg, sizeof(msg));
+            std::cout << "m enviafa: " << std::endl;
 
             // 3. LOOP INTERNO: Espera pela Resposta da DB
             while (!stopRequested()) {
+                //std::cout << "loop in: " << std::endl;
                 AuthResponse resp = {};
                 ssize_t bytes = m_mqToVerifyRoom.timedReceive(&resp, sizeof(resp), 1);
 
@@ -87,12 +89,7 @@ void C_tVerifyRoomAccess::run() {
                     }
                     break; // Sai do loop da DB e volta a esperar novo cartão
                 }
-                if (bytes < 0 && errno == ETIMEDOUT) {
-                    continue; // DB lenta, insiste na leitura
-                }
-                else {
-                    break; // Erro na fila
-                }
+
             }
         }
     }

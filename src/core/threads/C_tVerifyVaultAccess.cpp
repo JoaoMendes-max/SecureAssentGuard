@@ -12,7 +12,7 @@ c_tVerifyVaultAccess::c_tVerifyVaultAccess(C_Monitor& m_monitorfgp,
                                          C_Mqueue& m_mqToDatabase,
                                          C_Mqueue& m_mqToActuator,
                                          C_Mqueue& mqFromDatabase)
-    : m_monitorfgp(m_monitorfgp),
+    : C_Thread(PRIO_MEDIUM),m_monitorfgp(m_monitorfgp),
       m_monitorservovault( m_monitorservovault),
       m_fingerprint(m_fingerprint),
       m_mqToDatabase(m_mqToDatabase),

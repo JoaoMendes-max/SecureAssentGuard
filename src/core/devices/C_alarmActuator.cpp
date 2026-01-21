@@ -24,7 +24,7 @@ bool C_alarmActuator::init() {
     return true;
 }
 
-bool C_alarmActuator::set_value(uint8_t value) {
+bool C_alarmActuator::set_value(const uint8_t value) {
     if (value > 0) {
         gpio_buzzer.writePin(true);
         gpio_led.writePin(true);

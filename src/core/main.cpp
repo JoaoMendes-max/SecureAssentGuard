@@ -8,9 +8,6 @@
 #include <string>
 #include "C_SecureAsset.h"
 
-
-
-
 volatile sig_atomic_t g_shutdown = 0;
 
 static void signalHandler(int signum) {
@@ -39,25 +36,15 @@ int main() {
     std::cout << "  PID Principal: " << getpid() << std::endl;
     std::cout << "======================================" << std::endl;
 
-    
-    
-    
     signal(SIGINT, signalHandler);   
     signal(SIGTERM, signalHandler);  
 
-    
-    
-    
     std::cout << "[Main] A carregar driver de interrupções..." << std::endl;
     
     if (system("insmod /root/my_irq.ko") != 0) {
         std::cerr << "[AVISO] Falha ao carregar driver ou já estava carregado." << std::endl;
     }
 
-
-    
-    
-    
     const pid_t pid_db = fork();
 
     if (pid_db == -1) {
@@ -80,9 +67,6 @@ int main() {
 
     std::cout << "[Main] Database daemon lançado (PID: " << pid_db << ")" << std::endl;
 
-    
-    
-    
     const pid_t pid_web = fork();
 
     if (pid_web == -1) {
@@ -106,13 +90,9 @@ int main() {
     }
 
     std::cout << "[Main] WebServer daemon lançado (PID: " << pid_web << ")" << std::endl;
-
     
     sleep(2);
 
-    
-    
-    
     std::cout << "[Core] A inicializar sistema de hardware..." << std::endl;
 
     C_SecureAsset* core = C_SecureAsset::getInstance();
@@ -129,33 +109,21 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    
-    
-    
-    core->start();
+     core->start();
 
     std::cout << "\n======================================" << std::endl;
     std::cout << "  SISTEMA OPERACIONAL" << std::endl;
     std::cout << "  Pressione Ctrl+C para parar" << std::endl;
     std::cout << "======================================\n" << std::endl;
 
-    
-    
-    
     while (!g_shutdown) {
         sleep(1);  
     }
 
-    
-    
-    
-
     std::cout << "\n[Main] A encerrar sistema..." << std::endl;
 
-    
     core->stop();
     core->waitForThreads();
-
     
     std::cout << "[Main] A terminar Database daemon..." << std::endl;
     kill(pid_db, SIGTERM);

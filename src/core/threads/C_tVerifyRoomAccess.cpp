@@ -77,7 +77,6 @@ void C_tVerifyRoomAccess::run() {
                         }
 
                         if (stopRequested()) break;
-
                         
                         cmd = {ID_SERVO_ROOM, 90};
                         m_mqToActuator.send(&cmd, sizeof(cmd));

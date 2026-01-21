@@ -21,7 +21,7 @@ void C_Fan::stop() {
     fan_on = false;
 }
 
-bool C_Fan::set_value(uint8_t value) {
+bool C_Fan::set_value(const uint8_t value) {
     if (value > 0) {
         gpio_fan.writePin(true);
         fan_on = true;

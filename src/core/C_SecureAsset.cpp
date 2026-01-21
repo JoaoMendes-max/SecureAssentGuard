@@ -2,9 +2,6 @@
 #include <iostream>
 #include <cstdlib>
 
-
-
-
 C_SecureAsset* C_SecureAsset::s_instance = nullptr;
 
 
@@ -65,15 +62,9 @@ C_SecureAsset::C_SecureAsset()
     m_actuators_list.fill(nullptr);
 }
 
-
-
-
 C_SecureAsset::~C_SecureAsset() {
     std::cout << "[SecureAsset] Destrutor executado" << std::endl;
 }
-
-
-
 
 C_SecureAsset* C_SecureAsset::getInstance() {
     if (s_instance == nullptr) {
@@ -81,9 +72,6 @@ C_SecureAsset* C_SecureAsset::getInstance() {
     }
     return s_instance;
 }
-
-
-
 
 void C_SecureAsset::destroyInstance() {
     if (s_instance == nullptr) {
@@ -93,19 +81,14 @@ void C_SecureAsset::destroyInstance() {
     s_instance = nullptr;
 }
 
-
-
-
-
-
 bool C_SecureAsset::initSensors() {
     std::cout << "[SecureAsset] A inicializar Sensores..." << std::endl;
-/*
+
     if (!m_temp_sensor.init()) {
         std::cerr << "[ERRO] Falha no init: Sensor Temperatura" << std::endl;
         return false;
     }
-*/
+
     if (!m_rfid_entry.init()) {
         std::cerr << "[ERRO] Falha no init: RFID Entry" << std::endl;
         return false;
@@ -159,9 +142,6 @@ bool C_SecureAsset::initActuators() {
     std::cout << "[SecureAsset] Atuadores inicializados com sucesso" << std::endl;
     return true;
 }
-
-
-
 
 void C_SecureAsset::initActuatorsList() {
     m_actuators_list.fill(nullptr);
@@ -278,29 +258,20 @@ bool C_SecureAsset::init() {
         std::cerr << "[ERRO CRÍTICO] Inicialização dos atuadores falhou!" << std::endl;
         return false;
     }
-
     
     initActuatorsList();
-
-    
     createThreads();
 
     std::cout << "============================================" << std::endl;
     std::cout << "    INITIALIZATION COMPLETE" << std::endl;
     std::cout << "============================================" << std::endl;
 
-
-    
     m_fingerprint.wakeUp();
     m_fingerprint.deleteAllUsers();
     m_fingerprint.sleep();
 
-
     return true;
 }
-
-
-
 
 void C_SecureAsset::start() {
     std::cout << "[SecureAsset] A iniciar threads..." << std::endl;
@@ -352,9 +323,6 @@ void C_SecureAsset::start() {
     std::cout << "============================================" << std::endl;
 }
 
-
-
-
 void C_SecureAsset::stop() {
     if (m_thread_check_movement) m_thread_check_movement->requestStop();
     if (m_thread_env_sensor) m_thread_env_sensor->requestStop();
@@ -375,9 +343,6 @@ void C_SecureAsset::stop() {
     m_monitor_rfid_entry.signal();
     m_monitor_rfid_exit.signal();
 }
-
-
-
 
 void C_SecureAsset::waitForThreads() {
     std::cout << "[SecureAsset] A aguardar término das threads..." << std::endl;

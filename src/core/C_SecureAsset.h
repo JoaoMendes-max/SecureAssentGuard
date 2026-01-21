@@ -66,57 +66,39 @@ private:
     C_SecureAsset();
     ~C_SecureAsset();
 
-    
     C_SecureAsset(const C_SecureAsset&) = delete;
     C_SecureAsset& operator=(const C_SecureAsset&) = delete;
     C_SecureAsset(C_SecureAsset&&) = delete;
     C_SecureAsset& operator=(C_SecureAsset&&) = delete;
 
-    
-    
-    
-    
     C_GPIO m_gpio_fingerprint_rst;
     C_GPIO m_gpio_yrm1001_enable;
     C_GPIO m_gpio_fan;
     C_GPIO m_gpio_alarm_led;
     C_GPIO m_gpio_alarm_buzzer;
 
-    
     C_UART m_uart_rfid_entry;
     C_UART m_uart_rfid_exit;
     C_UART m_uart_fingerprint;
     C_UART m_uart_yrm1001;
 
-    
     C_I2C m_i2c_temp_sensor;
 
-    
     C_PWM m_pwm_servo_room;
     C_PWM m_pwm_servo_vault;
 
-    
-    
-    
     C_TH_SHT30 m_temp_sensor;
     C_RDM6300 m_rfid_entry;
     C_RDM6300 m_rfid_exit;
     C_YRM1001 m_rfid_inventory;
     C_Fingerprint m_fingerprint;
 
-    
-    
-    
     C_ServoMG996R m_servo_room;
     C_ServoMG996R m_servo_vault;
     C_Fan m_fan;
     C_alarmActuator m_alarm;
 
     std::array<C_Actuator*, ID_ACTUATOR_COUNT> m_actuators_list;
-
-    
-    
-    
     
     C_Mqueue m_mq_to_database;
     C_Mqueue m_mq_to_actuator;
@@ -126,7 +108,6 @@ private:
     C_Mqueue m_mq_to_vault;
     C_Mqueue m_mq_to_env_sensor;
 
-    
     C_Monitor m_monitor_reed_room;
     C_Monitor m_monitor_reed_vault;
     C_Monitor m_monitor_pir;
@@ -134,8 +115,6 @@ private:
     C_Monitor m_monitor_rfid_entry;
     C_Monitor m_monitor_rfid_exit;
 
-    
-    
     std::unique_ptr<C_tSighandler> m_thread_sighandler;
     std::unique_ptr<C_tVerifyRoomAccess> m_thread_verify_room;
     std::unique_ptr<C_tLeaveRoomAccess> m_thread_leave_room;
@@ -145,9 +124,6 @@ private:
     std::unique_ptr<C_tCheckMovement> m_thread_check_movement;
     std::unique_ptr<C_tAct> m_thread_actuator;
 
-    
-    
-    
     bool initHardware();
     bool initSensors();
     bool initActuators();
@@ -155,14 +131,9 @@ private:
     void createThreads();
 
 public:
-    
-    
-    
+
     static C_SecureAsset* getInstance();
     static void destroyInstance();
-
-    
-    
     
     bool init();
     void start();

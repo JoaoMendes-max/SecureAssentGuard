@@ -10,7 +10,7 @@ C_Fingerprint::C_Fingerprint(C_UART& uart, C_GPIO& rst)
 {
 }
 
-C_Fingerprint::~C_Fingerprint() {}
+C_Fingerprint::~C_Fingerprint() = default;
 
 bool C_Fingerprint::init() {
     
@@ -32,9 +32,9 @@ void C_Fingerprint::sleep() {
 
 bool C_Fingerprint::read(SensorData* data) {
     uint8_t idHigh = 0, idLow = 0;
-    
-    
-    uint8_t status = executeCommand(CMD_MATCH, 0, 0, 0, &idHigh, &idLow, 5.0);
+
+
+    const uint8_t status = executeCommand(CMD_MATCH, 0, 0, 0, &idHigh, &idLow, 5.0);
 
     if (data) {
         data->type = ID_FINGERPRINT;
@@ -53,13 +53,10 @@ bool C_Fingerprint::read(SensorData* data) {
     return (status != ACK_TIMEOUT);
 }
 
-bool C_Fingerprint::addUser(int userID) {
-    uint8_t p1 = (userID >> 8) & 0xFF; 
-    uint8_t p2 = userID & 0xFF;        
-    uint8_t perm = 1;                  
-
-    
-    
+bool C_Fingerprint::addUser(const int userID) const {
+    const uint8_t p1 = (userID >> 8) & 0xFF;
+    const uint8_t p2 = userID & 0xFF;
+    const uint8_t perm = 1;
 
     std::cout << "[Finger] Step 1/3: Place finger..." << std::endl;
     if (executeCommand(CMD_ADD_1, p1, p2, perm, nullptr,
@@ -76,18 +73,16 @@ bool C_Fingerprint::addUser(int userID) {
     return true;
 }
 
-bool C_Fingerprint::deleteUser(int userID) {
+bool C_Fingerprint::deleteUser(const int userID) const {
     uint8_t p1 = (userID >> 8) & 0xFF;
     uint8_t p2 = userID & 0xFF;
 
-    
-    
     return (executeCommand(CMD_DEL, p1, p2, 0, nullptr,
         nullptr, 1.0) == ACK_SUCCESS);
 }
 
-uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8_t p3,
-    uint8_t* outHigh, uint8_t* outLow, float timeoutSec) const {
+uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const uint8_t p2, const uint8_t p3,
+    uint8_t* outHigh, uint8_t* outLow, const float timeoutSec) const {
 
     std::cout << "[DEBUG] >> A entrar em executeCommand (POLL VERSION)..." << std::endl;
 
@@ -116,7 +111,6 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
     std::cout << "[DEBUG] A enviar comando..." << std::endl;
     m_uart.writeBuffer(tx, 8);
 
-    
     std::cout << "[DEBUG] A esperar resposta (Poll)..." << std::endl;
     uint8_t rx[8];
     int totalRead = 0;
@@ -176,7 +170,7 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
 
 static constexpr uint8_t CMD_DELETE_ALL = 0x05;
 
-bool C_Fingerprint::deleteAllUsers() {
+bool C_Fingerprint::deleteAllUsers() const {
     
     uint8_t st = executeCommand(CMD_DELETE_ALL, 0, 0, 0, nullptr, nullptr, 2.0f);
     return (st == ACK_SUCCESS);

@@ -34,9 +34,9 @@ public:
     void wakeUp();
     void sleep();
     
-    bool addUser(int userID);
-    bool deleteUser(int userID);
-    bool deleteAllUsers();
+    bool addUser(int userID) const;
+    bool deleteUser(int userID) const;
+    bool deleteAllUsers() const;
 
 private:
     C_UART& m_uart;

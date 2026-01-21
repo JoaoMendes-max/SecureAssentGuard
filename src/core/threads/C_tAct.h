@@ -4,8 +4,8 @@
 #include "C_Thread.h"
 #include "SharedTypes.h"
 #include <array>
-#include <signal.h>  // ← ADICIONAR
-#include <time.h>    // ← ADICIONAR
+#include <signal.h>  
+#include <time.h>    
 
 class C_Mqueue;
 class C_Actuator;
@@ -31,12 +31,12 @@ private:
     void processMessage(const ActuatorCmd& msg);
     void sendLog(ActuatorID_enum id, uint8_t value);
 
-    // Funções auxiliares do Timer
+    
     void initTimer();
     void startAlarmTimer(int seconds);
     void stopAlarmTimer();
 
-    // Callback ESTÁTICA (obrigatório para timer_create)
+    
     static void alarmTimerCallback(union sigval sv);
 
     static void generateDescription(ActuatorID_enum id,
@@ -48,4 +48,4 @@ private:
         return id < ID_ACTUATOR_COUNT;
     }
 };
-#endif // C_TACT_H
+#endif 

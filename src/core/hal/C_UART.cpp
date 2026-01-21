@@ -1,10 +1,10 @@
 #include "C_UART.h"
 #include <iostream>
-#include <fcntl.h>      // File Control Definitions
-#include <termios.h>    // POSIX Terminal Control Definitions
-#include <unistd.h>     // UNIX Standard Definitions
-#include <cstring>      // memset
-#include <cerrno> // Necessário para usar 'errno'
+#include <fcntl.h>      
+#include <termios.h>    
+#include <unistd.h>     
+#include <cstring>      
+#include <cerrno> 
 
 using namespace std;
 
@@ -19,14 +19,14 @@ C_UART::~C_UART() {
 }
 
 bool C_UART::openPort() {
-    // Adiciona O_NONBLOCK explicitamente
+    
     m_fd = open(m_portPath.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
 
     if (m_fd == -1) {
         perror("C_UART: Erro ao abrir porta");
         return false;
     }
-    // IMPORTANTE: Remove qualquer fcntl que tinhas aqui em baixo
+    
     return true;
 }
 
@@ -45,13 +45,13 @@ bool C_UART::configPort(int baud, int bits, char parity) {
 
     struct termios options = {0};
 
-    // 1.Will get the present configurations
+    
     if (tcgetattr(m_fd, &options) != 0) {
         perror("C_UART: Erro no tcgetattr");
         return false;
     }
 
-    // 2. configure baudrate
+    
     speed_t speed;
     switch (baud) {
         case 9600:   speed = B9600; break;
@@ -69,7 +69,7 @@ bool C_UART::configPort(int baud, int bits, char parity) {
     cfsetispeed(&options, speed);
     cfsetospeed(&options, speed);
 
-    // 3. Configure data bytes
+    
     options.c_cflag &= ~CSIZE;
     if (bits == 8) {
         options.c_cflag |= CS8;
@@ -80,43 +80,43 @@ bool C_UART::configPort(int baud, int bits, char parity) {
         return false;
     }
 
-    // 4. Configure PArity
+    
     if (parity == 'N') {
-        options.c_cflag &= ~PARENB; // Desliga bit de paridade
+        options.c_cflag &= ~PARENB; 
     } else if (parity == 'E') {
-        options.c_cflag |= PARENB;  // Liga paridade
-        options.c_cflag &= ~PARODD; // É par (não ímpar)
+        options.c_cflag |= PARENB;  
+        options.c_cflag &= ~PARODD; 
     } else if (parity == 'O') {
-        options.c_cflag |= PARENB;  // Liga paridade
-        options.c_cflag |= PARODD;  // É ímpar
+        options.c_cflag |= PARENB;  
+        options.c_cflag |= PARODD;  
     } else {
         cerr << "C_UART: Paridade inválida (use 'N', 'E', 'O')" << endl;
         return false;
     }
 
-    // 5. Configurar Stop Bits (Sempre 1 por padrão)
+    
     options.c_cflag &= ~CSTOPB;
 
-    // 6.
+    
     options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
     options.c_oflag &= ~OPOST;
     options.c_iflag &= ~(IXON | IXOFF | IXANY);
 
-    // Hardware Flow Control (Disable RTS/CTS because we only use tx and rx)
+    
     options.c_cflag &= ~CRTSCTS;
 
-    // Disable modem flags like the neeed of DCD
+    
     options.c_cflag |= (CLOCAL | CREAD);
     options.c_cc[VMIN] = 0;
     options.c_cc[VTIME] = 1;
 
-    // 8.Configurations,
+    
     if (tcsetattr(m_fd, TCSANOW, &options) != 0) {
         cerr<<"C_UART: Erro no tcsetattr\n";
         return false;
     }
 
-    // 9. Limpar buffers antigos
+    
     tcflush(m_fd, TCIOFLUSH);
 
     return true;
@@ -131,27 +131,18 @@ int C_UART::writeBuffer(const void* data, size_t len) {
 
     return count;
 }
-/*
-int C_UART::readBuffer(void* buffer, size_t len) {
-    if (m_fd == -1) return -1;
 
-    int count = read(m_fd, buffer, len);
-    if (count < 0) cerr<<"C_UART: Erro ao ler";
-
-    return count;
-}
-*/
 int C_UART::readBuffer(void* buffer, size_t len) {
     if (m_fd == -1) return -1;
 
     int count = read(m_fd, buffer, len);
 
     if (count < 0) {
-        // Se o erro for "Não há dados disponíveis" (EAGAIN), retorna 0
+        
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             return 0;
         }
-        // Outros erros reais
+        
         perror("C_UART: Erro real no read");
         return -1;
     }

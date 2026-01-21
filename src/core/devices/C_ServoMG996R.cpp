@@ -3,9 +3,9 @@
 #include "C_PWM.h"
 #include <iostream>
 
-// Limits in % (Duty Cycle) for period of 20ms
-// 5% of 20ms = 1ms (0 degrees)
-// 10% of 20ms = 2ms (180 degrees)
+
+
+
 #define DUTY_MIN 5
 #define DUTY_MAX 10
 
@@ -52,19 +52,20 @@ bool C_ServoMG996R::set_value(uint8_t angle) {
         return false;
     }
     if (angle == 0) {
-        stop();  // para a thread dos atuadores assim ter se receber 0 é para desligar
+        stop();  
         return true;
     }
 
-    // max angles of 180
+    
     if (angle > 180) {
         angle = 180;
     }
     m_targetAngle = angle;
-    // convert angle to duty cycle ( the pwm class use receive a duty cycle in %)
+    
     uint8_t duty = angleToDutyCycle(angle);
 
-    std::cout << "[Servo] Mover para " << (int)angle << "º (Duty " << (int)duty << "%)" << std::endl;
+    // std::cout << "[Servo] Mover para " << (int)angle << "º (Duty " << (int)duty << "%)" << std::endl;
+    std::cout << "[Servo] Mover para " << static_cast<int>(angle) << "º (Duty " << static_cast<int>(duty) << "%)" << std::endl;
 
     if (!m_pwm.setDutyCycle(duty)) {
         std::cerr << "[Servo] Erro critico: Falha ao escrever duty cycle!" << std::endl;
@@ -77,4 +78,3 @@ bool C_ServoMG996R::set_value(uint8_t angle) {
 uint8_t C_ServoMG996R::angleToDutyCycle(uint8_t angle) {
     return DUTY_MIN + (angle * (DUTY_MAX - DUTY_MIN) / 180);
 }
-

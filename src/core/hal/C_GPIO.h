@@ -14,22 +14,22 @@ public:
 
     ~C_GPIO();
 
-    //Pin export
+    
     bool init();
 
-    //Pin unexport
+    
     void closePin();
 
-    //output value
+    
     void writePin(bool value);
 
-    //read input value
+    
     bool readPin();
 
 private:
     int m_pin;
     GPIO_DIRECTION m_dir;
-    string m_path;//sysfs path
+    string m_path;
 };
 
-#endif // C_GPIO_H
+#endif 

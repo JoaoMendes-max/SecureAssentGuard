@@ -3,7 +3,7 @@
 
 #include "C_Sensor.h"
 #include <stdint.h>
-#include <cstddef>  // size_t
+#include <cstddef>  
 
 class C_I2C;
 
@@ -12,7 +12,7 @@ class C_I2C;
 class C_TH_SHT30 final : public C_Sensor {
 private:
     C_I2C& m_i2c;
-    // Função auxiliar para validar dados
+    
     static uint8_t calculateCRC(const uint8_t* data, size_t len);
 
 public:

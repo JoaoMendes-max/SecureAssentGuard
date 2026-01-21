@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Asset Guard - Login</title>
     <style>
-        /* CSS: Define o aspeto visual (Estilo) */
+        
         body {
             font-family: 'Arial', sans-serif;
-            background-color: #f4f4f9; /* Cor de fundo suave */
+            background-color: #f4f4f9; 
             display: flex;
             justify-content: center;
             align-items: center;
@@ -19,8 +19,8 @@
         .login-card {
             background-color: white;
             padding: 40px;
-            border-radius: 10px; /* Cantos arredondados */
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* Sombra suave */
+            border-radius: 10px; 
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); 
             width: 100%;
             max-width: 350px;
             text-align: center;
@@ -48,14 +48,14 @@
             padding: 10px;
             border: 1px solid #ccc;
             border-radius: 5px;
-            box-sizing: border-box; /* Garante que o padding não aumenta a largura */
+            box-sizing: border-box; 
         }
 
-        /* Requisito do PDF: Botão destacado em cor primária (azul)  */
+        
         button {
             width: 100%;
             padding: 10px;
-            background-color: #007BFF; /* Azul Primário */
+            background-color: #007BFF; 
             color: white;
             border: none;
             border-radius: 5px;
@@ -65,18 +65,18 @@
         }
 
         button:hover {
-            background-color: #0056b3; /* Azul mais escuro ao passar o rato */
+            background-color: #0056b3; 
         }
 
         .error-msg {
             color: red;
             font-size: 0.8em;
             margin-top: 10px;
-            display: none; /* Escondido por defeito */
+            display: none; 
         }
         .modal-overlay {
 	    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-	    background: rgba(0,0,0,0.5); display: none; /* Escondido por defeito */
+	    background: rgba(0,0,0,0.5); display: none; 
 	    justify-content: center; align-items: center;
 	    backdrop-filter: blur(3px);
 	}
@@ -140,7 +140,7 @@
 </div>
 
 <script>
-    // --- 1. Lógica de Login (JÁ TINHAS) ---
+    
     document.getElementById('loginForm').addEventListener('submit', function(event) {
         event.preventDefault();
 
@@ -167,7 +167,7 @@
         });
     });
 
-    // --- 2. NOVA Lógica de Registo (COLOCA AQUI EM BAIXO) ---
+    
 
     function openRegisterModal() {
         document.getElementById('registerModal').style.display = 'flex';
@@ -195,7 +195,7 @@
             return;
         }
 
-        // Manda criar com nível 0 (apenas visualização)
+        
         fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

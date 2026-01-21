@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Asset Guard - Dashboard</title>
     <style>
-        /* --- Estilos Gerais --- */
+        
         body {
             font-family: 'Arial', sans-serif;
             background-color: #f4f4f9;
@@ -14,7 +14,7 @@
             color: #333;
         }
 
-        /* --- Cabeçalho (Header) --- */
+        
         header {
             display: flex;
             justify-content: space-between;
@@ -28,7 +28,7 @@
         }
 
         .btn-logout {
-            background-color: #007BFF; /* Azul do documento */
+            background-color: #007BFF; 
             color: white;
             border: none;
             padding: 10px 20px;
@@ -41,8 +41,8 @@
             background-color: #0056b3;
         }
 
-        /* --- Painéis de Estado (Quick Status) --- */
-        /* Baseado na pág. 48 do PDF: Barras cinzentas com status */
+        
+        
         .status-container {
             display: flex;
             flex-direction: column;
@@ -51,7 +51,7 @@
         }
 
         .status-card {
-            background-color: #e0e0e0; /* Cinzento claro */
+            background-color: #e0e0e0; 
             padding: 20px;
             border-radius: 8px;
             font-size: 1.2em;
@@ -60,23 +60,23 @@
             align-items: center;
         }
 
-        /* Classes para cores de texto (Feedback visual) */
+        
         .status-label {
             margin-right: 10px;
         }
 
-        .text-green { color: #28a745; } /* Verde para "Secure/Locked" */
-        .text-red { color: #dc3545; }   /* Vermelho para alertas */
-        .text-blue { color: #17a2b8; }  /* Azul para temperatura */
+        .text-green { color: #28a745; } 
+        .text-red { color: #dc3545; }   
+        .text-blue { color: #17a2b8; }  
 
-        /* --- Menu de Navegação (Botões Circulares) --- */
+        
         .nav-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
             gap: 20px;
             justify-items: center;
             max-width: 800px;
-            margin: 0 auto; /* Centrar na página */
+            margin: 0 auto; 
         }
 
         .nav-item {
@@ -86,14 +86,14 @@
         }
 
         .nav-item:hover {
-            transform: scale(1.05); /* Efeito de zoom ao passar o rato */
+            transform: scale(1.05); 
         }
 
         .nav-circle {
             width: 80px;
             height: 80px;
             background-color: #fff;
-            border-radius: 50%; /* Faz o círculo */
+            border-radius: 50%; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             display: flex;
             justify-content: center;
@@ -179,7 +179,7 @@
         fetch('/api/dashboard')
             .then(response => response.json())
             .then(data => {
-                // 1. Atualizar valores normais
+                
                 document.getElementById('securityStatus').innerText = data.security;
                 document.getElementById('vaultStatus').innerText = data.vault;
 
@@ -188,22 +188,22 @@
 
                 document.getElementById('tempHumValue').innerText = `${data.temp.toFixed(1)}°C / ${data.hum.toFixed(1)}%`;
 
-                // 2. LÓGICA DE ADMIN (NOVO)
-                // Se o JSON disser que isAdmin é true, mostramos os botões
+                
+                
                 if (data.isAdmin === true) {
                     document.getElementById('btn-assets').style.display = 'block';
                     document.getElementById('btn-users').style.display = 'block';
                     document.getElementById('btn-settings').style.display = 'block';
                 }
-                // Caso contrário continuam escondidos (não precisamos de else porque já estão display:none no HTML)
+                
             })
             .catch(err => console.error("Erro dashboard:", err));
     }
 
-    // Atualiza assim que a página abre
+    
     window.onload = updateDashboard;
 
-    // Pede dados novos ao C++ a cada 1 segundo (para veres mexer)
+    
     setInterval(updateDashboard, 1000);
 </script>
 

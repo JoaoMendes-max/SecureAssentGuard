@@ -9,7 +9,6 @@ class C_Mqueue;
 
 class C_tReadEnvSensor : public C_Thread {
 private:
-    C_Monitor& m_monitor;        // Mantém consistência com outras threads!
     C_TH_SHT30& m_sensor;
     C_Mqueue& m_mqToActuator;
     C_Mqueue& m_mqToDatabase;
@@ -18,16 +17,17 @@ private:
     int m_tempThreshold;
     int m_intervalSeconds;
     uint8_t m_lastFanState;
-    // Métodos auxiliares (igual às outras threads)
-    void sendLog(int temp, int hum) const;
-    static void generateDescription(int temp, int hum, char* buffer, size_t size);
+    
+    // void sendLog(int temp, int hum) const;
+    void sendLog(double temp, double hum) const;
+    // static void generateDescription(int temp, int hum, char* buffer, size_t size);
+    static void generateDescription(double temp, double hum, char* buffer, size_t size);
 
 public:
-    C_tReadEnvSensor(C_Monitor& monitor,
-                     C_TH_SHT30& sensor,
+    C_tReadEnvSensor(C_TH_SHT30& sensor,
                      C_Mqueue& mqAct,
                      C_Mqueue& mqDB,
-                     C_Mqueue& mqFromDb, // <--- Adicionado
+                     C_Mqueue& mqFromDb, 
                      int intervalSec = 600,
                      int threshold = 30);
 

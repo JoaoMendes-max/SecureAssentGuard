@@ -19,13 +19,13 @@ C_tLeaveRoomAccess::C_tLeaveRoomAccess(C_Monitor& monitorrfid, C_Monitor& monito
 {
 }
 
-C_tLeaveRoomAccess::~C_tLeaveRoomAccess() { //
+C_tLeaveRoomAccess::~C_tLeaveRoomAccess() { 
 }
 
 void C_tLeaveRoomAccess::run() {
     std::cout << "[LeaveRoom] Thread em execução. À espera de tags para sair..." << std::endl;
 
-    // 1. LOOP PRINCIPAL (Vigilância do RFID)
+    
     while (!stopRequested()) {
 
         if (m_monitorrfid.timedWait(1)) {
@@ -33,56 +33,62 @@ void C_tLeaveRoomAccess::run() {
         }
 
         SensorData data = {};
-        // Tenta ler o sensor. Se ler com sucesso, processa.
+        
         if (m_rfidExit.read(&data)) {
-            char* rfidRead = data.data.rfid_single.tagID;
+            // char* rfidRead = data.data.rfid_single.tagID;
+            const char* rfidRead = data.data.rfid_single.tagID;
             std::cout << "[RFID-EXIT] Cartão lido: " << rfidRead << std::endl;
 
-            // 2. Pedido de SAÍDA explícito à Base de Dados
+            
             DatabaseMsg msg = {};
-            msg.command = DB_CMD_LEAVE_ROOM_RFID; // Comando para forçar IsInside = 0
-            strncpy(msg.payload.rfid, rfidRead, 11);
+            msg.command = DB_CMD_LEAVE_ROOM_RFID; 
+            // strncpy(msg.payload.rfid, rfidRead, 11);
+            strncpy(msg.payload.rfid, rfidRead, sizeof(msg.payload.rfid) - 1);
+            msg.payload.rfid[sizeof(msg.payload.rfid) - 1] = '\0';
             m_mqToDatabase.send(&msg, sizeof(msg));
 
             AuthResponse resp = {};
 
-            // 3. LOOP INTERNO: Espera pela Resposta da DB
+            
             while (!stopRequested()) {
                 ssize_t bytes = m_mqToLeaveRoom.timedReceive(&resp, sizeof(resp), 1);
 
                 if (bytes > 0) {
-                    // Resposta recebida!
+                    
                     if (resp.payload.auth.authorized) {
-                        std::cout << "[RFID-EXIT] Saída Autorizada! UserID: " << (int)resp.payload.auth.userId << std::endl;
+                        // std::cout << "[RFID-EXIT] Saída Autorizada! UserID: " << (int)resp.payload.auth.userId << std::endl;
+                        std::cout << "[RFID-EXIT] Saída Autorizada! UserID: " << static_cast<unsigned int>(resp.payload.auth.userId) << std::endl;
                         m_failedAttempts = 0;
 
-                        // 4. Abrir porta
+                        
                         ActuatorCmd cmd = {ID_SERVO_ROOM, 0};
                         m_mqToActuator.send(&cmd, sizeof(cmd));
 
-                        // 5. Log de Saída
-                        sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel);
+                        
+                        // sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel);
+                        sendLog(static_cast<uint32_t>(resp.payload.auth.userId),
+                                static_cast<uint32_t>(resp.payload.auth.accessLevel));
 
-                        // 6. LOOP DE ESPERA DO SERVO (Até a porta fechar)
+                        
                         while (!stopRequested()) {
-                            // Se timedWait retornar FALSE, significa que recebeu SINAL (porta fechou)
+                            
                             if (!m_monitorservoroom.timedWait(1)) {
                                 break;
                             }
-                            // Se for timeout (true), o loop continua e verifica stopRequested
+                            
                         }
 
-                        // Verificação de segurança antes de trancar
+                        
                         if (stopRequested()) {
-                            break; // Sai do loop da DB e o principal trata de fechar
+                            break; 
                         }
 
-                        // Trancar porta (90 graus)
+                        
                         cmd = {ID_SERVO_ROOM, 90};
                         m_mqToActuator.send(&cmd, sizeof(cmd));
                     }
 
-                    // Saímos do loop da DB (quer tenha sido autorizado ou não)
+                    
                     break;
                 }
             }
@@ -92,18 +98,20 @@ void C_tLeaveRoomAccess::run() {
     std::cout << "[LeaveRoom] Thread terminada com sucesso." << std::endl;
 }
 
-void C_tLeaveRoomAccess::generateDescription(uint8_t userId, char* buffer, size_t size) {
+// void C_tLeaveRoomAccess::generateDescription(uint8_t userId, char* buffer, size_t size) {
+void C_tLeaveRoomAccess::generateDescription(uint32_t userId, char* buffer, size_t size) {
 
-        snprintf(buffer, size, "Utilizador %d SAIU da sala", userId);
+        snprintf(buffer, size, "Utilizador %u SAIU da sala", userId);
 }
 
-void C_tLeaveRoomAccess::sendLog(uint8_t userId, uint16_t accessLevel) {
+// void C_tLeaveRoomAccess::sendLog(uint8_t userId, uint16_t accessLevel) {
+void C_tLeaveRoomAccess::sendLog(uint32_t userId, uint32_t accessLevel) {
     DatabaseMsg msg = {};
     msg.command = DB_CMD_WRITE_LOG;
 
     msg.payload.log.logType = LOG_TYPE_ACCESS ;
     msg.payload.log.entityID = userId;
-    msg.payload.log.value = accessLevel;
+    msg.payload.log.value = static_cast<double>(accessLevel);
     msg.payload.log.timestamp = static_cast<uint32_t>(time(nullptr));
 
     generateDescription(userId, msg.payload.log.description, sizeof(msg.payload.log.description));

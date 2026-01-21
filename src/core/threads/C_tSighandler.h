@@ -13,7 +13,7 @@
 #include "C_Monitor.h"
 #include"SharedTypes.h"
 
-// Definições para comunicação com o teu Kernel Driver
+
 #define IRQ_IOC_MAGIC  'k'
 #define REGIST_PID     _IOW(IRQ_IOC_MAGIC, 1, int)
 
@@ -34,7 +34,7 @@ public:
 
      ~C_tSighandler() override;
 
-    // should be the first thing to be called in the main
+    
     static void setupSignalBlock();
 
 

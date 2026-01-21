@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        /* --- Estilos Gerais --- */
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f4f9;
@@ -50,7 +50,7 @@
             flex: 1;
         }
 
-        /* Sidebar */
+        
         .sidebar {
             width: 200px;
             background: white;
@@ -72,7 +72,7 @@
         .filter-option:hover { background-color: #f0f2f5; }
         .filter-option.active { background-color: #e7f1ff; color: #007BFF; font-weight: bold; }
 
-        /* Conteúdo Principal */
+        
         .main-content {
             flex: 1;
             display: flex;
@@ -80,11 +80,11 @@
             gap: 20px;
         }
 
-        /* Abas */
+        
         .tabs-container {
             display: flex; background: white; padding: 10px;
             border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); gap: 10px;
-            flex-wrap: wrap; /* Para não quebrar em ecrãs pequenos */
+            flex-wrap: wrap; 
         }
 
         .tab-btn {
@@ -94,7 +94,7 @@
         .tab-btn:hover { background-color: #f0f0f0; }
         .tab-btn.active { background-color: #007BFF; color: white; box-shadow: 0 2px 5px rgba(0,123,255,0.3); }
 
-        /* Card de Visualização */
+        
         .view-card {
             background: white;
             border-radius: 12px;
@@ -105,13 +105,13 @@
             position: relative;
         }
 
-        /* Estilo da Tabela */
+        
         .data-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .data-table th { text-align: left; padding: 12px; background-color: #f8f9fa; color: #555; border-bottom: 2px solid #eee; }
         .data-table td { padding: 12px; border-bottom: 1px solid #eee; font-size: 0.95em; }
         .data-table tr:hover { background-color: #fafafa; }
 
-        /* Badges para Intrusão */
+        
         .alert-badge { padding: 3px 8px; border-radius: 4px; font-size: 0.85em; font-weight: bold; }
         .bg-red { background-color: #f8d7da; color: #721c24; }
         .bg-yellow { background-color: #fff3cd; color: #856404; }
@@ -145,7 +145,6 @@
             <button class="tab-btn" onclick="showTable('intrusion', this)">Intrusion</button>
             <button class="tab-btn" onclick="showTable('access', this)">Accesses</button>
             <button class="tab-btn" onclick="showTable('assets', this)">Assets</button>
-            <button class="tab-btn" onclick="showTable('users', this)">Users</button>
         </div>
 
         <div class="view-card">
@@ -174,17 +173,17 @@
     };
     let logsData = [];
 
-    // --- 1. COMUNICAÇÃO (Simplificada para o C++) ---
+    
     function fetchLogs() {
         const activeTimeEl = document.querySelector('.filter-option.active');
         const activeTabEl = document.querySelector('.tab-btn.active');
         
-        // Envia o TEXTO exato do botão (ex: "Temperature", "1 Hour")
-        // Assim no C++ só fazes: if (json.logType == "Temperature") ...
+        
+        
         const timeFilter = activeTimeEl ? activeTimeEl.innerText : "1 Hour";
         const typeFilter = activeTabEl ? activeTabEl.innerText : "Temperature";
 
-        // Feedback visual "Loading" apenas na tabela
+        
         if (!document.getElementById('table-container').classList.contains('hidden')) {
             document.getElementById('table-body').innerHTML = 
                 "<tr><td colspan='3' style='text-align:center; color:#888;'>Loading data...</td></tr>";
@@ -197,13 +196,13 @@
         })
         .then(res => res.json())
         .then(data => {
-            // Se vierem dados de gráfico
+            
             if (data.graph) {
                 const labels = data.graph.labels || ['-40s', '-30s', '-20s', '-10s', 'Now'];
                 if (data.graph.temp) { graphData.temp.data = data.graph.temp; graphData.temp.labels = labels; }
                 if (data.graph.hum) { graphData.hum.data = data.graph.hum; graphData.hum.labels = labels; }
             }
-            // Se vierem logs (lista)
+            
             if (data.logs) {
                 logsData = data.logs;
             }
@@ -213,7 +212,7 @@
         .catch(err => console.error("Erro logs:", err));
     }
 
-    // --- 2. INTERFACE (Tabs e Botões) ---
+    
     function showGraph(type, btn) {
         updateButtons(btn);
         document.getElementById('chart-container').classList.remove('hidden');
@@ -239,9 +238,9 @@
         fetchLogs();
     }
 
-    // --- 3. RENDERIZAÇÃO (Desenhar) ---
+    
     function renderCurrentView(activeType) {
-        // Se for gráfico
+        
         if (activeType === 'Temperature' || activeType === 'Humidity') {
             const ctx = document.getElementById('logsChart').getContext('2d');
             const key = activeType === 'Temperature' ? 'temp' : 'hum';
@@ -261,7 +260,7 @@
                 options: { responsive: true, maintainAspectRatio: false }
             });
         } 
-        // Se for tabela
+        
         else {
             const tbody = document.getElementById('table-body');
             let bodyHTML = "";

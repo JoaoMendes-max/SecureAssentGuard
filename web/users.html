@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Asset Guard - Manage Users</title>
     <style>
-        /* --- Estilos Gerais --- */
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f4f9;
@@ -17,7 +17,7 @@
             flex-direction: column;
         }
 
-        /* --- Header --- */
+        
         header {
             display: flex;
             align-items: center;
@@ -44,10 +44,10 @@
         }
         .btn-back:hover { background-color: #dbe2e8; transform: translateX(-2px); }
 
-        /* --- Layout --- */
+        
         .main-container { display: flex; gap: 30px; align-items: flex-start; flex: 1; }
 
-        /* Sidebar */
+        
         .actions-sidebar {
             display: flex; flex-direction: column; gap: 15px; width: 200px;
             background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);
@@ -62,11 +62,11 @@
         .btn-modify { background-color: #ffc107; color: #333; }
         .sidebar-hint { font-size: 0.8em; color: #888; text-align: center; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
 
-        /* Tabela */
+        
         .table-card { flex: 1; background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
         table { width: 100%; border-collapse: collapse; }
 
-        /* CABEÇALHO DA TABELA */
+        
         thead th {
             text-align: left; padding: 15px; background-color: #f8f9fa; color: #555;
             border-bottom: 2px solid #eee; font-weight: 600;
@@ -81,7 +81,7 @@
         .access-full { background-color: #d1e7dd; color: #0f5132; }
         .access-room { background-color: #cff4fc; color: #055160; }
 
-        /* Modal */
+        
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; backdrop-filter: blur(3px); }
         .modal-box { background: white; padding: 30px; border-radius: 12px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); animation: slideDown 0.3s ease; }
         @keyframes slideDown { from {transform: translateY(-50px); opacity: 0;} to {transform: translateY(0); opacity: 1;} }
@@ -146,13 +146,13 @@
             <input type="number" id="inputFinger" placeholder="Ex: 5 (0 se não tiver)">
         </div>
 
-        <div class="form-group">
+        <!-- <div class="form-group">
             <label>Access Level</label>
             <select id="inputAccess">
                 <option value="Room">Room Only</option>
                 <option value="Room/Vault">Room & Vault</option>
             </select>
-        </div>
+        </div> -->
 
         <div class="modal-actions">
             <button class="btn-cancel" onclick="closeModal()">Cancel</button>
@@ -166,7 +166,7 @@
     let selectedIndex = -1;
     let currentMode = 'add';
 
-    // --- 1. LEITURA (GET) ---
+    
     function fetchUsers() {
         fetch('/api/users')
             .then(res => res.json())
@@ -177,7 +177,7 @@
             .catch(err => console.error("Erro ao carregar users:", err));
     }
 
-    // MUDANÇA AQUI: Renderiza as colunas separadas
+    
     function renderTable() {
         const tbody = document.getElementById('usersTableBody');
         tbody.innerHTML = '';
@@ -193,8 +193,8 @@
 
             const badge = user.access.includes("Vault") ? 'access-full' : 'access-room';
 
-            // Preenche as colunas com os dados separados
-            // Se fingerprint for 0 ou nulo, mostra "--"
+            
+            
             tr.innerHTML = `
                 <td style="font-weight:500;">${user.name}</td>
                 <td>${user.rfid || '--'}</td>
@@ -205,16 +205,16 @@
         });
     }
 
-    // --- 2. GRAVAR (POST ou PUT) ---
+    
     function saveUser() {
         const name = document.getElementById('inputName').value;
         const rfid = document.getElementById('inputRFID').value;
         const finger = document.getElementById('inputFinger').value;
-        const access = document.getElementById('inputAccess').value;
+        /* const access = document.getElementById('inputAccess').value; */
 
-        // Validação: Precisa pelo menos de Nome e RFID
-        if (!name || !rfid) {
-            alert("Por favor preencha o Nome e o RFID Tag.");
+        
+        if (!name || (!rfid && !finger)) {
+            alert("Por favor preencha o Nome e o RFID ou Fingerprint.");
             return;
         }
 
@@ -222,7 +222,7 @@
         let method = 'POST';
 
         if (currentMode === 'edit') {
-            // Usa o ID interno da BD para identificar o user na edição
+            
             const internalId = users[selectedIndex].id;
             url = '/api/users/' + internalId;
             method = 'PUT';
@@ -234,8 +234,7 @@
             body: JSON.stringify({
                 name: name,
                 rfid: rfid,
-                fingerprint: parseInt(finger) || 0, // Garante que é número
-                access: access
+                fingerprint: (document.getElementById('inputFinger').disabled ? (users[selectedIndex]?.fingerprint || 0) : (parseInt(finger) || 0))
             })
         })
             .then(res => res.json())
@@ -251,7 +250,7 @@
             .catch(err => alert("Erro de comunicação: " + err));
     }
 
-    // --- 3. REMOVER (DELETE) ---
+    
     function removeUser() {
         if (selectedIndex === -1) {
             alert("Selecione um utilizador primeiro!");
@@ -263,7 +262,7 @@
             return;
         }
 
-        // Usa o ID interno para apagar
+        
         fetch('/api/users/' + userToDelete.id, {
             method: 'DELETE'
         })
@@ -279,26 +278,27 @@
             .catch(err => alert("Erro ao tentar remover: " + err));
     }
 
-    // --- INTERFACE DO MODAL ---
+    
     function openModal(mode) {
         const modal = document.getElementById('userModal');
         const title = document.getElementById('modalTitle');
 
-        // Elementos do Form
+        
         const inName = document.getElementById('inputName');
         const inRFID = document.getElementById('inputRFID');
         const inFinger = document.getElementById('inputFinger');
-        const inAccess = document.getElementById('inputAccess');
+        /* const inAccess = document.getElementById('inputAccess'); */
 
         currentMode = mode;
 
         if (mode === 'add') {
             title.innerText = "Add New User";
-            // Limpar tudo
+            
             inName.value = '';
             inRFID.value = '';
             inFinger.value = '';
-            inAccess.value = 'Room';
+            inFinger.disabled = false;
+            /* inAccess.value = 'Room'; */
         } else if (mode === 'edit') {
             if (selectedIndex === -1) {
                 alert("Selecione um utilizador para editar!");
@@ -306,11 +306,16 @@
             }
             const user = users[selectedIndex];
             title.innerText = "Modify User";
-            // Preencher com dados existentes
+            
             inName.value = user.name;
             inRFID.value = user.rfid;
             inFinger.value = user.fingerprint || '';
-            inAccess.value = user.access;
+            /* inAccess.value = user.access; */
+            if (user.fingerprint && user.fingerprint > 0) {
+                inFinger.disabled = true;
+            } else {
+                inFinger.disabled = false;
+            }
         }
 
         modal.style.display = 'flex';
@@ -327,7 +332,7 @@
         }
     }
 
-    // Iniciar
+    
     window.onload = fetchUsers;
 </script>
 </body>

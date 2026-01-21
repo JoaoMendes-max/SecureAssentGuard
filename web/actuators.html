@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Asset Guard - Actuators State</title>
     <style>
-        /* --- General Styles (Consistent with Sensors Page) --- */
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f4f9;
@@ -17,7 +17,7 @@
             flex-direction: column;
         }
 
-        /* --- Header --- */
+        
         header {
             display: flex;
             align-items: center;
@@ -35,7 +35,7 @@
             color: #2c3e50;
         }
 
-        /* Back Button */
+        
         .btn-back {
             text-decoration: none;
             background-color: #e9ecef;
@@ -54,7 +54,7 @@
             transform: translateX(-2px);
         }
 
-        /* --- Grid Layout --- */
+        
         .actuators-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -62,27 +62,27 @@
             margin-bottom: 20px;
         }
 
-        /* --- Actuator Card --- */
+        
         .actuator-card {
             background: white;
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             transition: transform 0.2s;
-            border-left: 5px solid #6c757d; /* Default border color */
+            border-left: 5px solid #6c757d; 
         }
 
         .actuator-card:hover {
             transform: translateY(-3px);
         }
 
-        /* Specific Colors per Category */
-        .card-env { border-color: #0dcaf0; }   /* Cyan for Air/Fan */
-        .card-alert { border-color: #dc3545; } /* Red for Alarms */
-        .card-vault { border-color: #198754; } /* Green for Vault */
-        .card-room { border-color: #ffc107; }  /* Yellow for Room */
+        
+        .card-env { border-color: #0dcaf0; }   
+        .card-alert { border-color: #dc3545; } 
+        .card-vault { border-color: #198754; } 
+        .card-room { border-color: #ffc107; }  
 
-        /* Card Header */
+        
         .card-header {
             display: flex;
             align-items: center;
@@ -110,7 +110,7 @@
             text-transform: uppercase;
         }
 
-        /* Data Rows */
+        
         .data-row {
             display: flex;
             justify-content: space-between;
@@ -131,7 +131,7 @@
             font-weight: 500;
         }
 
-        /* Status Badges */
+        
         .status-badge {
             padding: 4px 12px;
             border-radius: 12px;
@@ -140,11 +140,11 @@
             text-transform: uppercase;
         }
 
-        /* Badge Colors */
-        .status-on { background-color: #d1e7dd; color: #0f5132; }       /* Greenish */
-        .status-off { background-color: #e2e3e5; color: #41464b; }      /* Grey */
-        .status-danger { background-color: #f8d7da; color: #842029; }   /* Red */
-        .status-secure { background-color: #cff4fc; color: #055160; }   /* Blueish */
+        
+        .status-on { background-color: #d1e7dd; color: #0f5132; }       
+        .status-off { background-color: #e2e3e5; color: #41464b; }      
+        .status-danger { background-color: #f8d7da; color: #842029; }   
+        .status-secure { background-color: #cff4fc; color: #055160; }   
 
     </style>
 </head>
@@ -240,7 +240,7 @@
     }
 
     function updateActuators() {
-        // FETCH REAL
+        
         fetch('/api/actuators')
             .then(res => res.json())
             .then(data => {

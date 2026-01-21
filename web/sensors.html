@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Asset Guard - Sensores</title>
     <style>
-        /* --- Estilos Gerais --- */
+        
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Fonte mais moderna */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
             background-color: #f4f4f9;
             margin: 0;
             padding: 20px;
@@ -17,7 +17,7 @@
             flex-direction: column;
         }
 
-        /* --- Cabeçalho --- */
+        
         header {
             display: flex;
             align-items: center;
@@ -35,7 +35,7 @@
             color: #2c3e50;
         }
 
-        /* Botão de Voltar (Estilo Botão) */
+        
         .btn-back {
             text-decoration: none;
             background-color: #e9ecef;
@@ -54,35 +54,35 @@
             transform: translateX(-2px);
         }
 
-        /* --- Grid de Sensores --- */
+        
         .sensors-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsivo: cria colunas automáticas */
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
             gap: 20px;
             margin-bottom: 20px;
         }
 
-        /* --- Cartão do Sensor --- */
+        
         .sensor-card {
             background: white;
             border-radius: 12px;
             padding: 20px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
             transition: transform 0.2s;
-            border-left: 5px solid #007BFF; /* Faixa colorida à esquerda */
+            border-left: 5px solid #007BFF; 
         }
 
         .sensor-card:hover {
-            transform: translateY(-3px); /* Ligeiro levitar ao passar o rato */
+            transform: translateY(-3px); 
         }
 
-        /* Cores das faixas laterais por tipo */
-        .card-env { border-color: #17a2b8; } /* Azul Cyan */
-        .card-sec { border-color: #dc3545; } /* Vermelho */
-        .card-acc { border-color: #28a745; } /* Verde */
-        .card-inv { border-color: #ffc107; } /* Amarelo */
+        
+        .card-env { border-color: #17a2b8; } 
+        .card-sec { border-color: #dc3545; } 
+        .card-acc { border-color: #28a745; } 
+        .card-inv { border-color: #ffc107; } 
 
-        /* Cabeçalho do Cartão */
+        
         .card-header {
             display: flex;
             align-items: center;
@@ -109,7 +109,7 @@
             color: #555;
         }
 
-        /* Linhas de Dados */
+        
         .data-row {
             display: flex;
             justify-content: space-between;
@@ -127,7 +127,7 @@
             color: #333;
         }
 
-        /* Badges de Estado (Pequenas etiquetas coloridas) */
+        
         .status-badge {
             padding: 4px 10px;
             border-radius: 12px;
@@ -135,9 +135,9 @@
             font-weight: bold;
         }
 
-        .status-ok { background-color: #d4edda; color: #155724; } /* Verde Claro */
-        .status-alert { background-color: #f8d7da; color: #721c24; } /* Vermelho Claro */
-        .status-neutral { background-color: #e2e3e5; color: #383d41; } /* Cinza */
+        .status-ok { background-color: #d4edda; color: #155724; } 
+        .status-alert { background-color: #f8d7da; color: #721c24; } 
+        .status-neutral { background-color: #e2e3e5; color: #383d41; } 
 
     </style>
 </head>
@@ -213,26 +213,15 @@
         </div>
     </div>
 
-    <div class="sensor-card card-inv">
-        <div class="card-header">
-            <div class="card-icon">📦</div>
-            <div class="card-title">Inventory (UHF)</div>
-        </div>
-        <div class="data-row">
-            <span class="data-label">Scanner Status</span>
-            <span id="uhf-status" class="status-badge status-neutral">Idle</span>
-        </div>
-    </div>
-
 </div>
 
 <script>
-    // Função auxiliar visual
+    
     function setBadge(elementId, text, type) {
         const el = document.getElementById(elementId);
         if(!el) return;
         el.innerText = text;
-        el.className = 'status-badge'; // Reset classes
+        el.className = 'status-badge'; 
 
         if (type === 'good') el.classList.add('status-ok');
         else if (type === 'bad') el.classList.add('status-alert');
@@ -243,35 +232,33 @@
         fetch('/api/sensors')
             .then(res => res.json())
             .then(data => {
-                // 1. Ambiente
+                
                 document.getElementById('env-temp').innerText = data.env.temp.toFixed(1);
                 document.getElementById('env-hum').innerText = data.env.hum.toFixed(1);
 
-                // ✅ ADICIONAR: Atualizar timestamps
+                
                 document.getElementById('env-temp-time').innerText = data.env.tempTime || '--:--';
                 document.getElementById('env-hum-time').innerText = data.env.humTime || '--:--';
                 ;
                
-                // 3. Cofre
+                
                 setBadge('acc-vault-door', data.vault.door, data.vault.door === "Locked" ? 'good' : 'bad');
                 document.getElementById('acc-fp-user').innerText = data.vault.user;
                 document.getElementById('acc-fp-time').innerText = data.vault.time;
 
-                // 4. Porta Entrada
+                
                 setBadge('acc-room-door', data.room.door, data.room.door === "Closed" ? 'good' : 'bad');
                 document.getElementById('rfid-in-id').innerText = data.room.rfidIn;
                 document.getElementById('rfid-in-time').innerText = data.room.timeIn;
                 document.getElementById('rfid-out-id').innerText = data.room.rfidOut;
                 document.getElementById('rfid-out-time').innerText = data.room.timeOut;
 
-                // 5. UHF
-                setBadge('uhf-status', data.uhf, 'neutral');
             })
             .catch(err => console.error("Erro sensors:", err));
     }
 
     window.onload = updateSensors;
-    setInterval(updateSensors, 1000); // Atualiza a cada segundo
+    setInterval(updateSensors, 1000); 
 </script>
 </body>
 </html>

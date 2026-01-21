@@ -4,8 +4,8 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
-#include <cerrno>   // <--- Faltava este
-#include <cstring>  // <--- Faltava este
+#include <cerrno>   
+#include <cstring>  
 
 using namespace std;
 
@@ -24,18 +24,18 @@ bool C_PWM::init()
 {
     string pwmPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) + "/pwm" + to_string(m_pwmChannel);
 
-    // 1. Verifica se já existe para evitar o erro de EBUSY
+    
     if (access(pwmPath.c_str(), F_OK) == 0)
     {
         return true;
     }
 
-    // 2. Tenta exportar
+    
     string exportPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) + "/export";
     int fd = open(exportPath.c_str(), O_WRONLY);
     if (fd < 0)
     {
-        // Aqui usamos o strerror para perceber se o erro é de permissão ou caminho
+        
         cerr << "Erro ao abrir export: " << strerror(errno) << endl;
         return false;
     }
@@ -43,7 +43,7 @@ bool C_PWM::init()
     string channel = to_string(m_pwmChannel);
     if (write(fd, channel.c_str(), channel.size()) < 0)
     {
-        if (errno != EBUSY) // Se for outro erro que não "já ocupado"
+        if (errno != EBUSY) 
         {
             cerr << "Erro ao exportar PWM: " << strerror(errno) << endl;
             close(fd);
@@ -83,7 +83,7 @@ bool C_PWM::setDutyCycle(uint8_t duty) {
     m_fd_duty = duty;
     int dutyns = (m_fd_period * duty) / 100;
 
-    // Caminho para o ficheiro duty_cycle
+    
     string dutyPath =
             "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) +
             "/pwm" + to_string(m_pwmChannel) + "/duty_cycle";

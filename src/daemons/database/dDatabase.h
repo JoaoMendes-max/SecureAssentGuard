@@ -1,6 +1,6 @@
 #ifndef C_DATABASE_H
 #define C_DATABASE_H
-
+#define SQLITE_HAS_CODEC
 #include "sqlcipher/sqlite3.h"
 #include <string>
 #include "SharedTypes.h"
@@ -28,6 +28,7 @@ public:
 private:
     sqlite3* m_db;
     std::string m_dbPath;
+    uint32_t m_currentRequestId;
 
     C_Mqueue& m_mqToDatabase;
     C_Mqueue& m_mqToVerifyRoom;
@@ -35,9 +36,9 @@ private:
     C_Mqueue& m_mqToFingerprint;
     C_Mqueue& m_mqToCheckMovement;
     C_Mqueue& m_mqToWeb;
-    C_Mqueue& m_mqToEnvThread;    // Para enviar novos thresholds de temperatura
+    C_Mqueue& m_mqToEnvThread;    
 
-    // Handlers Originais
+    
     void handleAccessRequest(const char* rfid, bool isEntering);
     void handleScanInventory(const Data_RFID_Inventory& inventory);
     void handleCheckUserInPir();
@@ -46,15 +47,15 @@ private:
     void handleGetSensors();
     void handleGetActuators();
     void handleInsertLog(const DatabaseLog& log);
-    void updateSensorTable(uint8_t entityID, uint16_t value, uint16_t value2, uint32_t timestamp);
-    void updateActuatorTable(uint8_t entityID, uint16_t value, uint32_t timestamp);
+    void updateSensorTable(uint8_t entityID, double value, double value2, uint32_t timestamp);
+    void updateActuatorTable(uint8_t entityID, double value, uint32_t timestamp);
 
-    // ↓ NOVOS HANDLERS ↓
+    
     void handleRegisterUser(const UserData& user);
     void handleGetUsers();
     void handleCreateUser(const UserData& user);
     void handleModifyUser(const UserData& user);
-    void handleRemoveUser(int userId);
+    void handleRemoveUser(uint32_t userId);
 
     void handleGetAssets();
     void handleCreateAsset(const AssetData& asset);

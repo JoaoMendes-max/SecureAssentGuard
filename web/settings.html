@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Asset Guard - Settings</title>
     <style>
-        /* --- Estilos Gerais --- */
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f4f9;
@@ -17,7 +17,7 @@
             flex-direction: column;
         }
 
-        /* --- Header Bonito --- */
+        
         header {
             display: flex;
             align-items: center;
@@ -31,7 +31,7 @@
 
         h1 { margin: 0; color: #2c3e50; font-size: 1.5em; }
 
-        /* Botão Voltar Consistente */
+        
         .btn-back {
             text-decoration: none;
             background-color: #e9ecef;
@@ -48,7 +48,7 @@
 
         .btn-back:hover { background-color: #dbe2e8; transform: translateX(-2px); }
 
-        /* --- Layout --- */
+        
         .main-container { display: flex; gap: 40px; align-items: flex-start; flex: 1; }
 
         .config-panel {
@@ -135,19 +135,19 @@
         const newTime = document.getElementById('inputTime').value;
         const newTemp = document.getElementById('inputTemp').value;
 
-        // Envia para o C++
+        
         fetch('/api/settings', {
             method: 'POST',
             body: JSON.stringify({
-                tempLimit: Number(newTemp),  // <--- CONVERTE PARA NÚMERO
-                sampleTime: Number(newTime)   // <--- CONVERTE PARA NÚMERO
+                tempLimit: Number(newTemp),  
+                sampleTime: Number(newTime)   
             })
         })
             .then(res => res.json())
             .then(data => {
                 if(data.status === 'saved') {
                     alert("✅ Guardado no Servidor!");
-                    loadSettings(); // Recarrega para confirmar
+                    loadSettings(); 
                 }
             });
     }

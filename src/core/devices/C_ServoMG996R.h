@@ -28,7 +28,7 @@ private:
     static uint8_t angleToDutyCycle(uint8_t angle);
 
 };
-#endif // C_SERVOMG996R_H
+#endif 
 
 
 

@@ -1,9 +1,9 @@
 #include "C_I2C.h"
 #include <iostream>
-#include <fcntl.h>      // Para open()
-#include <unistd.h>     // Para read(), write(), close()
-#include <sys/ioctl.h>  // Para ioctl()
-#include <linux/i2c-dev.h> // Constantes I2C (I2C_SLAVE)
+#include <fcntl.h>      
+#include <unistd.h>     
+#include <sys/ioctl.h>  
+#include <linux/i2c-dev.h> 
 
 using namespace std;
 
@@ -75,8 +75,9 @@ bool C_I2C::readBytes(uint8_t reg, uint8_t* buffer, size_t len) {
         cerr<<"C_I2C: Erro ao definir registo inicial\n";
         return false;
     }
-    // a funçao return a -1 se nao der ne e -1 é sszite nao size_t
-    if (read(m_fd, buffer, len) != (ssize_t)len) {
+    
+    // if (read(m_fd, buffer, len) != (ssize_t)len) {
+    if (read(m_fd, buffer, len) != static_cast<ssize_t>(len)) {
         cerr<<"C_I2C: Erro na leitura do bloco\n";
         return false;
     }

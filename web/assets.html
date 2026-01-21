@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Secure Asset Guard - Manage Assets</title>
     <style>
-        /* --- Estilos Gerais --- */
+        
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f4f4f9;
@@ -17,7 +17,7 @@
             flex-direction: column;
         }
 
-        /* --- Header Bonito (Consistente) --- */
+        
         header {
             display: flex;
             align-items: center;
@@ -31,7 +31,7 @@
 
         h1 { margin: 0; color: #2c3e50; font-size: 1.5em; }
 
-        /* Botão Voltar (Estilo Consistente) */
+        
         .btn-back {
             text-decoration: none;
             background-color: #e9ecef;
@@ -51,7 +51,7 @@
             transform: translateX(-2px);
         }
 
-        /* --- Layout --- */
+        
         .main-container {
             display: flex;
             gap: 30px;
@@ -59,7 +59,7 @@
             flex: 1;
         }
 
-        /* Sidebar */
+        
         .actions-sidebar {
             display: flex;
             flex-direction: column;
@@ -96,7 +96,7 @@
             border-top: 1px solid #eee; padding-top: 10px;
         }
 
-        /* Tabela */
+        
         .table-card {
             flex: 1;
             background: white;
@@ -117,7 +117,7 @@
         .status-in { background-color: #d1e7dd; color: #0f5132; }
         .status-out { background-color: #f8d7da; color: #842029; }
 
-        /* Modal */
+        
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5); display: none;
@@ -171,10 +171,10 @@
         <h2 id="modalTitle" style="margin-top:0;">Add Asset</h2>
         <div class="form-group"><label>Name</label><input type="text" id="inputName"></div>
         <div class="form-group"><label>Tag ID</label><input type="text" id="inputTag"></div>
-        <div class="form-group">
+        <!-- <div class="form-group">
             <label>State</label>
             <select id="inputState"><option value="Inside">Inside</option><option value="Outside">Outside</option></select>
-        </div>
+        </div> -->
         <div class="modal-actions">
             <button class="btn-cancel" onclick="closeModal()">Cancel</button>
             <button class="btn-save" onclick="saveAsset()">Save</button>
@@ -185,9 +185,9 @@
 <script>
     let assets = [];
     let selectedIndex = -1;
-    let currentMode = 'add'; // 'add' ou 'edit' para saber qual endpoint usar
+    let currentMode = 'add'; 
 
-    // --- 1. LEITURA (GET) ---
+    
     function fetchAssets() {
         fetch('/api/assets')
             .then(res => res.json())
@@ -205,7 +205,7 @@
             const tr = document.createElement('tr');
             if (index === selectedIndex) tr.classList.add('selected');
             
-            // Ao clicar na linha, seleciona ou deseleciona
+            
             tr.onclick = () => { 
                 selectedIndex = (selectedIndex === index) ? -1 : index; 
                 renderTable(); 
@@ -220,11 +220,11 @@
         });
     }
 
-    // --- 2. GRAVAR (POST ou PUT) ---
+    
     function saveAsset() {
         const name = document.getElementById('inputName').value;
         const tag = document.getElementById('inputTag').value;
-        const state = document.getElementById('inputState').value;
+        /* const state = document.getElementById('inputState').value; */
 
         if (!name || !tag) {
             alert("Por favor preencha o Nome e a Tag.");
@@ -234,10 +234,10 @@
         let url = '/api/assets';
         let method = 'POST';
 
-        // Se estivermos a editar, mudamos para PUT e adicionamos o ID no URL
+        
         if (currentMode === 'edit') {
-            // Nota: Assumindo que a 'tag' é o ID único e não muda.
-            // Se mudares a tag, o backend pode precisar de lógica extra.
+            
+            
             url = '/api/assets/' + encodeURIComponent(tag); 
             method = 'PUT';
         }
@@ -245,14 +245,14 @@
         fetch(url, {
             method: method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: name, tag: tag, state: state })
+            body: JSON.stringify({ name: name, tag: tag })
         })
         .then(res => res.json())
         .then(data => {
             if (data.status === 'ok') {
                 closeModal();
-                fetchAssets(); // Recarrega a tabela para mostrar as mudanças
-                selectedIndex = -1; // Limpa a seleção
+                fetchAssets(); 
+                selectedIndex = -1; 
             } else {
                 alert("Erro ao gravar: " + (data.message || "Erro desconhecido"));
             }
@@ -260,7 +260,7 @@
         .catch(err => alert("Erro de comunicação: " + err));
     }
 
-    // --- 3. REMOVER (DELETE) ---
+    
     function removeAsset() {
         if (selectedIndex === -1) {
             alert("Selecione um ativo na tabela primeiro!");
@@ -287,13 +287,13 @@
         .catch(err => alert("Erro ao tentar remover: " + err));
     }
 
-    // --- FUNÇÕES AUXILIARES (Modal) ---
+    
     function openModal(mode) {
         const modal = document.getElementById('assetModal');
         const title = document.getElementById('modalTitle');
         const inName = document.getElementById('inputName');
         const inTag = document.getElementById('inputTag');
-        const inState = document.getElementById('inputState');
+        /* const inState = document.getElementById('inputState'); */
 
         currentMode = mode;
 
@@ -301,8 +301,8 @@
             title.innerText = "Add New Asset";
             inName.value = '';
             inTag.value = '';
-            inTag.disabled = false; // Ao criar, pode escrever a Tag
-            inState.value = 'Inside';
+            inTag.disabled = false; 
+            /* inState.value = 'Inside'; */
         } else if (mode === 'edit') {
             if (selectedIndex === -1) {
                 alert("Selecione um ativo para editar!");
@@ -312,8 +312,8 @@
             title.innerText = "Modify Asset";
             inName.value = asset.name;
             inTag.value = asset.tag;
-            inTag.disabled = true; // Normalmente não se muda o ID (Tag) na edição
-            inState.value = asset.state;
+            inTag.disabled = true; 
+            /* inState.value = asset.state; */
         }
 
         modal.style.display = 'flex';
@@ -323,7 +323,7 @@
         document.getElementById('assetModal').style.display = 'none';
     }
 
-    // Fechar modal se clicar fora
+    
     window.onclick = function(event) {
         const modal = document.getElementById('assetModal');
         if (event.target === modal) {
@@ -331,7 +331,7 @@
         }
     }
 
-    // Iniciar
+    
     window.onload = fetchAssets;
 </script>
 </body>

@@ -3,7 +3,6 @@ project(SecureAssentGuard C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
-# Onde estão os headers (.h)
 include_directories(
         src              # <--- ADICIONADO (Resolve o erro do SharedTypes.h)
         src/core
@@ -21,20 +20,15 @@ set(SHARED_SOURCES
         src/core/ipc/C_Mqueue.cpp    # Para abrir, enviar e receber mensagens nas filas POSIX
 )
 
-# =========================================================
-# 1. O CÉREBRO (SecureAssetCore)
-# =========================================================
 add_executable(SecureAssetCore
         src/core/main.cpp
         src/core/C_SecureAsset.cpp
 
-        # HAL
         src/core/hal/C_GPIO.cpp
         src/core/hal/C_I2C.cpp
         src/core/hal/C_PWM.cpp
         src/core/hal/C_UART.cpp
 
-        # Devices
         src/core/devices/C_TH_SHT30.cpp
         src/core/devices/C_RDM6300.cpp
         src/core/devices/C_YRM1001.cpp
@@ -43,7 +37,6 @@ add_executable(SecureAssetCore
         src/core/devices/C_Fan.cpp
         src/core/devices/C_alarmActuator.cpp
 
-        # IPC & Threads
         src/core/ipc/C_Monitor.cpp
         src/core/ipc/C_Mqueue.cpp
         src/core/threads/C_Thread.cpp
@@ -62,9 +55,6 @@ target_link_libraries(SecureAssetCore
         rt
 )
 
-# =========================================================
-# 2. DAEMON DATABASE
-# =========================================================
 add_executable(dDatabase
         src/daemons/database/main_db.cpp
         src/daemons/database/dDatabase.cpp
@@ -78,9 +68,6 @@ target_link_libraries(dDatabase
         argon2      # Linka com libargon2.so
 )
 
-# =========================================================
-# 3. DAEMON WEB SERVER
-# =========================================================
 add_executable(dWebServer
         src/daemons/web/main_web.cpp
         src/daemons/web/dWebServer.cpp

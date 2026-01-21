@@ -19,4 +19,4 @@ public:
     ActuatorID_enum get_ID() const { return m_actuatorID; }
 };
 
-#endif // C_ACTUATOR_H
+#endif 

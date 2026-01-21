@@ -4,16 +4,33 @@
 #include <sys/wait.h>
 #include <csignal>
 #include <cstdlib>
+#include <limits.h>
+#include <string>
 #include "C_SecureAsset.h"
 
-// ============================================
-// GLOBAL FLAG FOR GRACEFUL SHUTDOWN
-// ============================================
+
+
+
 volatile sig_atomic_t g_shutdown = 0;
 
-void signalHandler(int signum) {
+static void signalHandler(int signum) {
     std::cout << "\n[Main] Sinal " << signum << " recebido. A encerrar..." << std::endl;
     g_shutdown = 1;
+}
+
+static std::string getExecutableDir() {
+    char path[PATH_MAX] = {};
+    ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
+    if (len <= 0) {
+        return ".";
+    }
+    path[len] = '\0';
+    std::string full(path);
+    size_t pos = full.find_last_of('/');
+    if (pos == std::string::npos) {
+        return ".";
+    }
+    return full.substr(0, pos);
 }
 
 int main() {
@@ -22,26 +39,26 @@ int main() {
     std::cout << "  PID Principal: " << getpid() << std::endl;
     std::cout << "======================================" << std::endl;
 
-    // ============================================
-    // SETUP SIGNAL HANDLERS (CTRL+C, SIGTERM)
-    // ============================================
-    signal(SIGINT, signalHandler);   // Ctrl+C
-    signal(SIGTERM, signalHandler);  // kill command
+    
+    
+    
+    signal(SIGINT, signalHandler);   
+    signal(SIGTERM, signalHandler);  
 
-    // ============================================
-    // Init DRIVER
-    // ============================================
+    
+    
+    
     std::cout << "[Main] A carregar driver de interrupções..." << std::endl;
-    // Usamos o caminho absoluto que vimos no teu terminal
+    
     if (system("insmod /root/my_irq.ko") != 0) {
         std::cerr << "[AVISO] Falha ao carregar driver ou já estava carregado." << std::endl;
     }
 
 
-    // ============================================
-    // FORK DATABASE DAEMON
-    // ============================================
-    pid_t pid_db = fork();
+    
+    
+    
+    const pid_t pid_db = fork();
 
     if (pid_db == -1) {
         std::cerr << "[ERRO] Falha ao criar processo Database" << std::endl;
@@ -49,55 +66,60 @@ int main() {
     }
 
     if (pid_db == 0) {
-        // CHILD PROCESS - Database Daemon
+        
         std::cout << "[Database] PID: " << getpid() << std::endl;
-        execl("./dDatabase", "dDatabase", nullptr);
+        // execl("./dDatabase", "dDatabase", nullptr);
+        const std::string execDir = getExecutableDir();
+        const std::string dbPath = execDir + "/dDatabase";
+        execl(dbPath.c_str(), "dDatabase", nullptr);
 
-        // If execl fails
+        
         std::cerr << "[ERRO] Falha ao executar daemon_db" << std::endl;
         exit(EXIT_FAILURE);
     }
 
     std::cout << "[Main] Database daemon lançado (PID: " << pid_db << ")" << std::endl;
 
-    // ============================================
-    // FORK WEB SERVER DAEMON
-    // ============================================
-    pid_t pid_web = fork();
+    
+    
+    
+    const pid_t pid_web = fork();
 
     if (pid_web == -1) {
         std::cerr << "[ERRO] Falha ao criar processo WebServer" << std::endl;
-        kill(pid_db, SIGTERM);  // Cleanup database process
+        kill(pid_db, SIGTERM);  
         waitpid(pid_db, nullptr, 0);
         return EXIT_FAILURE;
     }
 
     if (pid_web == 0) {
-        // CHILD PROCESS - Web Server Daemon
+        
         std::cout << "[WebServer] PID: " << getpid() << std::endl;
-        execl("./dWebServer", "dWebServer", nullptr);
+        // execl("./dWebServer", "dWebServer", nullptr);
+        const std::string execDir = getExecutableDir();
+        const std::string webPath = execDir + "/dWebServer";
+        execl(webPath.c_str(), "dWebServer", nullptr);
 
-        // If execl fails
+        
         std::cerr << "[ERRO] Falha ao executar daemon_web" << std::endl;
         exit(EXIT_FAILURE);
     }
 
     std::cout << "[Main] WebServer daemon lançado (PID: " << pid_web << ")" << std::endl;
 
-    // Give daemons time to initialize
+    
     sleep(2);
 
-    // ============================================
-    // INITIALIZE CORE SYSTEM (SINGLETON)
-    // ============================================
+    
+    
+    
     std::cout << "[Core] A inicializar sistema de hardware..." << std::endl;
 
     C_SecureAsset* core = C_SecureAsset::getInstance();
-
     if (!core->init()) {
         std::cerr << "[ERRO CRÍTICO] Falha ao inicializar Core!" << std::endl;
 
-        // Cleanup child processes
+        
         kill(pid_db, SIGTERM);
         kill(pid_web, SIGTERM);
         waitpid(pid_db, nullptr, 0);
@@ -107,9 +129,9 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    // ============================================
-    // START ALL THREADS
-    // ============================================
+    
+    
+    
     core->start();
 
     std::cout << "\n======================================" << std::endl;
@@ -117,39 +139,38 @@ int main() {
     std::cout << "  Pressione Ctrl+C para parar" << std::endl;
     std::cout << "======================================\n" << std::endl;
 
-    // ============================================
-    // MAIN LOOP - Wait for shutdown signal
-    // ============================================
+    
+    
+    
     while (!g_shutdown) {
-        sleep(1);  // Low CPU usage while waiting
+        sleep(1);  
     }
 
-    // ============================================
-    // GRACEFUL SHUTDOWN
-    // ============================================
+    
+    
+    
 
     std::cout << "\n[Main] A encerrar sistema..." << std::endl;
 
-    // Stop core threads
+    
     core->stop();
     core->waitForThreads();
 
-    // Terminate child processes
+    
     std::cout << "[Main] A terminar Database daemon..." << std::endl;
     kill(pid_db, SIGTERM);
 
     std::cout << "[Main] A terminar WebServer daemon..." << std::endl;
     kill(pid_web, SIGTERM);
 
-    // Wait for child processes to finish
+    
     std::cout << "[Main] A aguardar término dos processos..." << std::endl;
     waitpid(pid_db, nullptr, 0);
     waitpid(pid_web, nullptr, 0);
 
-    // Cleanup singleton
+    
+    core->unregisterQueues();
     C_SecureAsset::destroyInstance();
-
-
 
     std::cout << "\n======================================" << std::endl;
     std::cout << "  SISTEMA ENCERRADO" << std::endl;
@@ -160,332 +181,5 @@ int main() {
 
     return EXIT_SUCCESS;
 }
-/*
-#include <iostream>
-#include <iomanip>   // Para formatar as casas decimais
-#include <unistd.h>  // Para o sleep
-#include "C_I2C.h"
-#include "C_TH_SHT30.h"
 
-using namespace std;
 
-int main() {
-    cout << "===========================================" << endl;
-    cout << "=== TESTE DE LEITURA: SENSOR SHT30 (I2C) ===" << endl;
-    cout << "===========================================" << endl;
-
-    // 1. Hardware Setup
-    // Barramento 1 da Raspberry Pi, Endereço 0x44 (SHT30 padrão)
-    C_I2C i2cBus(1, 0x44);
-    C_TH_SHT30 sensorTH(i2cBus);
-
-    // 2. Inicialização
-    if (!sensorTH.init()) {
-        cerr << "[ERRO] Nao foi possivel inicializar o sensor SHT30." << endl;
-        cerr << "Verifica se o comando 'i2cdetect -y 1' mostra o endereco 0x44." << endl;
-        return -1;
-    }
-
-    cout << "[INFO] Sensor detectado e pronto." << endl;
-    cout << "A ler dados a cada 2 segundos..." << endl;
-    cout << "-------------------------------------------" << endl;
-
-    // 3. Loop de Leitura
-    while (true) {
-        SensorData data;
-
-        // Tenta ler do sensor (usando o teu métod com Clock Stretching)
-        if (sensorTH.read(&data)) {
-
-            // Sucesso na leitura
-            cout << ">> [DADOS RECEBIDOS]" << endl;
-            cout << fixed << setprecision(2); // Fixar 2 casas decimais
-            cout << "   Temperatura: " << data.data.tempHum.temp << " C" << endl;
-            cout << "   Humidade:    " << data.data.tempHum.hum  << " %" << endl;
-            cout << "-------------------------------------------" << endl;
-
-        } else {
-            // Falha na leitura (pode ser erro de CRC ou mau contacto)
-            cerr << "[AVISO] Falha na leitura do sensor! A tentar novamente..." << endl;
-        }
-
-        // Espera 2 segundos entre leituras
-        sleep(2);
-    }
-
-    return 0;
-}*/
-
-/*#include <iostream>
-#include <unistd.h>
-#include "C_Fingerprint.h"
-#include "C_UART.h"
-#include "C_GPIO.h"
-#include "C_Mqueue.h"
-#include "C_RDM6300.h"
-#include "C_tSighandler.h"
-#include "C_YRM1001.h"
-
-using namespace std;
-
-int main() {
-
-    cout << "=== TESTE DE VERIFICACAO (MATCH) ===" << endl;
-
-    // 1. Hardware Setup
-    C_UART uart(2);
-    C_GPIO rst(26, OUT);
-    C_Fingerprint finger(uart, rst);
-
-    if (!finger.init()) {
-        cerr << "Erro no Init." << endl;
-        return -1;
-    }
-
-    // 2. Ligar Sensor
-    finger.wakeUp();
-    cout << "Sensor ligado. A espera do dedo..." << endl;
-
-    // 3. Loop de Verificação
-    while (true) {
-        cout << "\n>>> PODE POR O DEDO AGORA <<<" << endl;
-
-        SensorData data;
-
-        // Tenta ler com timeout de 5 segundos
-        if (finger.read(&data)) {
-
-            if (data.data.fingerprint.authenticated) {
-                // SUCESSO
-                cout << "#############################################" << endl;
-                cout << "# [SUCESSO] ACESSO AUTORIZADO!              #" << endl;
-                cout << "# User ID: " << data.data.fingerprint.userID << "                                #" << endl;
-                cout << "#############################################" << endl;
-            } else {
-                // FALHA (Dedo errado ou mal colocado)
-                cout << ">> [RECUSADO] Dedo nao reconhecido." << endl;
-            }
-
-            // Pausa para não ler o mesmo toque 50 vezes seguidas
-            cout << "(Tira o dedo... espera 2s)" << endl;
-            sleep(2);
-
-        } else {
-            // Timeout (Ninguém pôs o dedo em 5s)
-            cout << "." << flush;
-        }
-
-    }
-
-    return 0;
-}
-*/
-/*
- * cout << "--- DEBUG: ADICIONAR USER 1 ---" << endl;
-
-    // 1. Hardware
-    // NOTA: Confirma fisicamente se o fio RST está no GPIO 26.
-    // (No teu Python tinhas o pino 24, no C++ tinhas 26. Verifica qual deles estás a usar).
-    cout << "[1] A configurar hardware (UART2, GPIO26)..." << endl;
-
-    C_UART uart(2);         // Usa /dev/ttyAMA2
-    C_GPIO rst(26, OUT);    // Pino de Reset
-    C_Fingerprint finger(uart, rst);
-
-    // 2. Init Drivers
-    cout << "[2] A inicializar drivers..." << endl;
-    if (!finger.init()) {
-        cerr << "ERRO: Init falhou (falha ao abrir UART ou exportar GPIO)." << endl;
-        return -1;
-    }
-
-    // ---------------------------------------------------------
-    // 3. HARD RESET MANUAL (A solução para o sensor "morto")
-    // ---------------------------------------------------------
-    cout << "[3] A executar Ciclo de Reset (Power Cycle)..." << endl;
-
-    // Passo A: Forçar Desligar (RST = LOW)
-    // Isto garante que o sensor reinicia o microcontrolador interno
-    finger.sleep();
-    cout << "   -> RST em LOW (Desligado)... a esperar 200ms" << endl;
-    usleep(200000);       // 200ms (0.2s) - Tempo igual ao script Python
-
-    // Passo B: Ligar (RST = HIGH)
-    finger.wakeUp();
-    cout << "   -> RST em HIGH (Ligado)... a esperar 300ms pelo Boot" << endl;
-
-    // O sensor demora cerca de 200-300ms a arrancar o sistema operativo interno
-    // antes de poder responder à UART. Sem isto, ele ignora os comandos.
-    usleep(300000);       // 300ms (0.3s)
-
-    cout << "   -> Sensor Reiniciado e Pronto." << endl;
-    // ---------------------------------------------------------
-
-    // 4. Add User
-    cout << "\n[4] A chamar addUser(1)..." << endl;
-    cout << ">>> TENS 10 SEGUNDOS PARA COLOCAR O DEDO EM CADA ETAPA <<<" << endl;
-
-    // Se a comunicação estiver a funcionar, verás os logs do executeCommand agora
-    bool result = finger.addUser(2);
-
-    if (result) {
-        cout << "\n[5] SUCESSO: Utilizador 1 adicionado!" << endl;
-    } else {
-        cout << "\n[5] FALHA: Não foi possível adicionar o utilizador." << endl;
-    }
-
-    // 5. Fim - Colocar a dormir para poupar energia
-    cout << "[6] A desligar (Sleep)." << endl;
-    finger.sleep();
-
-    return 0;
- **/
-
-/*
-int main() {
-    C_Mqueue mqToDb("mq_to_db",512,10,false);
-
-    C_UART uart2(2);
-    C_GPIO enable(26,OUT);
-
-    C_RDM6300 rfident(uart2);
-    //C_YRM1001 rfidinvent(uart2,enable);
-
-
-
-    //rfidinvent.init();
-    rfident.init();
-
-    // 1. Bloqueio estático (Obrigatório)
-    C_tSighandler::setupSignalBlock();
-
-    // 2. Criar os monitores
-    C_Monitor monReed, monPIR, monFinger, monRFID;
-
-    // 3. Criar a nossa thread de sinais
-    C_tSighandler sigHandler(monReed, monPIR, monFinger, monRFID);
-
-    // 4. Criar a thread de teste ligada APENAS ao monitor do Reed Switch
-    C_tTestWorker testWorker(monRFID,rfident, "REED_SWITCH_TEST");
-
-
-    // 5. Arrancar as duas
-    sigHandler.start();
-    testWorker.start();
-
-    std::cout << "[Main] Teste de sinal iniciado. À espera do hardware ou 'kill'..." << std::endl;
-
-    while(true) pause();
-    return 0;
-}*/
-
-/*
-#include <cstring>
-
-
-using namespace std;
-
-int main() {
-    cout << "[SIMULADOR] A iniciar teste de envio para a DB..." << endl;
-
-    // 1. Ligar à fila que a DB já criou
-    // Nome: "mq_to_db", Tamanho: 512, Max: 10, createNew: false
-    C_Mqueue m_mqToDatabase("/mq_to_db", sizeof(DatabaseMsg), 10, false);
-
-    // 2. Preparar a mensagem (Simulando a Thread)
-    DatabaseMsg msg = {};
-    msg.command = DB_CMD_ENTER_ROOM_RFID;
-
-    const char* rfidSimulado = "1234567890"; // Exemplo de um ID de cartão
-    strncpy(msg.payload.rfid, rfidSimulado, sizeof(msg.payload.rfid) - 1);
-    msg.payload.rfid[sizeof(msg.payload.rfid) - 1] = '\0'; // Garantir o fim da string
-    cout << sizeof(DatabaseMsg) << endl;
-    cout << "[SIMULADOR] A enviar RFID: " << msg.payload.rfid << " para a fila mq_to_db..." << endl;
-
-    // 3. Enviar
-    if (m_mqToDatabase.send(&msg, sizeof(msg))) {
-        cout << "[SIMULADOR] Mensagem enviada com sucesso!" << endl;
-    } else {
-        cerr << "[ERRO] Falha ao enviar a mensagem. A BD está a correr?" << endl;
-    }
-
-    cout << "[SIMULADOR] Teste terminado." << endl;
-    return 0;
-}
-*/
-/*
-#include <iostream>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <signal.h>
-#include <cstdlib>
-#include "C_SecureAsset.h"
-
-int main() {
-    std::cout << "======================================" << std::endl;
-    std::cout << "  SECURE ASSET GUARD - Iniciando...  " << std::endl;
-    std::cout << "  PID Principal: " << getpid() << std::endl;
-    std::cout << "======================================" << std::endl;
-
-    pid_t pid_db = fork();
-
-    if (pid_db == -1) {
-        std::cerr << "[ERRO] Falha ao criar processo Database" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    if (pid_db == 0) {
-        std::cout << "[Database] PID: " << getpid() << std::endl;
-        execl("./daemon_db", "daemon_db", nullptr);
-        std::cerr << "[ERRO] Falha ao executar daemon_db" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    std::cout << "[Main] Database daemon lançado (PID: " << pid_db << ")" << std::endl;
-
-    pid_t pid_web = fork();
-
-    if (pid_web == -1) {
-        std::cerr << "[ERRO] Falha ao criar processo WebServer" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    if (pid_web == 0) {
-        std::cout << "[WebServer] PID: " << getpid() << std::endl;
-        execl("./daemon_web", "daemon_web", nullptr);
-        std::cerr << "[ERRO] Falha ao executar daemon_web" << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    std::cout << "[Main] WebServer daemon lançado (PID: " << pid_web << ")" << std::endl;
-
-    sleep(2);
-
-    std::cout << "[Core] A inicializar sistema de hardware..." << std::endl;
-
-    C_SecureAsset& core = C_SecureAsset::getInstance();
-
-    if (!core.initialize()) {
-        std::cerr << "[ERRO] Falha ao inicializar Core!" << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    core.startThreads();
-
-    std::cout << "[Core] Sistema operacional. Pressione Ctrl+C para parar." << std::endl;
-
-    core.run();
-
-    std::cout << "[Main] A encerrar sistema..." << std::endl;
-
-    kill(pid_db, SIGTERM);
-    kill(pid_web, SIGTERM);
-
-    waitpid(pid_db, nullptr, 0);
-    waitpid(pid_web, nullptr, 0);
-
-    return 0;
-}
-
-*/

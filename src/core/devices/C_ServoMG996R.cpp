@@ -37,6 +37,11 @@ bool C_ServoMG996R::init() {
         return false;
     }
 
+    if (!m_pwm.setDutyCycle(90)) {
+        std::cerr << "[Servo] Erro: Falha ao ativar PWM" << std::endl;
+        return false;
+    }
+
     return true;
 }
 

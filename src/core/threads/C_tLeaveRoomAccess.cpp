@@ -85,14 +85,6 @@ void C_tLeaveRoomAccess::run() {
                     // Saímos do loop da DB (quer tenha sido autorizado ou não)
                     break;
                 }
-                if (bytes < 0 && errno == ETIMEDOUT) {
-                    // DB ainda não respondeu, continua a tentar ler a fila
-                    continue;
-                }
-                else {
-                    // Erro grave na fila
-                    break;
-                }
             }
         }
     }

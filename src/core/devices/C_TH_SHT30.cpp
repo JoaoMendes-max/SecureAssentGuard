@@ -17,14 +17,12 @@ C_TH_SHT30::~C_TH_SHT30() = default;
 // INIT - SEM SLEEP!
 // ============================================
 bool C_TH_SHT30::init() {
-    /* O sensor é inicializado externamente (power-up já ocorreu).
-     * Não é necessário fazer nada aqui.
-     *
-     * Nota: Se o sensor tiver sido ACABADO de ligar quando
-     * este init() é chamado, a primeira leitura pode falhar.
-     * Solução: O main() deve ligar o sensor ANTES de criar
-     * as threads (garantindo que power-up já terminou).
-     */
+
+    if (!m_i2c.init()) {
+        cerr << "[SHT30] Falha: Não foi possível inicializar o barramento I2C." << endl;
+        return false;
+    }
+
     return true;
 }
 

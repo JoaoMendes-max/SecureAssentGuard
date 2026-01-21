@@ -517,11 +517,18 @@ void dDatabase::handleGetDashboard() {
     sqlite3_stmt* stmt;
 
     // Security status
-    const char* sql = "SELECT Description FROM Logs WHERE LogType = ? ORDER BY Timestamp DESC LIMIT 1;";
+    const char* sql =
+      "SELECT LogType FROM Logs "
+      "WHERE LogType IN (?, ?) "
+      "ORDER BY Timestamp DESC LIMIT 1;";
+
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int(stmt, 1, LOG_TYPE_ALERT);
+        sqlite3_bind_int(stmt, 2, LOG_TYPE_ACCESS);
+
         if (sqlite3_step(stmt) == SQLITE_ROW) {
-            response["security"] = "ALERT";
+            int lt = sqlite3_column_int(stmt, 0);
+            response["security"] = (lt == LOG_TYPE_ALERT) ? "ALERT" : "Secure";
         } else {
             response["security"] = "Secure";
         }

@@ -167,6 +167,14 @@ uint8_t C_Fingerprint::executeCommand(uint8_t cmd, uint8_t p1, uint8_t p2, uint8
     if (outLow)  *outLow  = rx[3];
 
     std::cout << "[DEBUG] Resposta valida! Status (Q3): " << (int)rx[4] << std::endl;
-    return rx[5];
+    return rx[4];
 
+}
+
+static constexpr uint8_t CMD_DELETE_ALL = 0x05;
+
+bool C_Fingerprint::deleteAllUsers() {
+    // CMD=0x05, P1=0, P2=0, P3=0  -> delete ALL users :contentReference[oaicite:1]{index=1}
+    uint8_t st = executeCommand(CMD_DELETE_ALL, 0, 0, 0, nullptr, nullptr, 2.0f);
+    return (st == ACK_SUCCESS);
 }

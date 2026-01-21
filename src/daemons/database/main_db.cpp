@@ -91,8 +91,8 @@ int main() {
         ssize_t bytesRead = mqToDb.receive(&msg, sizeof(DatabaseMsg));
 
         if (bytesRead > 0) {
-            cout << "[Pedido] Nova mensagem recebida. Comando: " << (int)msg.command << endl;
-            cout<< "cnas da mensagem"<< msg.payload.rfid << endl;
+            //cout << "[Pedido] Nova mensagem recebida. Comando: " << (int)msg.command << endl;
+            //cout<< "cnas da mensagem"<< msg.payload.rfid << endl;
 
             // Chama a função da classe para decidir o que fazer com a mensagem
             db.processDbMessage(msg);

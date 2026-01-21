@@ -38,7 +38,7 @@ void C_Monitor::wait() {
 
 void C_Monitor::signal() {
     pthread_mutex_lock(&m_mutex);
-    pthread_cond_signal(&m_cond);
+    pthread_cond_broadcast(&m_cond);
     pthread_mutex_unlock(&m_mutex);
 }
 

@@ -17,6 +17,7 @@ void C_tInventoryScan::run() {
         if (m_monitorservovault.timedWait(1)) {
             continue;
         }
+        std::cout << "[InventoryScan] pia.." << std::endl;
 
         SensorData data = {};
 

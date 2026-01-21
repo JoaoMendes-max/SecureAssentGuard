@@ -36,79 +36,63 @@ C_tReadEnvSensor::~C_tReadEnvSensor() = default;
 // RUN - Loop principal (IGUAL ao padrão das outras threads)
 // ============================================
 void C_tReadEnvSensor::run() {
-    std::cout << "[tReadEnv] Thread em execução. A aguardar primeiro ciclo..."
-              << std::endl;
-
+    std::cout << "[tReadEnv] Thread em execução.\n";
 
     while (!stopRequested()) {
-        // ========================================
-        // ESPERA PERIÓDICA (usa timedWait do monitor!)
-        // Retorna true se timeout, false se signal
-        // ========================================
 
-        AuthResponse cmdMsg = {};
-        ssize_t bytes = m_mqFromDb.timedReceive(&cmdMsg, sizeof(AuthResponse), 0);
+        // Espera por 2 coisas:
+        // - mensagem DB_CMD_UPDATE_SETTINGS (acorda logo)
+        // - timeout = m_intervalSeconds (faz leitura)
+        AuthResponse cmdMsg{};
+        ssize_t bytes = m_mqFromDb.timedReceive(&cmdMsg, sizeof(cmdMsg), m_intervalSeconds);
 
-        if (bytes > 0 && cmdMsg.command == DB_CMD_UPDATE_SETTINGS) {
-            m_tempThreshold = cmdMsg.payload.settings.tempThreshold;
-            m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
-        }
+        if (bytes > 0) {
+            // Recebeu algo -> aplica settings (e drena mais msgs pendentes)
+            if (cmdMsg.command == DB_CMD_UPDATE_SETTINGS) {
+                m_tempThreshold   = cmdMsg.payload.settings.tempThreshold;
+                m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
+                if (m_intervalSeconds < 1) m_intervalSeconds = 1;
 
-        bool wasTimeout = m_monitor.timedWait(m_intervalSeconds);
+                std::cout << "[tReadEnv] Settings atualizadas: interval="
+                          << m_intervalSeconds << "s, threshold=" << m_tempThreshold << "\n";
+            }
 
-        if (!wasTimeout) {
-            // Acordou por signal() externo (ex: paragem)
-            std::cout << "[tReadEnv] Signal recebido. A terminar..." << std::endl;
-            break;
-        }
-
-        // Acordou por timeout → fazer leitura periódica
-        std::cout << "[tReadEnv] Timeout! A ler sensor ambiental..." << std::endl;
-
-        // ========================================
-        // 1. LER SENSOR (igual ao padrão)
-        // ========================================
-        SensorData data = {};
-
-        if (m_sensor.read(&data)) {
-            int temp = data.data.tempHum.temp;
-            int hum = data.data.tempHum.hum;
-
-            std::cout << "[tReadEnv] Temp: " << temp
-                     << "°C, Humidade: " << hum << "%" << std::endl;
-
-            // ========================================
-            // 2. VERIFICAR THRESHOLD E CONTROLAR VENTOINHA
-            // ========================================
-            uint8_t fanValue = (temp > m_tempThreshold) ? 1 : 0;
-
-            if (fanValue != m_lastFanState) {
-                ActuatorCmd cmd = {ID_FAN, fanValue};
-                m_lastFanState = fanValue;
-
-                if (m_mqToActuator.send(&cmd, sizeof(cmd))) {
-                    std::cout << "[tReadEnv] Comando enviado: Ventoinha "
-                             << (fanValue ? "LIGADA" : "DESLIGADA") << std::endl;
-                } else {
-                    std::cerr << "[tReadEnv] ERRO ao enviar comando para atuador!"
-                             << std::endl;
+            // Drenar msgs extra que já estejam na fila (non-blocking)
+            while (m_mqFromDb.timedReceive(&cmdMsg, sizeof(cmdMsg), 0) > 0) {
+                if (cmdMsg.command == DB_CMD_UPDATE_SETTINGS) {
+                    m_tempThreshold   = cmdMsg.payload.settings.tempThreshold;
+                    m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
+                    if (m_intervalSeconds < 1) m_intervalSeconds = 1;
                 }
             }
 
-            // ========================================
-            // 3. ENVIAR LOG PARA BASE DE DADOS
-            // (Igual ao padrão das outras threads)
-            // ========================================
-            sendLog(temp, hum);
+            // Se quiseres “logo logo” uma leitura após mudar settings, descomenta:
+            // goto doRead;
 
-        } else {
-            std::cerr << "[tReadEnv] ERRO ao ler sensor SHT31!" << std::endl;
+            continue; // volta a esperar com o novo intervalo já aplicado
         }
 
-        // Loop recomeça → timedWait() → dorme novamente
+        // timeout -> fazer leitura periódica
+        // doRead:
+        SensorData data{};
+        if (m_sensor.read(&data)) {
+            int temp = data.data.tempHum.temp;
+            int hum  = data.data.tempHum.hum;
+
+            uint8_t fanValue = (temp > m_tempThreshold) ? 1 : 0;
+            if (fanValue != m_lastFanState) {
+                ActuatorCmd cmd{ID_FAN, fanValue};
+                m_lastFanState = fanValue;
+                m_mqToActuator.send(&cmd, sizeof(cmd));
+            }
+
+            sendLog(temp, hum);
+        } else {
+            std::cerr << "[tReadEnv] ERRO ao ler sensor!\n";
+        }
     }
 
-    std::cout << "[tReadEnv] Thread terminada" << std::endl;
+    std::cout << "[tReadEnv] Thread terminada\n";
 }
 
 // ============================================

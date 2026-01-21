@@ -30,9 +30,11 @@ void c_tVerifyVaultAccess::run() {
     AuthResponse cmdMsg = {}; // Buffer para receber comandos da DB
 
     while (!stopRequested()) {
+
         if (m_monitorfgp.timedWait(1)) {
             continue;
         }
+        std::cout << "[finger ativou " <<  std::endl;
         m_fingerprint.wakeUp();
         ssize_t bytes = m_mqFromDatabase.timedReceive(&cmdMsg, sizeof(AuthResponse), 0);
 
@@ -44,7 +46,7 @@ void c_tVerifyVaultAccess::run() {
             }
         }
 
-        if (m_fingerprint.read(&data)) {
+        else if (m_fingerprint.read(&data)) {
             if (data.data.fingerprint.authenticated) {
                 ActuatorCmd cmd = {ID_SERVO_VAULT, 0};//para ficar solto
                 m_mqToActuator.send(&cmd, sizeof(cmd));

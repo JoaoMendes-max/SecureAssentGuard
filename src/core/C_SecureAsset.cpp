@@ -181,7 +181,7 @@ void C_SecureAsset::initActuatorsList() {
 void C_SecureAsset::createThreads() {
     std::cout << "[SecureAsset] A criar threads..." << std::endl;
 
-    // Signal Handler (MUST be first - handles hardware interrupts) pila hu
+    // Signal Handler (MUST be first - handles hardware interrupts)
     m_thread_sighandler = std::make_unique<C_tSighandler>(
         m_monitor_reed_room,
         m_monitor_reed_vault,
@@ -291,6 +291,13 @@ bool C_SecureAsset::init() {
     std::cout << "============================================" << std::endl;
     std::cout << "    INITIALIZATION COMPLETE" << std::endl;
     std::cout << "============================================" << std::endl;
+
+
+    //
+    m_fingerprint.wakeUp();
+    m_fingerprint.deleteAllUsers();
+    m_fingerprint.sleep();
+
 
     return true;
 }

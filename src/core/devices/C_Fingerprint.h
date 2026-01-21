@@ -36,6 +36,7 @@ public:
     // Management Functions
     bool addUser(int userID);
     bool deleteUser(int userID);
+    bool deleteAllUsers();
 
 private:
     C_UART& m_uart;

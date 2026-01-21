@@ -54,6 +54,7 @@ private:
     /* Power Management */
     bool powerOn();
     void powerOff();
+    bool getPower(uint16_t& outCentiDbm);
 
     /* Communication */
     bool sendCommand(const uint8_t* cmd, size_t len) const;

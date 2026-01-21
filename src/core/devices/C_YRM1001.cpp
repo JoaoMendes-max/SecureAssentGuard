@@ -5,6 +5,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <poll.h>
+#include <chrono>
 
 /* ============================================
  * COMMAND DEFINITIONS
@@ -268,32 +269,80 @@ bool C_YRM1001::parseFrame(char* epcOut, size_t epcSize) const {
     return true;
 }
 
-bool C_YRM1001::setPower(uint16_t powerDBm) {
-    // A maioria dos YRM aceita de 0 a 2600 (centésimos de dBm)
-    // ou 0 a 26 (dBm). Vamos assumir dBm simples para este exemplo.
-
+bool C_YRM1001::setPower(uint16_t powerCentiDbm) {
     uint8_t cmd_power[] = {
         0xBB, 0x00, 0xB6, 0x00, 0x02,
-        (uint8_t)((powerDBm >> 8) & 0xFF), // MSB
-        (uint8_t)(powerDBm & 0xFF),        // LSB
+        (uint8_t)((powerCentiDbm >> 8) & 0xFF),
+        (uint8_t)(powerCentiDbm & 0xFF),
         0x00, 0x7E
     };
 
-    // Calcula o Checksum: Soma de Type(00) + Cmd(B6) + PL_L(00) + PL_H(02) + Payload
     cmd_power[7] = calculateChecksum(&cmd_power[1], 6);
 
-    std::cout << "[YRM1001] Setting power to: " << powerDBm << " dBm" << std::endl;
+    std::cout << "[YRM1001] Setting power to: " << (powerCentiDbm / 100.0f) << " dBm\n";
 
+    flushUART();
     if (!sendCommand(cmd_power, sizeof(cmd_power))) return false;
 
-    // Opcional: Ler a resposta do módulo (readFrame) para confirmar sucesso
-    if (readFrame()) {
-        if (m_rawBuffer[YRM_IDX_COMMAND] == 0xB6 && m_rawBuffer[5] == 0x00) {
-            std::cout << "[YRM1001] Power set successfully!" << std::endl;
-            return true;
+    // Resposta do set: BB 01 B6 00 01 00 CS 7E (00 = OK) :contentReference[oaicite:4]{index=4}
+    if (!readFrame()) return false;
+
+    bool ok = false;
+    if (m_rawBuffer[YRM_IDX_HEADER] == YRM_HEADER &&
+        m_rawBuffer[YRM_IDX_TYPE]   == 0x01 &&
+        m_rawBuffer[YRM_IDX_COMMAND]== 0xB6) {
+
+        uint16_t pl = (uint16_t(m_rawBuffer[YRM_IDX_PL_MSB]) << 8) | m_rawBuffer[YRM_IDX_PL_LSB];
+        if (pl == 1 && m_rawBuffer[YRM_IDX_PAYLOAD] == 0x00) ok = true;
         }
+
+    if (!ok) return false;
+
+    // ✅ Confirma o valor real guardado (pode haver clamp)
+    uint16_t actual{};
+    if (getPower(actual)) {
+        std::cout << "[YRM1001] Power now: " << (actual / 100.0f) << " dBm\n";
+        if (actual != powerCentiDbm) {
+            std::cout << "[YRM1001] NOTE: Module clamped/adjusted value (requested "
+                      << (powerCentiDbm / 100.0f) << " dBm).\n";
+        }
+    } else {
+        std::cout << "[YRM1001] WARNING: set OK, but getPower() failed.\n";
     }
-    return false;
+
+    return true;
+}
+
+bool C_YRM1001::getPower(uint16_t& outCentiDbm) {
+    // Command frame: BB 00 B7 00 00 CS 7E, com CS = soma(Type..PL) :contentReference[oaicite:2]{index=2}
+    uint8_t cmd_get[] = { 0xBB, 0x00, 0xB7, 0x00, 0x00, 0x00, 0x7E };
+    cmd_get[5] = calculateChecksum(&cmd_get[1], 4); // Type+Cmd+PL_MSB+PL_LSB
+
+    flushUART();
+
+    if (!sendCommand(cmd_get, sizeof(cmd_get))) return false;
+    if (!readFrame()) return false;
+
+    // Valida resposta: Type=0x01, Cmd=0xB7, PL=0x0002, payload = Pow(MSB), Pow(LSB) :contentReference[oaicite:3]{index=3}
+    if (m_rawBuffer[YRM_IDX_HEADER] != YRM_HEADER) return false;
+    if (m_rawBuffer[YRM_IDX_TYPE]   != 0x01)       return false;
+    if (m_rawBuffer[YRM_IDX_COMMAND]!= 0xB7)       return false;
+
+    uint16_t pl = (uint16_t(m_rawBuffer[YRM_IDX_PL_MSB]) << 8) | m_rawBuffer[YRM_IDX_PL_LSB];
+    if (pl != 2) return false;
+
+    const int payloadIdx  = YRM_IDX_PAYLOAD;      // 5
+    const int checksumIdx = 5 + pl;               // header(5) + payloadLen
+    const uint8_t expected = calculateChecksum(&m_rawBuffer[YRM_IDX_TYPE], 4 + pl);
+
+    if (m_rawBuffer[checksumIdx] != expected) {
+        // se preferires ser permissivo, podes só fazer warning e continuar
+        return false;
+    }
+    if (m_rawBuffer[checksumIdx + 1] != YRM_TAIL) return false;
+
+    outCentiDbm = (uint16_t(m_rawBuffer[payloadIdx]) << 8) | m_rawBuffer[payloadIdx + 1];
+    return true;
 }
 
 /* ============================================
@@ -345,78 +394,115 @@ bool C_YRM1001::isTagSeen(const char* epc, char tagList[][32], int tagCount){
  * ============================================ */
 bool C_YRM1001::read(SensorData* data) {
     if (!data) return false;
-    powerOn();
-    std::cout << "[YRM1001] ========== START SCAN ==========" << std::endl;
 
-     /* ========== 2. CLEAR UART BUFFER ========== */
+    auto nowMs = []() -> int64_t {
+        using namespace std::chrono;
+        return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
+    };
+
+    // Ajusta estes valores como quiseres
+    static constexpr int IDLE_NEW_TAG_MS = 500;   // pára se não houver tag NOVA por 500ms
+    static constexpr int TOTAL_SCAN_MS   = 3000;  // pára sempre ao fim de 3s
+    static constexpr int POLL_SLICE_MS   = 100;   // poll em fatias pequenas
+
+    powerOn();
+    std::cout << "[YRM1001] ========== START SCAN ==========\n";
+
     flushUART();
 
-
+    // Se o teu setPower já está testado, mantém.
+    // (Nota: setPower(5) parece baixo, mas assumo que testaste.)
     setPower(5);
 
-    /* ========== 3. START INVENTORY COMMAND ========== */
+    // Start inventory
     if (!sendCommand(CMD_START_INVENTORY, sizeof(CMD_START_INVENTORY))) {
         powerOff();
         return false;
     }
-    std::cout << "[YRM1001] START command sent (RF scan initiated)" << std::endl;
+    std::cout << "[YRM1001] START command sent\n";
 
-    /* ========== 4. COLLECT TAGS WITH POLL ========== */
-    struct pollfd pfd;
+    struct pollfd pfd{};
     pfd.fd = m_uart.getFd();
     pfd.events = POLLIN;
 
     int tagCount = 0;
+    int64_t tStart   = nowMs();
+    int64_t tLastNew = tStart;
+
+    // Limpa a estrutura de saída
+    data->type = ID_YRM1001;
+    data->data.rfid_inventory.tagCount = 0;
+    for (int i = 0; i < MAX_TAGS; ++i) {
+        data->data.rfid_inventory.tagList[i][0] = '\0';
+    }
 
     while (tagCount < MAX_TAGS) {
-        // Poll with 500ms timeout (wait for next tag)
-        int ret = poll(&pfd, 1, YRM_IDLE_TIMEOUT_MS);
+        // Timeout total (segurança)
+        if (nowMs() - tStart >= TOTAL_SCAN_MS) {
+            std::cout << "[YRM1001] Total scan timeout (" << TOTAL_SCAN_MS << "ms)\n";
+            break;
+        }
 
-        if (ret > 0 && (pfd.revents & POLLIN)) {
-            // Data available - read complete frame
-            if (readFrame()) {
-                char epc[32];
+        // Se não há TAG NOVA há algum tempo, termina
+        if (nowMs() - tLastNew >= IDLE_NEW_TAG_MS) {
+            std::cout << "[YRM1001] No new tags for " << IDLE_NEW_TAG_MS << "ms -> done\n";
+            break;
+        }
 
-                if (parseFrame(epc, sizeof(epc))) {
-                    // Check if we already have this tag (duplicate)
-                    if (!isTagSeen(epc, data->data.rfid_inventory.tagList, tagCount)) {
-                        // New tag - add to list
-                        strcpy(data->data.rfid_inventory.tagList[tagCount], epc);
-                        tagCount++;
+        int ret = poll(&pfd, 1, POLL_SLICE_MS);
 
-                        std::cout << "[YRM1001] Tag " << tagCount << ": " << epc << std::endl;
-                    }
-                    // Silently ignore duplicates and continue
-                }
+        if (ret == 0) {
+            // não houve dados nesta fatia; não termina já — o critério é "sem TAG nova"
+            continue;
+        }
+
+        if (ret < 0) {
+            if (errno == EINTR) continue;
+            std::cerr << "[YRM1001] ERROR: poll() failed\n";
+            break;
+        }
+
+        // Trata erros no fd (evita loops estranhos)
+        if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+            std::cerr << "[YRM1001] ERROR: UART revents=" << std::hex << pfd.revents << std::dec << "\n";
+            break;
+        }
+
+        if (pfd.revents & POLLIN) {
+            if (!readFrame()) {
+                // frame incompleta/ruim — ignora e continua
+                continue;
             }
-        } else if (ret == 0) {
-            // Timeout: 500ms without data = RF scan complete
-            std::cout << "[YRM1001] Timeout (" << YRM_IDLE_TIMEOUT_MS
-                      << "ms without data) - Scan complete" << std::endl;
-            break;
-        } else {
-            // Poll error
-            std::cerr << "[YRM1001] ERROR: Poll failed during collection" << std::endl;
-            break;
+
+            char epc[32];
+            if (!parseFrame(epc, sizeof(epc))) {
+                continue;
+            }
+
+            // Só conta quando é EPC novo
+            if (!isTagSeen(epc, data->data.rfid_inventory.tagList, tagCount)) {
+                // garante terminação e evita overflow (epc é 32, destino é 32)
+                std::strncpy(data->data.rfid_inventory.tagList[tagCount], epc, 31);
+                data->data.rfid_inventory.tagList[tagCount][31] = '\0';
+
+                tagCount++;
+                tLastNew = nowMs(); // ✅ só renova quando aparece EPC novo
+
+                std::cout << "[YRM1001] Tag " << tagCount << ": " << epc << "\n";
+            }
         }
     }
 
-    /* ========== 5. STOP INVENTORY COMMAND ========== */
+    // Stop inventory (mesmo que não tenha encontrado tags)
     sendCommand(CMD_STOP_INVENTORY, sizeof(CMD_STOP_INVENTORY));
-    std::cout << "[YRM1001] STOP command sent" << std::endl;
-
-    // Wait for module to process STOP command (required by specification)
     usleep(YRM_STOP_TIME_MS * 1000);
 
-    /* ========== 6. POWER OFF ========== */
     powerOff();
 
-    /* ========== 7. RESULT ========== */
-    data->type = ID_YRM1001;
     data->data.rfid_inventory.tagCount = tagCount;
 
-    std::cout << "[YRM1001] ========== END SCAN ==========" << std::endl;
-    std::cout << "[YRM1001] Total tags found: " << tagCount << std::endl;
+    std::cout << "[YRM1001] ========== END SCAN ==========\n";
+    std::cout << "[YRM1001] Total tags found: " << tagCount << "\n";
 
-    return true;  // Success (even with 0 tags)
+    return true;
 }

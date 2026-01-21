@@ -47,6 +47,8 @@ bool C_GPIO::init() {
     write(fd, d, strlen(d)); // Escreve "out" ou "in"
     close(fd);
 
+
+
     return true;
 }
 

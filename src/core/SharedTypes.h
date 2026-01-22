@@ -171,7 +171,6 @@ struct SystemSettings {
 
 struct DatabaseMsg {
     e_DbCommand command;
-    uint32_t requestId;
     union {
         char rfid[11];
         DatabaseLog log;
@@ -181,7 +180,6 @@ struct DatabaseMsg {
         AssetData asset;      
         SystemSettings settings; 
         LogFilter logFilter;  
-        // int userId;
         uint32_t userId;
     } payload;
 };
@@ -203,8 +201,7 @@ struct AuthResponse {
 
 
 struct DbWebResponse {
-    uint32_t requestId;
-    bool success;           
+    bool success;
     char jsonData[8192];    
     char errorMsg[256];     
 };

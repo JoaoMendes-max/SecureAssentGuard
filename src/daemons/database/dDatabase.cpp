@@ -92,7 +92,6 @@ dDatabase::dDatabase(const std::string& dbPath,
                    C_Mqueue& mqToEnv)   
     : m_db(nullptr),
       m_dbPath(dbPath),
-      m_currentRequestId(0),
       m_mqToDatabase(mqDb),
       m_mqToVerifyRoom(mqRfidIn),
       m_mqToLeaveRoom(mqRfidOut),
@@ -254,7 +253,6 @@ bool dDatabase::initializeSchema() {
 
 // void dDatabase::processDbMessage(const DatabaseMsg &msg) { switch (msg.command) {
 void dDatabase::processDbMessage(const DatabaseMsg &msg) {
-    m_currentRequestId = msg.requestId;
     switch (msg.command) {
         case DB_CMD_ENTER_ROOM_RFID:
             handleAccessRequest(msg.payload.rfid, true);
@@ -591,7 +589,6 @@ void dDatabase::handleLogin(const LoginRequest& login) {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (resp.success) {
         std::string json = result.dump();
         strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
@@ -660,7 +657,6 @@ void dDatabase::handleGetDashboard() {
     }
 
     DbWebResponse resp = {};
-    resp.requestId = m_currentRequestId;
     resp.success = true;
     std::string json = response.dump();
     strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
@@ -849,7 +845,6 @@ void dDatabase::handleGetSensors() {
     
     
     DbWebResponse resp = {};
-    resp.requestId = m_currentRequestId;
     resp.success = true;
     std::string json = response.dump();
     strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
@@ -897,7 +892,6 @@ void dDatabase::handleGetActuators() {
     }
 
     DbWebResponse resp = {};
-    resp.requestId = m_currentRequestId;
     resp.success = true;
     std::string json = response.dump();
     strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
@@ -930,7 +924,6 @@ void dDatabase::handleRegisterUser(const UserData& user) {
 
     
     if (count > 0) {
-        resp.requestId = m_currentRequestId;
         resp.success = false;
         strncpy(resp.errorMsg, "Username already taken", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -969,7 +962,6 @@ void dDatabase::handleRegisterUser(const UserData& user) {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (!resp.success) {
         resp.jsonData[0] = '\0';
     }
@@ -1014,7 +1006,6 @@ void dDatabase::handleGetUsers() {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     resp.success = true;
     std::string json = users.dump();
     strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
@@ -1033,7 +1024,6 @@ void dDatabase::handleGetUsers() {
     int accessLevel = computeAccessLevel(hasRfid, hasFingerprint);
 
     if (!hasRfid && !hasFingerprint) {
-        resp.requestId = m_currentRequestId;
         resp.success = false;
         strncpy(resp.errorMsg, "RFID or fingerprint is required", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1074,7 +1064,6 @@ void dDatabase::handleGetUsers() {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (!resp.success) {
         resp.jsonData[0] = '\0';
     }
@@ -1086,7 +1075,6 @@ void dDatabase::handleModifyUser(const UserData& user) {
     DbWebResponse resp = {};
 
     if (user.userID == 1) {
-        resp.requestId = m_currentRequestId;
         resp.success = false;
         strncpy(resp.errorMsg, "Cannot modify admin user", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1107,7 +1095,6 @@ void dDatabase::handleModifyUser(const UserData& user) {
     }
 
     if (!hasExisting) {
-        resp.requestId = m_currentRequestId;
         resp.success = false;
         strncpy(resp.errorMsg, "User not found", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1127,7 +1114,6 @@ void dDatabase::handleModifyUser(const UserData& user) {
     int accessLevel = computeAccessLevel(hasRfid, hasFingerprint);
 
     if (!hasRfid && !hasFingerprint) {
-        resp.requestId = m_currentRequestId;
         resp.success = false;
         strncpy(resp.errorMsg, "RFID or fingerprint is required", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1168,7 +1154,6 @@ void dDatabase::handleModifyUser(const UserData& user) {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (!resp.success) {
         resp.jsonData[0] = '\0';
     }
@@ -1181,7 +1166,6 @@ void dDatabase::handleRemoveUser(uint32_t userId) {
     DbWebResponse resp = {};
 
     if (userId == 1) {
-        resp.requestId = m_currentRequestId;
         resp.success = false;
         strncpy(resp.errorMsg, "Cannot delete admin user", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1225,7 +1209,6 @@ void dDatabase::handleRemoveUser(uint32_t userId) {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (!resp.success) {
         resp.jsonData[0] = '\0';
     }
@@ -1280,7 +1263,6 @@ void dDatabase::handleGetAssets() {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     resp.success = true;
     std::string json = assets.dump();
     strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
@@ -1311,7 +1293,6 @@ void dDatabase::handleCreateAsset(const AssetData& asset) {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (!resp.success) {
         strncpy(resp.errorMsg, "Failed to create asset", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1340,7 +1321,6 @@ void dDatabase::handleModifyAsset(const AssetData& asset) {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (!resp.success) {
         strncpy(resp.errorMsg, "Failed to modify asset", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1367,7 +1347,6 @@ void dDatabase::handleRemoveAsset(const char* tag) {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (!resp.success) {
         strncpy(resp.errorMsg, "Failed to delete asset", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1391,7 +1370,6 @@ void dDatabase::handleGetSettings() {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     resp.success = true;
     std::string json = settings.dump();
     strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);
@@ -1424,7 +1402,6 @@ void dDatabase::handleUpdateSettings(const SystemSettings& settings) {
         sqlite3_finalize(stmt);
     }
 
-    resp.requestId = m_currentRequestId;
     if (!resp.success) {
         strncpy(resp.errorMsg, "Failed to update settings", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1545,7 +1522,6 @@ void dDatabase::handleFilterLogs(const LogFilter& filter) {
         }
     }
 
-    resp.requestId = m_currentRequestId;
     resp.success = true;
     std::string json = result.dump();
     strncpy(resp.jsonData, json.c_str(), sizeof(resp.jsonData) - 1);

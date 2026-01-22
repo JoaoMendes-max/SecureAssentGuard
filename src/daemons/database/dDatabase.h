@@ -28,7 +28,6 @@ public:
 private:
     sqlite3* m_db;
     std::string m_dbPath;
-    uint32_t m_currentRequestId;
 
     C_Mqueue& m_mqToDatabase;
     C_Mqueue& m_mqToVerifyRoom;

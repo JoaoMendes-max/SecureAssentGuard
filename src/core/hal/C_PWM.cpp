@@ -18,6 +18,13 @@ C_PWM::C_PWM(int chip, int channel)
 C_PWM::~C_PWM()
 {
     setEnable(false);
+    string unexportPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) + "/unexport";
+    int fd = open(unexportPath.c_str(), O_WRONLY);
+    if (fd >= 0) {
+        string channel = to_string(m_pwmChannel);
+        write(fd, channel.c_str(), channel.size());
+        close(fd);
+    }
 }
 
 bool C_PWM::init()

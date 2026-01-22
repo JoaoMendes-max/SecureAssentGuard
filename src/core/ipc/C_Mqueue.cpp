@@ -42,11 +42,12 @@ C_Mqueue::C_Mqueue(const string& queueName, long msgSize, long maxMsgs, bool cre
 }
 
 C_Mqueue::~C_Mqueue() {
-    if (id != static_cast<mqd_t>(-1)) {
+    if (id != (mqd_t)-1) {
         mq_close(id);
-    }
-    if (m_owner && m_unlinkOnClose) {
-        mq_unlink(name.c_str());
+        // ✅ Força o unlink se formos o criador da fila
+        if (m_owner) {
+            mq_unlink(name.c_str());
+        }
     }
 }
 

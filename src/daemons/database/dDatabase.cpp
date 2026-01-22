@@ -4,6 +4,42 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <array>
+
+constexpr size_t kDbKeyLength = 32;
+
+// Chave ofuscada (não é legível com "strings")
+constexpr std::array<uint8_t, kDbKeyLength> kDbKeyPart = {
+    0x31, 0x76, 0x9a, 0x40, 0x7b, 0xa3, 0x1d, 0xc4,
+    0x2a, 0x8f, 0x61, 0x05, 0xde, 0x19, 0x73, 0xb0,
+    0x4c, 0x8a, 0x16, 0xf2, 0x9c, 0x5b, 0x07, 0xd8,
+    0x21, 0x90, 0x4e, 0xbc, 0x63, 0x0a, 0xe1, 0x57
+};
+
+// Máscara XOR (cada byte da chave usa um mask diferente)
+constexpr std::array<uint8_t, kDbKeyLength> kDbKeyMask = {
+    0x8d, 0x1f, 0x27, 0xbb, 0x19, 0x5e, 0x88, 0x22,
+    0x9c, 0x30, 0xf5, 0x6a, 0x4b, 0xac, 0x02, 0x1e,
+    0x77, 0x0d, 0xf9, 0x45, 0x6b, 0x92, 0xfe, 0x14,
+    0xc8, 0x59, 0x73, 0x02, 0xbd, 0xa4, 0x38, 0xc1
+};
+
+// Reconstrói a chave fazendo XOR
+std::array<unsigned char, kDbKeyLength> buildDbKey() {
+    std::array<unsigned char, kDbKeyLength> key{};
+    for (size_t i = 0; i < key.size(); ++i) {
+        key[i] = static_cast<unsigned char>(kDbKeyPart[i] ^ kDbKeyMask[i]);
+    }
+    return key;
+}
+
+// Apaga chave da memória com zeros (compilador não otimiza porque é volatile)
+void secureZero(void* data, size_t len) {
+    volatile unsigned char* p = static_cast<volatile unsigned char*>(data);
+    while (len--) {
+        *p++ = 0;
+    }
+}
 
 namespace {
 int computeAccessLevel(bool hasRfid, bool hasFingerprint) {
@@ -72,7 +108,6 @@ dDatabase::~dDatabase() {
     close();
 }
 
-// bool dDatabase::open() { int result = sqlite3_open(m_dbPath.c_str(), &m_db); if (result != SQLITE_OK) { std::cerr << \"ERRO: Não foi possível abrir a base de dados: \" << sqlite3_errmsg(m_db) << std::endl; return false; } std::cout << \"SUCESSO: Ligado ao ficheiro: \" << m_dbPath << std::endl; return true; }
 bool dDatabase::open() {
     int result = sqlite3_open(m_dbPath.c_str(), &m_db);
 
@@ -82,16 +117,21 @@ bool dDatabase::open() {
         return false;
     }
 
-    const char* key = std::getenv("SECUREASSET_DB_KEY");
-    if (key && key[0] != '\0') {
-        if (sqlite3_key(m_db, key, static_cast<int>(std::strlen(key))) != SQLITE_OK) {
-            std::cerr << "ERRO: Falha ao definir chave SQLCipher: "
-                      << sqlite3_errmsg(m_db) << std::endl;
-            sqlite3_close(m_db);
-            m_db = nullptr;
-            return false;
-        }
+    // Reconstrói a chave ofuscada
+    std::array<unsigned char, kDbKeyLength> key = buildDbKey();
+
+    // Define a chave no SQLCipher
+    if (sqlite3_key(m_db, key.data(), static_cast<int>(key.size())) != SQLITE_OK) {
+        std::cerr << "ERRO: Falha ao definir chave SQLCipher: "
+                  << sqlite3_errmsg(m_db) << std::endl;
+        secureZero(key.data(), key.size());
+        sqlite3_close(m_db);
+        m_db = nullptr;
+        return false;
     }
+
+    // Apaga a chave da memória imediatamente
+    secureZero(key.data(), key.size());
 
     std::cout << "SUCESSO: Ligado ao ficheiro: " << m_dbPath << std::endl;
     return true;

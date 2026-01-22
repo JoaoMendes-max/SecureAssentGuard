@@ -26,44 +26,50 @@ C_tReadEnvSensor::C_tReadEnvSensor(C_TH_SHT30& sensor,
 {}
 
 
-
-
 C_tReadEnvSensor::~C_tReadEnvSensor() = default;
-
-
-
 
 void C_tReadEnvSensor::run() {
     std::cout << "[tReadEnv] Thread em execução.\n";
 
+    {
+        DatabaseMsg reqSettings = {};
+        reqSettings.command = DB_CMD_GET_SETTINGS_THREAD;
+        m_mqToDatabase.send(&reqSettings, sizeof(reqSettings));
+
+        std::cout << "[tReadEnv] A pedir settings à BD..." << std::endl;
+
+        // Espera resposta (máx 5s)
+        AuthResponse settingsResp{};
+        ssize_t bytes = m_mqFromDb.timedReceive(&settingsResp, sizeof(settingsResp), 5);
+
+        if (bytes > 0 && settingsResp.command == DB_CMD_GET_SETTINGS_THREAD) {
+            m_tempThreshold = settingsResp.payload.settings.tempThreshold;
+            m_intervalSeconds = settingsResp.payload.settings.samplingInterval;
+            std::cout << "[tReadEnv] Settings carregadas: threshold="
+                      << m_tempThreshold << "°C, interval="
+                      << m_intervalSeconds << "s" << std::endl;
+        } else {
+            std::cout << "[tReadEnv] AVISO: A usar valores default (BD não respondeu)" << std::endl;
+        }
+    }
+
     while (!stopRequested()) {
         AuthResponse cmdMsg{};
-        ssize_t bytes = m_mqFromDb.timedReceive(&cmdMsg, sizeof(cmdMsg), m_intervalSeconds);
+        ssize_t bytes =
+            m_mqFromDb.timedReceive(&cmdMsg, sizeof(cmdMsg), m_intervalSeconds);
 
         if (bytes > 0) {
             if (cmdMsg.command == DB_CMD_STOP_ENV_SENSOR) {
                 break;
             }
-
             if (cmdMsg.command == DB_CMD_UPDATE_SETTINGS) {
                 m_tempThreshold   = cmdMsg.payload.settings.tempThreshold;
                 m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
                 if (m_intervalSeconds < 1) m_intervalSeconds = 1;
 
                 std::cout << "[tReadEnv] Settings atualizadas: interval="
-                          << m_intervalSeconds << "s, threshold=" << m_tempThreshold << "\n";
-            }
-
-            while (m_mqFromDb.timedReceive(&cmdMsg, sizeof(cmdMsg), 0) > 0) {
-                if (cmdMsg.command == DB_CMD_STOP_ENV_SENSOR) {
-                    break;
-                }
-
-                if (cmdMsg.command == DB_CMD_UPDATE_SETTINGS) {
-                    m_tempThreshold   = cmdMsg.payload.settings.tempThreshold;
-                    m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
-                    if (m_intervalSeconds < 1) m_intervalSeconds = 1;
-                }
+                          << m_intervalSeconds
+                          << "s, threshold=" << m_tempThreshold << "\n";
             }
 
             continue;
@@ -75,13 +81,15 @@ void C_tReadEnvSensor::run() {
             float hum  = data.data.tempHum.hum;
 
             uint8_t fanValue = (temp > static_cast<float>(m_tempThreshold)) ? 1 : 0;
+
             if (fanValue != m_lastFanState) {
                 ActuatorCmd cmd{ID_FAN, fanValue};
                 m_lastFanState = fanValue;
                 m_mqToActuator.send(&cmd, sizeof(cmd));
             }
 
-            sendLog(static_cast<double>(temp), static_cast<double>(hum));
+            sendLog(static_cast<float>(temp),
+                    static_cast<float>(hum));
         } else {
             std::cerr << "[tReadEnv] ERRO ao ler sensor!\n";
         }
@@ -93,7 +101,6 @@ void C_tReadEnvSensor::run() {
 
 
 
-// void C_tReadEnvSensor::generateDescription(int temp, int hum, char* buffer, size_t size) {
 void C_tReadEnvSensor::generateDescription(double temp, double hum,
                                           char* buffer, size_t size) {
     snprintf(buffer, size,

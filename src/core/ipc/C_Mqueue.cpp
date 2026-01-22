@@ -41,7 +41,6 @@ C_Mqueue::C_Mqueue(const string& queueName, long msgSize, long maxMsgs, bool cre
     }
 }
 
-// C_Mqueue::~C_Mqueue() { if (id != (mqd_t)-1) { mq_close(id); } mq_unlink(name.c_str()); }
 C_Mqueue::~C_Mqueue() {
     if (id != static_cast<mqd_t>(-1)) {
         mq_close(id);
@@ -102,7 +101,6 @@ ssize_t C_Mqueue::timedReceive(void* buffer, size_t size, int timeout_sec) {
     return bytes;
 }
 
-// void C_Mqueue::unregister() { mq_unlink(this->name.c_str()); }
 void C_Mqueue::unregister() {
     if (!m_owner) {
         return;

@@ -43,13 +43,13 @@ void secureZero(void* data, size_t len) {
 
 namespace {
 int computeAccessLevel(bool hasRfid, bool hasFingerprint) {
-    if (hasFingerprint) {
-        return 2;
+    if (hasRfid && hasFingerprint) {
+        return 2; // Sala + Cofre
     }
     if (hasRfid) {
-        return 1;
+        return 1; // Só Sala
     }
-    return 0;
+    return 0; // Viewer
 }
 
 bool isEmptyString(const char* s) {
@@ -225,7 +225,7 @@ bool dDatabase::initializeSchema() {
     
     const char* createAdmin =
         "INSERT OR IGNORE INTO Users (UserID, Name, Password, AccessLevel, FingerprintID) "
-        "VALUES (1, 'admin_viewer', ?, 2, 1);";  
+        "VALUES (1, 'admin', ?, 2, 1);";
 
     sqlite3_stmt* stmt;
     if (sqlite3_prepare_v2(m_db, createAdmin, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -281,8 +281,6 @@ void dDatabase::processDbMessage(const DatabaseMsg &msg) {
         case DB_CMD_GET_ACTUATORS:
             handleGetActuators();
             break;
-
-        
         case DB_CMD_REGISTER_USER:
             handleRegisterUser(msg.payload.user);
             break;
@@ -312,6 +310,9 @@ void dDatabase::processDbMessage(const DatabaseMsg &msg) {
             break;
         case DB_CMD_GET_SETTINGS:
             handleGetSettings();
+            break;
+        case DB_CMD_GET_SETTINGS_THREAD:
+            handleGetSettingsForThread();
             break;
         case DB_CMD_UPDATE_SETTINGS:
             handleUpdateSettings(msg.payload.settings);
@@ -374,27 +375,35 @@ void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
 }
 
 
-// void dDatabase::handleInsertLog(const DatabaseLog& log) { sqlite3_stmt* stmt; const char* sql = "INSERT INTO Logs (LogType, EntityID, Value, Value2, Timestamp, Description) " "VALUES (?, ?, ?, ?, ?, ?);"; if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) { sqlite3_bind_int(stmt, 1, static_cast<int>(log.logType)); sqlite3_bind_int(stmt, 2, static_cast<int>(log.entityID)); sqlite3_bind_int(stmt, 3, static_cast<int>(log.value)); sqlite3_bind_int(stmt, 4, static_cast<int>(log.value2)); sqlite3_bind_int(stmt, 5, static_cast<int>(log.timestamp)); sqlite3_bind_text(stmt, 6, log.description, -1, SQLITE_STATIC); if (sqlite3_step(stmt) != SQLITE_DONE) { std::cerr << "[Erro dDatabase] Falha ao gravar log: " << sqlite3_errmsg(m_db) << std::endl; } else { std::cout << "[dDatabase] Novo log registado com sucesso." << std::endl; } sqlite3_finalize(stmt); } else { std::cerr << "[Erro dDatabase] Erro no prepare do SQL: " << sqlite3_errmsg(m_db) << std::endl; } if (log.logType == LOG_TYPE_SENSOR) { updateSensorTable(log.entityID, log.value, log.value2, log.timestamp); } else if (log.logType == LOG_TYPE_ACTUATOR) { updateActuatorTable(log.entityID, log.value, log.timestamp); } }
 void dDatabase::handleInsertLog(const DatabaseLog& log) {
     sqlite3_stmt* stmt;
-
     std::string description = log.description;
+
+    // ✅ NOVO: Busca o NOME real (serve para RFID e Dedo)
     if (log.logType == LOG_TYPE_ACCESS && log.entityID > 0) {
-        std::string name = getUserNameById(m_db, log.entityID);
-        if (!name.empty()) {
-            if (description.find("ENTROU") != std::string::npos) {
-                description = "Utilizador " + name + " ENTROU na sala";
-            } else if (description.find("SAIU") != std::string::npos) {
-                description = "Utilizador " + name + " SAIU da sala";
-            } else if (description.find("Cofre") != std::string::npos) {
-                description = "Cofre Aberto - Utilizador: " + name;
+        sqlite3_stmt* nameStmt;
+        // Procura na tabela Users onde o ID seja UserID (RFID) OU FingerprintID (Dedo)
+        const char* sqlName = "SELECT Name FROM Users WHERE UserID = ? OR FingerprintID = ? LIMIT 1;";
+
+        if (sqlite3_prepare_v2(m_db, sqlName, -1, &nameStmt, nullptr) == SQLITE_OK) {
+            sqlite3_bind_int(nameStmt, 1, log.entityID);
+            sqlite3_bind_int(nameStmt, 2, log.entityID);
+
+            if (sqlite3_step(nameStmt) == SQLITE_ROW) {
+                const char* n = (const char*)sqlite3_column_text(nameStmt, 0);
+                if (n) {
+                    std::string name(n);
+                    // Aqui montamos a frase com o NOME real
+                    if (description.find("ENTROU") != std::string::npos) description = "Utilizador " + name + " ENTROU na sala";
+                    else if (description.find("SAIU") != std::string::npos) description = "Utilizador " + name + " SAIU da sala";
+                    else if (description.find("Cofre") != std::string::npos) description = "Cofre Aberto - Utilizador: " + name;
+                }
             }
+            sqlite3_finalize(nameStmt);
         }
     }
 
-    const char* sql = "INSERT INTO Logs (LogType, EntityID, Value, Value2, Timestamp, Description) "
-                      "VALUES (?, ?, ?, ?, ?, ?);";
-
+    const char* sql = "INSERT INTO Logs (LogType, EntityID, Value, Value2, Timestamp, Description) VALUES (?, ?, ?, ?, ?, ?);";
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int(stmt, 1, static_cast<int>(log.logType));
         sqlite3_bind_int(stmt, 2, static_cast<int>(log.entityID));
@@ -402,20 +411,11 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
         sqlite3_bind_double(stmt, 4, log.value2);
         sqlite3_bind_int(stmt, 5, static_cast<int>(log.timestamp));
         sqlite3_bind_text(stmt, 6, description.c_str(), -1, SQLITE_TRANSIENT);
-
-        if (sqlite3_step(stmt) != SQLITE_DONE) {
-            std::cerr << "[Erro dDatabase] Falha ao gravar log: "
-                      << sqlite3_errmsg(m_db) << std::endl;
-        } else {
-            std::cout << "[dDatabase] Novo log registado com sucesso." << std::endl;
-        }
-
+        sqlite3_step(stmt);
         sqlite3_finalize(stmt);
-    } else {
-        std::cerr << "[Erro dDatabase] Erro no prepare do SQL: "
-                  << sqlite3_errmsg(m_db) << std::endl;
     }
 
+    // Mantém as chamadas updateSensorTable/updateActuatorTable abaixo...
     if (log.logType == LOG_TYPE_SENSOR) {
         updateSensorTable(static_cast<uint8_t>(log.entityID), log.value, log.value2, log.timestamp);
     } else if (log.logType == LOG_TYPE_ACTUATOR) {
@@ -447,7 +447,6 @@ void dDatabase::updateSensorTable(uint8_t entityID, double value, double value2,
     }
 }
 
-// void dDatabase::updateActuatorTable(uint8_t entityID, uint16_t value, uint32_t timestamp) {
 void dDatabase::updateActuatorTable(uint8_t entityID, double value, uint32_t timestamp) {
     sqlite3_stmt* stmt;
     const char* type = nullptr;
@@ -464,7 +463,6 @@ void dDatabase::updateActuatorTable(uint8_t entityID, double value, uint32_t tim
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int(stmt, 1, value > 0.0 ? 1 : 0);
         sqlite3_bind_int(stmt, 2, static_cast<int>(timestamp));
-        // sqlite3_bind_text(stmt, 3, type, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 3, type, -1, SQLITE_TRANSIENT);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
@@ -496,7 +494,6 @@ void dDatabase::handleCheckUserInPir() {
     m_mqToCheckMovement.send(&resp, sizeof(resp));
 }
 
-// void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) { sqlite3_stmt* stmt; uint32_t now = static_cast<uint32_t>(time(nullptr)); const char* sqlReset = "UPDATE Assets SET State = 'Outside';"; int rc = sqlite3_exec(m_db, sqlReset, nullptr, nullptr, nullptr); if (rc != SQLITE_OK) { std::cerr << "[DB] Erro ao resetar estados: " << sqlite3_errmsg(m_db) << std::endl; return; } const char* sqlUpdate = "UPDATE Assets SET State = 'Inside', LastRead = ? WHERE RFID_Tag = ?;"; if (sqlite3_prepare_v2(m_db, sqlUpdate, -1, &stmt, nullptr) == SQLITE_OK) {
 void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
     sqlite3_stmt* stmt;
     uint32_t now = static_cast<uint32_t>(time(nullptr));
@@ -510,7 +507,6 @@ void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
 
             
             sqlite3_bind_int(stmt, 1, static_cast<int>(now));
-            // sqlite3_bind_text(stmt, 2, inventory.tagList[i], -1, SQLITE_STATIC);
             sqlite3_bind_text(stmt, 2, inventory.tagList[i], -1, SQLITE_TRANSIENT);
 
             
@@ -548,17 +544,12 @@ void dDatabase::handleLogin(const LoginRequest& login) {
     DbWebResponse resp = {};
     nlohmann::json result;
 
-    
-    char fullName[70];
-    snprintf(fullName, sizeof(fullName), "%s_viewer", login.username);
 
-    
     const char* sql = "SELECT UserID, Name, AccessLevel, Password FROM Users "
                       "WHERE Name = ? AND Password IS NOT NULL;";
 
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
-        // sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 1, login.username, -1, SQLITE_TRANSIENT);
 
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             const char* storedHash = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3));
@@ -568,11 +559,7 @@ void dDatabase::handleLogin(const LoginRequest& login) {
 
                 
                 const char* dbName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-                std::string displayName = dbName ? dbName : "";
-                if (displayName.size() > 7 && displayName.substr(displayName.size() - 7) == "_viewer") {
-                    displayName = displayName.substr(0, displayName.size() - 7);
-                }
-                result["username"] = displayName;
+                result["username"] = dbName ? dbName : "";
 
                 result["accessLevel"] = sqlite3_column_int(stmt, 2);
                 resp.success = true;
@@ -668,10 +655,6 @@ void dDatabase::handleGetDashboard() {
 void dDatabase::handleGetSensors() {
     nlohmann::json response;
     sqlite3_stmt* stmt;
-
-    
-    
-    
     
     const char* sqlEnv = "SELECT Type, Value, LastUpdate FROM Sensors;";
 
@@ -700,15 +683,11 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    
-    
-    
-    // const char* sqlVault = "SELECT Description, Timestamp FROM Logs " "WHERE LogType = ? AND EntityID != 0 " "ORDER BY Timestamp DESC LIMIT 1;";
     const char* sqlVault =
-        "SELECT u.Name, l.Timestamp, l.EntityID FROM Logs l "
-        "LEFT JOIN Users u ON l.EntityID = u.UserID "
-        "WHERE l.LogType = ? AND l.Description LIKE '%Cofre%' "
-        "ORDER BY l.Timestamp DESC LIMIT 1;";
+    "SELECT u.Name, l.Timestamp, l.EntityID FROM Logs l "
+    "LEFT JOIN Users u ON l.EntityID = u.FingerprintID "  // ✅ AQUI!
+    "WHERE l.LogType = ? AND l.Description LIKE '%Cofre%' "
+    "ORDER BY l.Timestamp DESC LIMIT 1;";
 
     if (sqlite3_prepare_v2(m_db, sqlVault, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_int(stmt, 1, LOG_TYPE_ACCESS);
@@ -737,9 +716,6 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    
-    
-    
     const char* sqlRoom = "SELECT Name FROM Users WHERE IsInside = 1 LIMIT 1;";
     if (sqlite3_prepare_v2(m_db, sqlRoom, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -750,9 +726,6 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    
-    
-    
     // const char* sqlRoomTime = "SELECT Timestamp FROM Logs WHERE LogType = ? " "ORDER BY Timestamp DESC LIMIT 1;";
     const char* sqlRoomTime =
         "SELECT Timestamp FROM Logs WHERE LogType = ? AND Description LIKE '%ENTROU%' "
@@ -905,17 +878,12 @@ void dDatabase::handleRegisterUser(const UserData& user) {
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
-    
-    char fullName[70];
-    snprintf(fullName, sizeof(fullName), "%s_viewer", user.name);
-
-    
     const char* checkSql = "SELECT COUNT(*) FROM Users WHERE Name = ?;";
     int count = 0;
 
     if (sqlite3_prepare_v2(m_db, checkSql, -1, &stmt, nullptr) == SQLITE_OK) {
         // sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 1, user.name, -1, SQLITE_TRANSIENT);
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             count = sqlite3_column_int(stmt, 0);
         }
@@ -946,7 +914,7 @@ void dDatabase::handleRegisterUser(const UserData& user) {
 
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         // sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_STATIC);
-        sqlite3_bind_text(stmt, 1, fullName, -1, SQLITE_TRANSIENT);
+        sqlite3_bind_text(stmt, 1, user.name, -1, SQLITE_TRANSIENT);
         // sqlite3_bind_text(stmt, 2, hash, -1, SQLITE_STATIC);
         sqlite3_bind_text(stmt, 2, hash, -1, SQLITE_TRANSIENT);
 
@@ -973,7 +941,6 @@ void dDatabase::handleGetUsers() {
     DbWebResponse resp = {};
     nlohmann::json users = nlohmann::json::array();
 
-    // const char* sql = "SELECT UserID, Name, RFID_Card, FingerprintID, AccessLevel " "FROM Users " "WHERE (RFID_Card IS NOT NULL OR FingerprintID IS NOT NULL)" "AND AccessLevel > 0;";
     const char* sql = "SELECT UserID, Name, RFID_Card, FingerprintID "
                       "FROM Users "
                       "WHERE UserID != 1;";
@@ -1014,8 +981,7 @@ void dDatabase::handleGetUsers() {
     m_mqToWeb.send(&resp, sizeof(resp));
 }
 
-// void dDatabase::handleCreateUser(const UserData& user) {
-    void dDatabase::handleCreateUser(const UserData& user) {
+void dDatabase::handleCreateUser(const UserData& user) {
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -1062,12 +1028,12 @@ void dDatabase::handleGetUsers() {
             resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
         }
         sqlite3_finalize(stmt);
-    }
+}
 
-    if (!resp.success) {
-        resp.jsonData[0] = '\0';
-    }
-    m_mqToWeb.send(&resp, sizeof(resp));
+if (!resp.success) {
+    resp.jsonData[0] = '\0';
+}
+m_mqToWeb.send(&resp, sizeof(resp));
 }
 
 void dDatabase::handleModifyUser(const UserData& user) {
@@ -1376,6 +1342,28 @@ void dDatabase::handleGetSettings() {
     resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
 
     m_mqToWeb.send(&resp, sizeof(resp));
+}
+
+void dDatabase::handleGetSettingsForThread() {
+    sqlite3_stmt* stmt;
+    AuthResponse resp = {};
+    resp.command = DB_CMD_GET_SETTINGS_THREAD;
+
+    const char* sql = "SELECT TempThreshold, SamplingTime FROM SystemSettings WHERE ID = 1;";
+
+    if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            resp.payload.settings.tempThreshold = sqlite3_column_int(stmt, 0);
+            resp.payload.settings.samplingInterval = sqlite3_column_int(stmt, 1);
+        } else {
+            // Default se não existir
+            resp.payload.settings.tempThreshold = 30;
+            resp.payload.settings.samplingInterval = 600;
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    m_mqToEnvThread.send(&resp, sizeof(resp));
 }
 
 void dDatabase::handleUpdateSettings(const SystemSettings& settings) {

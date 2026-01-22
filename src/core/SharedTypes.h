@@ -97,7 +97,7 @@ struct DatabaseLog {
     double value;
     double value2;
     uint32_t timestamp;
-    char description[128]{};
+    char description[266]{};
 
     DatabaseLog()
         : logType(LOG_TYPE_SYSTEM),
@@ -138,7 +138,8 @@ enum e_DbCommand {
     DB_CMD_CREATE_ASSET,           
     DB_CMD_MODIFY_ASSET,           
     DB_CMD_REMOVE_ASSET,           
-    DB_CMD_GET_SETTINGS,           
+    DB_CMD_GET_SETTINGS,
+    DB_CMD_GET_SETTINGS_THREAD,
     DB_CMD_UPDATE_SETTINGS,        
     DB_CMD_FILTER_LOGS,
     DB_CMD_STOP_ENV_SENSOR

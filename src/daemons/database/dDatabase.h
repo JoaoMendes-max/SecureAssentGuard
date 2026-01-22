@@ -62,6 +62,8 @@ private:
     void handleRemoveAsset(const char* tag);
 
     void handleGetSettings();
+    void handleGetSettingsForThread();
+
     void handleUpdateSettings(const SystemSettings& settings);
 
     void handleFilterLogs(const LogFilter& filter);

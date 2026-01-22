@@ -83,12 +83,12 @@ void C_SecureAsset::destroyInstance() {
 
 bool C_SecureAsset::initSensors() {
     std::cout << "[SecureAsset] A inicializar Sensores..." << std::endl;
-
+/*
     if (!m_temp_sensor.init()) {
         std::cerr << "[ERRO] Falha no init: Sensor Temperatura" << std::endl;
         return false;
     }
-
+*/
     if (!m_rfid_entry.init()) {
         std::cerr << "[ERRO] Falha no init: RFID Entry" << std::endl;
         return false;

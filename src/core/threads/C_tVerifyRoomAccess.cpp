@@ -64,7 +64,6 @@ void C_tVerifyRoomAccess::run() {
                         
                         ActuatorCmd cmd = {ID_SERVO_ROOM, 0};
                         m_mqToActuator.send(&cmd, sizeof(cmd));
-                        // sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel, true);
                         sendLog(static_cast<uint32_t>(resp.payload.auth.userId),
                                 static_cast<uint32_t>(resp.payload.auth.accessLevel),
                                 true);

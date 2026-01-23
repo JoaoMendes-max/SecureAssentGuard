@@ -94,7 +94,6 @@ void C_tVerifyRoomAccess::run() {
                     }
                     break; 
                 }
-
             }
         }
     }

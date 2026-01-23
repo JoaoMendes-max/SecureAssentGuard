@@ -113,9 +113,6 @@ bool C_SecureAsset::initSensors() {
     return true;
 }
 
-
-
-
 bool C_SecureAsset::initActuators() {
     std::cout << "[SecureAsset] A inicializar Atuadores..." << std::endl;
 

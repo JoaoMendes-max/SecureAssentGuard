@@ -30,7 +30,7 @@ public:
     dWebServer(C_Mqueue& toDb, C_Mqueue& fromDb, int port = 8080);
     ~dWebServer();
 
-    bool start(); //nigga
+    bool start();
     void stop();
     void run();
 

@@ -126,7 +126,7 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
             // 2. Tenta encontrar e enviar o ficheiro da pasta ./web
             struct mg_http_serve_opts opts;
             memset(&opts, 0, sizeof(opts));
-            opts.root_dir = "./web";
+            opts.root_dir = "/root/SecureAsset/web";
             mg_http_serve_dir(c, hm, &opts);
         }
     }

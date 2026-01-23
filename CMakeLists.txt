@@ -21,7 +21,7 @@ set(SHARED_SOURCES
 )
 
 add_executable(SecureAssetCore
-        src/core/main.cpp
+        src/core/maincore.cpp
         src/core/C_SecureAsset.cpp
 
         src/core/hal/C_GPIO.cpp
@@ -80,4 +80,15 @@ target_link_libraries(dWebServer
         mongoose
         ssl
         crypto
+)
+
+add_executable(wrapper
+        main.cpp
+        src/core/ipc/C_Mqueue.cpp
+)
+
+# O wrapper precisa da biblioteca 'rt' para as Message Queues e 'pthread' para sinais/threads
+target_link_libraries(wrapper
+        pthread
+        rt
 )

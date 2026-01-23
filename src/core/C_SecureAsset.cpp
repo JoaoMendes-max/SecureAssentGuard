@@ -40,13 +40,13 @@ C_SecureAsset::C_SecureAsset()
       m_alarm(m_gpio_alarm_led, m_gpio_alarm_buzzer),
 
       
-      m_mq_to_database("/mq_to_db", sizeof(DatabaseMsg), 20, true),
-      m_mq_to_actuator("/mq_to_actuator", sizeof(ActuatorCmd), 20, true),
-      m_mq_to_verify_room("/mq_rfid_in", sizeof(AuthResponse), 10, true),
-      m_mq_to_leave_room("/mq_rfid_out", sizeof(AuthResponse), 10, true),
-      m_mq_to_check_movement("/mq_move", sizeof(AuthResponse), 10, true),
-      m_mq_to_vault("/mq_finger", sizeof(AuthResponse), 10, true),
-      m_mq_to_env_sensor("/mq_db_to_env", sizeof(AuthResponse), 10, true),
+      m_mq_to_database("/mq_to_db", sizeof(DatabaseMsg), 20, false),
+      m_mq_to_actuator("/mq_to_actuator", sizeof(ActuatorCmd), 20, false),
+      m_mq_to_verify_room("/mq_rfid_in", sizeof(AuthResponse), 10, false),
+      m_mq_to_leave_room("/mq_rfid_out", sizeof(AuthResponse), 10, false),
+      m_mq_to_check_movement("/mq_move", sizeof(AuthResponse), 10, false),
+      m_mq_to_vault("/mq_finger", sizeof(AuthResponse), 10, false),
+      m_mq_to_env_sensor("/mq_db_to_env", sizeof(AuthResponse), 10, false),
 
       
       m_monitor_reed_room(),
@@ -246,8 +246,6 @@ bool C_SecureAsset::init() {
     C_tSighandler::setupSignalBlock();
     std::cout << "[SecureAsset] Sinais bloqueados (herança para threads)" << std::endl;
 
-
-    
     if (!initSensors()) {
         std::cerr << "[ERRO CRÍTICO] Inicialização dos sensores falhou!" << std::endl;
         return false;
@@ -265,11 +263,11 @@ bool C_SecureAsset::init() {
     std::cout << "============================================" << std::endl;
     std::cout << "    INITIALIZATION COMPLETE" << std::endl;
     std::cout << "============================================" << std::endl;
-
+/*
     m_fingerprint.wakeUp();
     m_fingerprint.deleteAllUsers();
     m_fingerprint.sleep();
-
+*/
     return true;
 }
 

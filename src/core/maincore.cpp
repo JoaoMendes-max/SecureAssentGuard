@@ -5,17 +5,14 @@
 #include <sys/stat.h>
 #include <cstdlib>
 #include <cstring>
-#include "dWebServer.h"
+#include "C_SecureAsset.h"
 #include "C_Mqueue.h"
 #include "SharedTypes.h"
 
-static const char* WEB_PIDFILE = "/var/run/dWebServer.pid";
-static dWebServer* g_server = nullptr;
+static const char* CORE_PIDFILE = "/var/run/SecureAssetCore.pid";
+static volatile sig_atomic_t g_shutdown = 0;
 
-static void handleSignal(int signum) {
-    std::cout << "\n[WebServer] Sinal " << signum << " recebido. A terminar..." << std::endl;
-    if (g_server) g_server->stop();
-}
+static void handleSignal(int) { g_shutdown = 1; }
 
 static void daemonize(const char* pidfile, const char* logfile = nullptr) {
     pid_t pid = fork();
@@ -56,20 +53,16 @@ int main() {
     int notify_fd = -1;
     if (const char* env = std::getenv("NOTIFY_FD")) notify_fd = std::atoi(env);
 
-    daemonize(WEB_PIDFILE, "/var/log/dWebServer.log");
+    daemonize(CORE_PIDFILE, "/var/log/SecureAssetCore.log");
     unsetenv("NOTIFY_FD");
 
-    // Abre filas (não cria)
-    C_Mqueue mqToDb("/mq_to_db", sizeof(DatabaseMsg), 20, false);
-    C_Mqueue mqFromDb("/mq_db_to_web", sizeof(DbWebResponse), 10, false);
+    // Os dispositivos de hardware e filas são inicializados em C_SecureAsset;
+    // mas as filas já existem, pelo que o construtor deve usar createNew=false.
+    C_SecureAsset* core = C_SecureAsset::getInstance();
+    bool ok = core->init();
+    if (ok) core->start();
 
-    dWebServer server(mqToDb, mqFromDb, 8080);
-    g_server = &server;
-
-    std::signal(SIGINT, handleSignal);
-    std::signal(SIGTERM, handleSignal);
-
-    bool ok = server.start();
+    // Notifica wrapper
     if (notify_fd >= 0) {
         char buf[64];
         int len = ok ? std::snprintf(buf, sizeof(buf), "%d\n", getpid())
@@ -78,9 +71,22 @@ int main() {
         close(notify_fd);
         notify_fd = -1;
     }
-    if (!ok) return -1;
+    if (!ok) {
+        C_SecureAsset::destroyInstance();
+        return -1;
+    }
 
-    server.run();
-    unlink(WEB_PIDFILE);
+    std::signal(SIGINT, handleSignal);
+    std::signal(SIGTERM, handleSignal);
+
+    while (!g_shutdown) {
+        sleep(1);
+    }
+
+    // Paragem de todas as threads e limpeza (não remove filas)
+    core->stop();
+    core->waitForThreads();
+    C_SecureAsset::destroyInstance();
+    unlink(CORE_PIDFILE);
     return 0;
 }

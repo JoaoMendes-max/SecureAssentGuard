@@ -44,13 +44,11 @@ C_Mqueue::C_Mqueue(const string& queueName, long msgSize, long maxMsgs, bool cre
 C_Mqueue::~C_Mqueue() {
     if (id != (mqd_t)-1) {
         mq_close(id);
-        // ✅ Força o unlink se formos o criador da fila
-        if (m_owner) {
+        if (m_owner && m_unlinkOnClose) {
             mq_unlink(name.c_str());
         }
     }
 }
-
 bool C_Mqueue::send(const void* msg, size_t size, unsigned int prio) {
     if (id == static_cast<mqd_t>(-1)) return false;
 
@@ -102,14 +100,13 @@ ssize_t C_Mqueue::timedReceive(void* buffer, size_t size, int timeout_sec) {
     return bytes;
 }
 
-void C_Mqueue::unregister() {
-    if (!m_owner) {
-        return;
-    }
-    m_unlinkOnClose = true;
-    mq_unlink(name.c_str());
-}
 
+void C_Mqueue::unregister() {
+    if (m_owner) {
+        // Sinaliza para o destrutor que deve remover a fila
+        m_unlinkOnClose = true;
+    }
+}
 bool C_Mqueue::isOwner() const {
     return m_owner;
 }

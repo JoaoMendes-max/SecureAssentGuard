@@ -1,3 +1,6 @@
+// =====================================
+// src/core/maincore.cpp  (SecureAssetCore)
+// =====================================
 #include <iostream>
 #include <csignal>
 #include <unistd.h>
@@ -5,27 +8,45 @@
 #include <sys/stat.h>
 #include <cstdlib>
 #include <cstring>
+
 #include "C_SecureAsset.h"
 #include "C_Mqueue.h"
 #include "SharedTypes.h"
 
 static const char* CORE_PIDFILE = "/var/run/SecureAssetCore.pid";
 static volatile sig_atomic_t g_shutdown = 0;
+static int g_shutdown_fd = -1;
 
 static void handleSignal(int) { g_shutdown = 1; }
+
+static void sendShutdownAck() {
+    if (g_shutdown_fd >= 0) {
+        const char* ack = "OK\n";
+        (void)write(g_shutdown_fd, ack, 3);
+        close(g_shutdown_fd);
+        g_shutdown_fd = -1;
+    }
+}
 
 static void daemonize(const char* pidfile, const char* logfile = nullptr) {
     pid_t pid = fork();
     if (pid < 0) std::exit(EXIT_FAILURE);
     if (pid > 0) std::exit(EXIT_SUCCESS);
+
     if (setsid() < 0) std::exit(EXIT_FAILURE);
+
     std::signal(SIGHUP, SIG_IGN);
+
     pid = fork();
     if (pid < 0) std::exit(EXIT_FAILURE);
     if (pid > 0) std::exit(EXIT_SUCCESS);
+
     umask(0);
     chdir("/");
-    close(STDIN_FILENO); open("/dev/null", O_RDONLY);
+
+    close(STDIN_FILENO);
+    open("/dev/null", O_RDONLY);
+
     if (logfile) {
         int fd = open(logfile, O_WRONLY | O_CREAT | O_APPEND, 0644);
         if (fd >= 0) {
@@ -34,17 +55,20 @@ static void daemonize(const char* pidfile, const char* logfile = nullptr) {
             close(fd);
         } else {
             close(STDOUT_FILENO); close(STDERR_FILENO);
-            open("/dev/null", O_WRONLY); open("/dev/null", O_WRONLY);
+            open("/dev/null", O_WRONLY);
+            open("/dev/null", O_WRONLY);
         }
     } else {
         close(STDOUT_FILENO); close(STDERR_FILENO);
-        open("/dev/null", O_WRONLY); open("/dev/null", O_WRONLY);
+        open("/dev/null", O_WRONLY);
+        open("/dev/null", O_WRONLY);
     }
+
     int fd = open(pidfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
         char buf[32];
         ssize_t n = std::snprintf(buf, sizeof(buf), "%d\n", getpid());
-        write(fd, buf, n);
+        (void)write(fd, buf, n);
         close(fd);
     }
 }
@@ -52,26 +76,29 @@ static void daemonize(const char* pidfile, const char* logfile = nullptr) {
 int main() {
     int notify_fd = -1;
     if (const char* env = std::getenv("NOTIFY_FD")) notify_fd = std::atoi(env);
+    if (const char* env = std::getenv("SHUTDOWN_FD")) g_shutdown_fd = std::atoi(env);
 
     daemonize(CORE_PIDFILE, "/var/log/SecureAssetCore.log");
     unsetenv("NOTIFY_FD");
+    unsetenv("SHUTDOWN_FD");
 
-    // Os dispositivos de hardware e filas são inicializados em C_SecureAsset;
-    // mas as filas já existem, pelo que o construtor deve usar createNew=false.
     C_SecureAsset* core = C_SecureAsset::getInstance();
     bool ok = core->init();
     if (ok) core->start();
 
-    // Notifica wrapper
+    // Startup notify (PID or -1)
     if (notify_fd >= 0) {
         char buf[64];
         int len = ok ? std::snprintf(buf, sizeof(buf), "%d\n", getpid())
                      : std::snprintf(buf, sizeof(buf), "-1\n");
-        write(notify_fd, buf, len);
+        (void)write(notify_fd, buf, len);
         close(notify_fd);
         notify_fd = -1;
     }
+
     if (!ok) {
+        // Ensure wrapper is not stuck waiting for shutdown ACK
+        sendShutdownAck();  // closes g_shutdown_fd
         C_SecureAsset::destroyInstance();
         return -1;
     }
@@ -79,14 +106,14 @@ int main() {
     std::signal(SIGINT, handleSignal);
     std::signal(SIGTERM, handleSignal);
 
-    while (!g_shutdown) {
-        sleep(1);
-    }
+    // No sleeps: wait for signals
+    while (!g_shutdown) pause();
 
-    // Paragem de todas as threads e limpeza (não remove filas)
     core->stop();
     core->waitForThreads();
     C_SecureAsset::destroyInstance();
+
+    sendShutdownAck();
     unlink(CORE_PIDFILE);
     return 0;
 }

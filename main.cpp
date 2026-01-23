@@ -1,3 +1,6 @@
+// ===============================
+// main.cpp  (Wrapper / Launcher)
+// ===============================
 #include <iostream>
 #include <unistd.h>
 #include <sys/types.h>
@@ -6,18 +9,21 @@
 #include <string>
 #include <limits.h>
 #include <cstdlib>
+#include <cerrno>
+#include <cstring>
 #include <fcntl.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <memory>
 #include <vector>
+
 #include "C_Mqueue.h"
 #include "SharedTypes.h"
 
 static volatile sig_atomic_t g_stop = 0;
 
 static void signalHandler(int signum) {
-    std::cout << "\n[Wrapper] Sinal " << signum << " recebido. A encerrar..." << std::endl;
+    std::cout << "\n[Wrapper] Signal " << signum << " received. Shutting down..." << std::endl;
     g_stop = 1;
 }
 
@@ -40,64 +46,150 @@ static pid_t readPidFromFd(int fd) {
     return (pid > 0) ? static_cast<pid_t>(pid) : -1;
 }
 
-// Lança um daemon e espera pela sua mensagem de “pronto” no descritor sv[0]
-static pid_t launchDaemon(const std::string& binName, const std::string& binPath) {
-    int sv[2];
-    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv) < 0) {
-        std::perror("socketpair");
-        return -1;
-    }
-    // FD usado pelo daemon; tem de sobreviver ao exec
-    int flags = fcntl(sv[1], F_GETFD);
-    fcntl(sv[1], F_SETFD, flags & ~FD_CLOEXEC);
+static bool clearCloExec(int fd) {
+    int flags = fcntl(fd, F_GETFD);
+    if (flags < 0) return false;
+    return (fcntl(fd, F_SETFD, flags & ~FD_CLOEXEC) == 0);
+}
 
-    char fdStr[16];
-    std::snprintf(fdStr, sizeof(fdStr), "%d", sv[1]);
-    setenv("NOTIFY_FD", fdStr, 1);
+struct DaemonInfo {
+    pid_t pid = -1;
+    int shutdown_fd = -1;
+    std::string name;
+};
+
+static DaemonInfo launchDaemon(const std::string& binName, const std::string& binPath) {
+    DaemonInfo info;
+    info.name = binName;
+
+    int sv_startup[2];
+    int sv_shutdown[2];
+
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv_startup) < 0) {
+        std::perror("socketpair startup");
+        return info;
+    }
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv_shutdown) < 0) {
+        std::perror("socketpair shutdown");
+        close(sv_startup[0]);
+        close(sv_startup[1]);
+        return info;
+    }
+
+    // Daemon ends must survive exec()
+    if (!clearCloExec(sv_startup[1]) || !clearCloExec(sv_shutdown[1])) {
+        std::perror("fcntl FD_CLOEXEC");
+        close(sv_startup[0]); close(sv_startup[1]);
+        close(sv_shutdown[0]); close(sv_shutdown[1]);
+        return info;
+    }
+
+    char fdStartupStr[16], fdShutdownStr[16];
+    std::snprintf(fdStartupStr, sizeof(fdStartupStr), "%d", sv_startup[1]);
+    std::snprintf(fdShutdownStr, sizeof(fdShutdownStr), "%d", sv_shutdown[1]);
+    setenv("NOTIFY_FD", fdStartupStr, 1);
+    setenv("SHUTDOWN_FD", fdShutdownStr, 1);
 
     pid_t child = fork();
     if (child < 0) {
         std::perror("fork");
-        close(sv[0]);
-        close(sv[1]);
+        close(sv_startup[0]); close(sv_startup[1]);
+        close(sv_shutdown[0]); close(sv_shutdown[1]);
         unsetenv("NOTIFY_FD");
-        return -1;
+        unsetenv("SHUTDOWN_FD");
+        return info;
     }
+
     if (child == 0) {
-        close(sv[0]);
+        // Child: keep write ends, close read ends
+        close(sv_startup[0]);
+        close(sv_shutdown[0]);
         execl(binPath.c_str(), binName.c_str(), nullptr);
         std::perror("execl");
         std::_Exit(EXIT_FAILURE);
     }
 
-    // Processo wrapper: fecha o lado de escrita e remove a env var
-    close(sv[1]);
+    // Wrapper: close write ends, keep read ends
+    close(sv_startup[1]);
+    close(sv_shutdown[1]);
     unsetenv("NOTIFY_FD");
-    // espera que o filho intermédio termine (sai após daemonizar)
+    unsetenv("SHUTDOWN_FD");
+
+    // Wait intermediate child (exits after daemonize first fork)
     waitpid(child, nullptr, 0);
 
-    // espera mensagem do daemon com timeout (5 s)
-    struct pollfd pfd{sv[0], POLLIN, 0};
+    // Wait PID from daemon (startup handshake), timeout 5s
+    pollfd pfd{};
+    pfd.fd = sv_startup[0];
+    pfd.events = POLLIN | POLLHUP;
+
     int ret = poll(&pfd, 1, 5000);
-    pid_t pid_daemon = -1;
-    if (ret > 0 && (pfd.revents & POLLIN)) {
-        pid_daemon = readPidFromFd(sv[0]);
+    if (ret > 0 && (pfd.revents & (POLLIN | POLLHUP))) {
+        info.pid = readPidFromFd(sv_startup[0]);
     } else {
-        std::cerr << "[Wrapper] ERRO: timeout ao arrancar " << binName << std::endl;
+        std::cerr << "[Wrapper] ERROR: startup timeout for " << binName << std::endl;
     }
-    close(sv[0]);
-    return pid_daemon;
+    close(sv_startup[0]);
+
+    if (info.pid <= 0) {
+        // startup failed: close shutdown channel too
+        close(sv_shutdown[0]);
+        info.shutdown_fd = -1;
+        info.pid = -1;
+        return info;
+    }
+
+    // Keep shutdown read end for later
+    info.shutdown_fd = sv_shutdown[0];
+    return info;
+}
+
+static void stopDaemon(DaemonInfo& daemon) {
+    if (daemon.pid <= 0) return;
+
+    std::cout << "[Wrapper] Stopping " << daemon.name << " (PID " << daemon.pid << ")..." << std::endl;
+
+    // Request graceful termination
+    if (kill(daemon.pid, SIGTERM) != 0 && errno == ESRCH) {
+        if (daemon.shutdown_fd >= 0) { close(daemon.shutdown_fd); daemon.shutdown_fd = -1; }
+        return;
+    }
+
+    // Wait for ACK or EOF (POLLHUP) on shutdown_fd, no sleeps
+    if (daemon.shutdown_fd >= 0) {
+        pollfd pfd{};
+        pfd.fd = daemon.shutdown_fd;
+        pfd.events = POLLIN | POLLHUP;
+
+        int ret = poll(&pfd, 1, 5000);
+        if (ret > 0 && (pfd.revents & (POLLIN | POLLHUP))) {
+            // Accept either explicit "OK" or just EOF
+            char buf[16];
+            (void)read(daemon.shutdown_fd, buf, sizeof(buf));
+            close(daemon.shutdown_fd);
+            daemon.shutdown_fd = -1;
+            std::cout << "[Wrapper] " << daemon.name << " stopped (ACK/EOF)." << std::endl;
+            return;
+        }
+
+        // Timeout or error
+        close(daemon.shutdown_fd);
+        daemon.shutdown_fd = -1;
+    }
+
+    std::cout << "[Wrapper] " << daemon.name << " did not respond. Forcing SIGKILL." << std::endl;
+    kill(daemon.pid, SIGKILL);
 }
 
 int main() {
     std::signal(SIGINT, signalHandler);
     std::signal(SIGTERM, signalHandler);
 
-    std::cout << "======================================" << std::endl;
-    std::cout << "  SECURE ASSET GUARD - LAUNCHER" << std::endl;
-    std::cout << "======================================" << std::endl;
+    std::cout << "======================================\n";
+    std::cout << "  SECURE ASSET GUARD - LAUNCHER\n";
+    std::cout << "======================================\n";
 
-    // Cria todas as Message Queues (wrapper é o owner)
+    // Create message queues (launcher is the owner)
     std::vector<std::unique_ptr<C_Mqueue>> mqs;
     try {
         mqs.push_back(std::make_unique<C_Mqueue>("/mq_to_db", sizeof(DatabaseMsg), 20, true));
@@ -108,69 +200,50 @@ int main() {
         mqs.push_back(std::make_unique<C_Mqueue>("/mq_finger", sizeof(AuthResponse), 10, true));
         mqs.push_back(std::make_unique<C_Mqueue>("/mq_db_to_env", sizeof(AuthResponse), 10, true));
         mqs.push_back(std::make_unique<C_Mqueue>("/mq_db_to_web", sizeof(DbWebResponse), 10, true));
-        std::cout << "[Wrapper] Filas criadas com sucesso" << std::endl;
+        std::cout << "[Wrapper] Message queues created successfully.\n";
     } catch (const std::exception& e) {
-        std::cerr << "[Wrapper] ERRO ao criar filas: " << e.what() << std::endl;
+        std::cerr << "[Wrapper] ERROR creating queues: " << e.what() << std::endl;
         return EXIT_FAILURE;
     }
 
-    // Lança daemons com handshake
     std::string execDir = getExecutableDir();
-    pid_t pid_db  = launchDaemon("dDatabase", execDir + "/dDatabase");
-    if (pid_db < 0) return EXIT_FAILURE;
-    std::cout << "[Wrapper] dDatabase PID " << pid_db << std::endl;
 
-    pid_t pid_web = launchDaemon("dWebServer", execDir + "/dWebServer");
-    if (pid_web < 0) {
-        kill(pid_db, SIGTERM);
+    DaemonInfo db = launchDaemon("dDatabase", execDir + "/dDatabase");
+    if (db.pid < 0) return EXIT_FAILURE;
+    std::cout << "[Wrapper] dDatabase PID " << db.pid << std::endl;
+
+    DaemonInfo web = launchDaemon("dWebServer", execDir + "/dWebServer");
+    if (web.pid < 0) {
+        stopDaemon(db);
         return EXIT_FAILURE;
     }
-    std::cout << "[Wrapper] dWebServer PID " << pid_web << std::endl;
+    std::cout << "[Wrapper] dWebServer PID " << web.pid << std::endl;
 
-    pid_t pid_core = launchDaemon("SecureAssetCore", execDir + "/SecureAssetCore");
-    if (pid_core < 0) {
-        kill(pid_web, SIGTERM);
-        kill(pid_db, SIGTERM);
+    DaemonInfo core = launchDaemon("SecureAssetCore", execDir + "/SecureAssetCore");
+    if (core.pid < 0) {
+        stopDaemon(web);
+        stopDaemon(db);
         return EXIT_FAILURE;
     }
-    std::cout << "[Wrapper] SecureAssetCore PID " << pid_core << std::endl;
+    std::cout << "[Wrapper] SecureAssetCore PID " << core.pid << std::endl;
 
-    std::cout << "\nSistema em execução — prima Ctrl+C para encerrar.\n" << std::endl;
+    std::cout << "\nSystem running — press Ctrl+C to stop.\n" << std::endl;
 
-    // Aguarda sinal
-    while (!g_stop) {
-        pause();
-    }
+    while (!g_stop) pause();
 
-    // Paragem ordenada: Core → Web → Database
-    auto stopDaemon = [](pid_t pid, const std::string& name) {
-        if (pid <= 0) return;
-        std::cout << "[Wrapper] A parar " << name << "..." << std::endl;
-        kill(pid, SIGTERM);
-        for (int i = 0; i < 50; ++i) {
-            if (kill(pid, 0) != 0) return;
-            usleep(100000);
-        }
-        std::cout << "[Wrapper] Forçando SIGKILL em " << name << std::endl;
-        kill(pid, SIGKILL);
-        waitpid(pid, nullptr, 0);
-    };
-    stopDaemon(pid_core, "SecureAssetCore");
-    stopDaemon(pid_web,  "dWebServer");
-    stopDaemon(pid_db,   "dDatabase");
+    std::cout << "\n[Wrapper] Starting ordered shutdown...\n";
+    stopDaemon(core);
+    stopDaemon(web);
+    stopDaemon(db);
 
-    // Limpa filas (unlink)
-    std::cout << "[Wrapper] A remover filas..." << std::endl;
-    for (auto& mq : mqs) {
-        mq->unregister();
-    }
+    std::cout << "[Wrapper] Unlinking message queues...\n";
+    for (auto& mq : mqs) mq->unregister();
     mqs.clear();
 
-    // Remove ficheiros PID
     unlink("/var/run/SecureAssetCore.pid");
     unlink("/var/run/dWebServer.pid");
     unlink("/var/run/dDatabase.pid");
 
-    std::cout << "Sistema encerrado.\n";
+    std::cout << "System terminated.\n";
     return 0;
 }

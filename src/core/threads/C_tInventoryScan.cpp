@@ -32,8 +32,6 @@ void C_tInventoryScan::run() {
             msg.payload.rfidInventory.tagCount = data.data.rfid_inventory.tagCount;
 
             for(int i = 0; i < data.data.rfid_inventory.tagCount; ++i) {
-                // strncpy(msg.payload.rfidInventory.tagList[i],
-                //         data.data.rfid_inventory.tagList[i], 32);
                 strncpy(msg.payload.rfidInventory.tagList[i],
                         data.data.rfid_inventory.tagList[i], 31);
                 msg.payload.rfidInventory.tagList[i][31] = '\0';
@@ -59,9 +57,7 @@ void C_tInventoryScan::sendLog(int count) {
 
     logMsg.payload.log.logType = LOG_TYPE_INVENTORY; 
     logMsg.payload.log.entityID = 0;
-    // logMsg.payload.log.value = (uint16_t)count;
     logMsg.payload.log.value = static_cast<double>(count);
-    // logMsg.payload.log.timestamp = (uint32_t)time(nullptr);
     logMsg.payload.log.timestamp = static_cast<uint32_t>(time(nullptr));
 
     generateDescription(count, logMsg.payload.log.description, sizeof(logMsg.payload.log.description));

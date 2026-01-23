@@ -59,7 +59,6 @@ bool C_PWM::init()
     }
 
     close(fd);
-
     return true;
 }
 

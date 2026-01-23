@@ -10,7 +10,6 @@ class C_Monitor {
 public:
     C_Monitor();
     ~C_Monitor();
-
     void wait();
     void signal();
     bool timedWait(int seconds);

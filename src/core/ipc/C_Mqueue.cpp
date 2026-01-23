@@ -4,7 +4,6 @@
 #include <cerrno>       
 #include <sys/stat.h>   
 
-// C_Mqueue::C_Mqueue(string queueName, long msgSize, long maxMsgs, bool createNew) { name = queueName; maxMsgSize = msgSize; maxMsgCount = maxMsgs; if (createNew) { struct mq_attr attr; attr.mq_flags = 0; attr.mq_maxmsg = maxMsgs; attr.mq_msgsize = msgSize; attr.mq_curmsgs = 0; id = mq_open(name.c_str(), O_RDWR | O_CREAT, 0666, &attr); } else { id = mq_open(name.c_str(), O_RDWR); } if (id == (mqd_t)-1) { cerr << \"[Erro C_Mqueue] mq_open failed: \" << strerror(errno) << endl; } }
 C_Mqueue::C_Mqueue(const string& queueName, long msgSize, long maxMsgs, bool createNew)
     : id(static_cast<mqd_t>(-1)),
       name(queueName),
@@ -103,7 +102,6 @@ ssize_t C_Mqueue::timedReceive(void* buffer, size_t size, int timeout_sec) {
 
 void C_Mqueue::unregister() {
     if (m_owner) {
-        // Sinaliza para o destrutor que deve remover a fila
         m_unlinkOnClose = true;
     }
 }

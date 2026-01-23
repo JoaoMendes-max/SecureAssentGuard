@@ -1,6 +1,4 @@
-// =====================================
-// src/core/maincore.cpp  (SecureAssetCore)
-// =====================================
+
 #include <iostream>
 #include <csignal>
 #include <unistd.h>
@@ -106,7 +104,6 @@ int main() {
     std::signal(SIGINT, handleSignal);
     std::signal(SIGTERM, handleSignal);
 
-    // No sleeps: wait for signals
     while (!g_shutdown) pause();
 
     core->stop();

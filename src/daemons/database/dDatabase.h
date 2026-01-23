@@ -49,7 +49,6 @@ private:
     void updateSensorTable(uint8_t entityID, double value, double value2, uint32_t timestamp);
     void updateActuatorTable(uint8_t entityID, double value, uint32_t timestamp);
 
-    
     void handleRegisterUser(const UserData& user);
     void handleGetUsers();
     void handleCreateUser(const UserData& user);

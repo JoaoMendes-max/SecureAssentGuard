@@ -9,13 +9,9 @@ protected:
 
 public:
     C_Sensor(SensorID_enum id) : m_sensorID(id) {}
-
     virtual ~C_Sensor() = default;
-
     virtual bool init() = 0;
-    
     virtual bool read(SensorData* data) = 0;
-
     SensorID_enum get_ID() const { return m_sensorID; }
 };
 

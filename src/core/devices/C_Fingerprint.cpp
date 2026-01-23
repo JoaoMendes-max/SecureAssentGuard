@@ -23,7 +23,6 @@ bool C_Fingerprint::init() {
 
 void C_Fingerprint::wakeUp() {
     m_rst.writePin(true);     
-    usleep(250000);     
 }
 
 void C_Fingerprint::sleep() {
@@ -117,7 +116,6 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
     struct pollfd pfd;
     pfd.fd = m_uart.getFd();
     pfd.events = POLLIN;     
-    // int timeoutMs = (int)(timeoutSec * 1000);
     int timeoutMs = static_cast<int>(timeoutSec * 1000);
 
     while (totalRead < 8) {
@@ -153,7 +151,6 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
 
     uint8_t chk = rx[1] ^ rx[2] ^ rx[3] ^ rx[4] ^ rx[5];
     if (rx[6] != chk) {
-        // std::cout << "[DEBUG] Erro de Checksum (Calculado: " << (int)chk << " vs Recebido: " << (int)rx[6] << ")" << std::endl;
         std::cout << "[DEBUG] Erro de Checksum (Calculado: " << static_cast<int>(chk) << " vs Recebido: " << static_cast<int>(rx[6]) << ")" << std::endl;
         return 0xFF;
     }
@@ -161,8 +158,6 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
     
     if (outHigh) *outHigh = rx[2];
     if (outLow)  *outLow  = rx[3];
-
-    // std::cout << "[DEBUG] Resposta valida! Status (Q3): " << (int)rx[4] << std::endl;
     std::cout << "[DEBUG] Resposta valida! Status (Q3): " << static_cast<int>(rx[4]) << std::endl;
     return rx[4];
 

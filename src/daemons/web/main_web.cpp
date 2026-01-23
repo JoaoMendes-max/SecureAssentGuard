@@ -1,6 +1,4 @@
-// =======================================
-// src/daemons/web/main_web.cpp (dWebServer)
-// =======================================
+
 #include <iostream>
 #include <csignal>
 #include <unistd.h>

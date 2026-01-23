@@ -37,25 +37,21 @@ public:
 private:
     static void eventHandler(struct mg_connection* c, int ev, void* ev_data);
 
-    // Autenticação
     void handleLogin(struct mg_connection* c, struct mg_http_message* hm);
     void handleRegister(struct mg_connection* c, struct mg_http_message* hm);
     void handleLogout(struct mg_connection* c, struct mg_http_message* hm);
 
-    // Visualização (todos os users)
     void handleDashboard(struct mg_connection* c, struct mg_http_message* hm);
     void handleSensors(struct mg_connection* c, struct mg_http_message* hm);
     void handleActuators(struct mg_connection* c, struct mg_http_message* hm);
     void handleLogsFilter(struct mg_connection* c, struct mg_http_message* hm);
 
-    // Admin apenas
     void handleUsers(struct mg_connection* c, struct mg_http_message* hm);
     void handleUsersById(struct mg_connection* c, struct mg_http_message* hm);
     void handleAssets(struct mg_connection* c, struct mg_http_message* hm);
     void handleAssetsById(struct mg_connection* c, struct mg_http_message* hm);
     void handleSettings(struct mg_connection* c, struct mg_http_message* hm);
 
-    // Utilitários
     std::string generateToken();
     bool validateSession(struct mg_http_message* hm, SessionData& outSession);
     void cleanExpiredSessions();

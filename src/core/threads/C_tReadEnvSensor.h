@@ -18,9 +18,7 @@ private:
     int m_intervalSeconds;
     uint8_t m_lastFanState;
     
-    // void sendLog(int temp, int hum) const;
     void sendLog(double temp, double hum) const;
-    // static void generateDescription(int temp, int hum, char* buffer, size_t size);
     static void generateDescription(double temp, double hum, char* buffer, size_t size);
 
 public:

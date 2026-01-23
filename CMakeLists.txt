@@ -4,20 +4,20 @@ project(SecureAssentGuard C CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 include_directories(
-        src              # <--- ADICIONADO (Resolve o erro do SharedTypes.h)
+        src
         src/core
         src/core/hal
         src/core/devices
         src/core/ipc
         src/core/threads
         src/daemons
-        src/daemons/database # <--- ADICIONADO para encontrar dDatabase.h
-        src/daemons/web # <--- ADICIONADO para encontrar dDatabase.h
+        src/daemons/database
+        src/daemons/web
 
 )
 
 set(SHARED_SOURCES
-        src/core/ipc/C_Mqueue.cpp    # Para abrir, enviar e receber mensagens nas filas POSIX
+        src/core/ipc/C_Mqueue.cpp
 )
 
 add_executable(SecureAssetCore
@@ -64,8 +64,8 @@ add_executable(dDatabase
 target_link_libraries(dDatabase
         pthread
         rt
-        sqlcipher   # <--- CORRIGIDO (Usa a lib do SQLCipher)
-        argon2      # Linka com libargon2.so
+        sqlcipher
+        argon2
 )
 
 add_executable(dWebServer
@@ -87,7 +87,6 @@ add_executable(wrapper
         src/core/ipc/C_Mqueue.cpp
 )
 
-# O wrapper precisa da biblioteca 'rt' para as Message Queues e 'pthread' para sinais/threads
 target_link_libraries(wrapper
         pthread
         rt

@@ -1,6 +1,3 @@
-// ==========================================
-// src/daemons/database/main_db.cpp (dDatabase)
-// ==========================================
 #include <iostream>
 #include <csignal>
 #include <unistd.h>

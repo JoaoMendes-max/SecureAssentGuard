@@ -82,7 +82,6 @@ void c_tVerifyVaultAccess::run() {
 }
 
 
-// void c_tVerifyVaultAccess::generateDescription(int userId, bool authorized, char* buffer, size_t size) {
 void c_tVerifyVaultAccess::generateDescription(uint32_t userId, bool authorized, char* buffer, size_t size) {
     if (authorized) {
         snprintf(buffer, size, "Cofre Aberto - Utilizador ID: %u", userId);
@@ -91,7 +90,6 @@ void c_tVerifyVaultAccess::generateDescription(uint32_t userId, bool authorized,
     }
 }
 
-// void c_tVerifyVaultAccess::sendLog(int userId, bool authorized) {
 void c_tVerifyVaultAccess::sendLog(uint32_t userId, bool authorized) {
     DatabaseMsg msg = {};
     msg.command = DB_CMD_WRITE_LOG;

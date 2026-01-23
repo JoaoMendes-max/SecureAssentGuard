@@ -39,7 +39,6 @@ void C_Monitor::signal() {
     pthread_mutex_unlock(&m_mutex);
 }
 
-// bool C_Monitor::timedWait(int seconds) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); ts.tv_sec += seconds; pthread_mutex_lock(&m_mutex); int result = pthread_cond_timedwait(&m_cond, &m_mutex, &ts); pthread_mutex_unlock(&m_mutex); return (result == ETIMEDOUT); }
 bool C_Monitor::timedWait(int seconds) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);

@@ -19,9 +19,7 @@ C_UART::~C_UART() {
 }
 
 bool C_UART::openPort() {
-    
     m_fd = open(m_portPath.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
-
     if (m_fd == -1) {
         perror("C_UART: Erro ao abrir porta");
         return false;
@@ -51,7 +49,6 @@ bool C_UART::configPort(int baud, int bits, char parity) {
         return false;
     }
 
-    
     speed_t speed;
     switch (baud) {
         case 9600:   speed = B9600; break;
@@ -68,7 +65,6 @@ bool C_UART::configPort(int baud, int bits, char parity) {
     }
     cfsetispeed(&options, speed);
     cfsetospeed(&options, speed);
-
     
     options.c_cflag &= ~CSIZE;
     if (bits == 8) {
@@ -79,7 +75,6 @@ bool C_UART::configPort(int baud, int bits, char parity) {
         cerr << "C_UART: Bits deve ser 7 ou 8" << endl;
         return false;
     }
-
     
     if (parity == 'N') {
         options.c_cflag &= ~PARENB; 
@@ -94,29 +89,20 @@ bool C_UART::configPort(int baud, int bits, char parity) {
         return false;
     }
 
-    
     options.c_cflag &= ~CSTOPB;
-
-    
     options.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG);
     options.c_oflag &= ~OPOST;
     options.c_iflag &= ~(IXON | IXOFF | IXANY);
-
-    
     options.c_cflag &= ~CRTSCTS;
-
-    
     options.c_cflag |= (CLOCAL | CREAD);
     options.c_cc[VMIN] = 0;
     options.c_cc[VTIME] = 1;
 
-    
     if (tcsetattr(m_fd, TCSANOW, &options) != 0) {
         cerr<<"C_UART: Erro no tcsetattr\n";
         return false;
     }
 
-    
     tcflush(m_fd, TCIOFLUSH);
 
     return true;

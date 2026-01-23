@@ -25,15 +25,10 @@ class C_Fingerprint final : public C_Sensor {
 public:
     C_Fingerprint(C_UART& uart, C_GPIO& rst);
     ~C_Fingerprint() override;
-
-    
     bool init() override;
-    
     bool read(SensorData* data) override;
-    
     void wakeUp();
     void sleep();
-    
     bool addUser(int userID) const;
     bool deleteUser(int userID) const;
     bool deleteAllUsers() const;

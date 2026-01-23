@@ -1,10 +1,7 @@
 #include "C_Thread.h"
 #include <sched.h>      
 #include <cstring>      
-#include <cerrno>       
-
-
-
+#include <cerrno>
 
 C_Thread::C_Thread(int priority) : m_priority(priority) {
     pthread_attr_init(&m_attributes);
@@ -22,19 +19,10 @@ C_Thread::C_Thread(int priority) : m_priority(priority) {
         pthread_attr_setinheritsched(&m_attributes, PTHREAD_EXPLICIT_SCHED);
     }
 }
-
-
-
-
 bool C_Thread::start() {
 
     int result = pthread_create(&m_thread, &m_attributes, internalRun, this );
     
-    
-    
-    
-    
-
     if (result != 0) {
         cerr << "[Erro C_Thread] Falha ao criar thread: " << strerror(result) << endl;
         return false;
@@ -43,7 +31,6 @@ bool C_Thread::start() {
 }
 
 
-// void* C_Thread::internalRun(void* arg) { C_Thread* threadObj = (C_Thread*)arg; if (threadObj != NULL) { threadObj->run(); } return NULL; }
 void* C_Thread::internalRun(void* arg) {
     C_Thread* threadObj = static_cast<C_Thread*>(arg);
 
@@ -53,9 +40,6 @@ void* C_Thread::internalRun(void* arg) {
 
     return nullptr;
 }
-
-
-
 
 C_Thread::~C_Thread() {
     

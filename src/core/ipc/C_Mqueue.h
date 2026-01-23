@@ -20,14 +20,9 @@ private:
 public:
     
     C_Mqueue(const string& queueName, long msgSize = 1024, long maxMsgs = 10, bool createNew = true);
-
     ~C_Mqueue();
-
-
     bool send(const void* msg, size_t size, unsigned int prio = 0);
-    
     ssize_t receive(void* buffer, size_t size);
-    
     ssize_t timedReceive(void* buffer, size_t size, int timeout_sec);
     void unregister();
     bool isOwner() const;

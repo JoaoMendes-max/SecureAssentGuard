@@ -7,25 +7,19 @@
 class C_UART;
 class C_GPIO;
 
-
 #define YRM_HEADER          0xBB
 #define YRM_TAIL            0x7E
 #define YRM_TYPE_NOTIF      0x02
 #define YRM_CMD_INVENTORY   0x22
-
-
 #define YRM_IDX_HEADER      0
 #define YRM_IDX_TYPE        1
 #define YRM_IDX_COMMAND     2
 #define YRM_IDX_PL_MSB      3
 #define YRM_IDX_PL_LSB      4
 #define YRM_IDX_PAYLOAD     5
-
-
 #define YRM_BOOT_TIME_MS    100
 #define YRM_STOP_TIME_MS    50
 #define YRM_IDLE_TIMEOUT_MS 500
-
 
 class C_YRM1001 final : public C_Sensor {
 private:
@@ -40,25 +34,16 @@ private:
 public:
     C_YRM1001(C_UART& uart, C_GPIO& enable);
     ~C_YRM1001() override;
-
-    
     bool init() override;
     bool read(SensorData* data) override;
 
 private:
-    
     bool powerOn();
     void powerOff();
     bool getPower(uint16_t& outCentiDbm);
-
-    
     bool sendCommand(const uint8_t* cmd, size_t len) const;
     bool readFrame();
-
-    
     bool parseFrame(char* epcOut, size_t epcSize) const;
-
-    
     static uint8_t calculateChecksum(const uint8_t* data, size_t len);
     bool setPower(uint16_t powerDBm);
     static void bytesToHex(const uint8_t* data, size_t len, char* hexOut);

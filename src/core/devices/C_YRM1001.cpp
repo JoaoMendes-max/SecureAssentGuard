@@ -39,19 +39,16 @@ bool C_YRM1001::init() {
         return false;
     }
 
-    
     if (!m_uart.openPort()) {
         std::cerr << "[YRM1001] ERROR: Failed to open UART" << std::endl;
         return false;
     }
-
     
     if (!m_uart.configPort(115200, 8, 'N')) {
         std::cerr << "[YRM1001] ERROR: Failed to configure UART (115200 8N1)" << std::endl;
         return false;
     }
 
-    
     powerOff();
 
     std::cout << "[YRM1001] Initialized (UART 115200, EN ready)" << std::endl;
@@ -63,8 +60,6 @@ bool C_YRM1001::init() {
 
 bool C_YRM1001::powerOn() {
     m_gpio_enable.writePin(true);  
-    usleep(YRM_BOOT_TIME_MS * 1000);  
-    std::cout << "[YRM1001] Power ON (waited " << YRM_BOOT_TIME_MS << "ms)" << std::endl;
     return true;
 }
 
@@ -78,7 +73,6 @@ void C_YRM1001::powerOff() {
 void C_YRM1001::flushUART() const {
     uint8_t trash[64];
     int count = 0;
-
     
     while (m_uart.readBuffer(trash, sizeof(trash)) > 0 && ++count < 10);
 
@@ -91,7 +85,6 @@ void C_YRM1001::flushUART() const {
 bool C_YRM1001::sendCommand(const uint8_t* cmd, size_t len) const {
     int written = m_uart.writeBuffer(cmd, len);
 
-    // if (written != (int)len) {
     if (written != static_cast<int>(len)) {
         std::cerr << "[YRM1001] ERROR: Failed to send command" << std::endl;
         return false;
@@ -108,8 +101,6 @@ bool C_YRM1001::readFrame() {
     pfd.fd = m_uart.getFd();
     pfd.events = POLLIN;
 
-    
-    
     const int HEADER_SIZE = 5;
 
     while (m_bufferPos < HEADER_SIZE) {
@@ -132,30 +123,21 @@ bool C_YRM1001::readFrame() {
         }
     }
 
-    
     if (m_rawBuffer[YRM_IDX_HEADER] != YRM_HEADER) {
-        // std::cerr << "[YRM1001] ERROR: Invalid header (0x" << std::hex << (int)m_rawBuffer[0] << std::dec << ")" << std::endl;
         std::cerr << "[YRM1001] ERROR: Invalid header (0x"
                   << std::hex << static_cast<int>(m_rawBuffer[0]) << std::dec << ")" << std::endl;
         return false;
     }
-
     
     uint16_t payloadLen = (m_rawBuffer[YRM_IDX_PL_MSB] << 8) | m_rawBuffer[YRM_IDX_PL_LSB];
-
-    
     int totalFrameSize = 5 + payloadLen + 2;
 
-    
-    // if (totalFrameSize > (int)sizeof(m_rawBuffer)) {
     if (totalFrameSize > static_cast<int>(sizeof(m_rawBuffer))) {
         std::cerr << "[YRM1001] ERROR: Frame too large (" << totalFrameSize << " bytes)" << std::endl;
         return false;
     }
 
-    
     int remaining = totalFrameSize - HEADER_SIZE;
-
     while (m_bufferPos < totalFrameSize) {
         
         int ret = poll(&pfd, 1, 100);
@@ -180,15 +162,11 @@ bool C_YRM1001::readFrame() {
         }
     }
 
-    
-    
     if (m_rawBuffer[m_bufferPos - 1] != YRM_TAIL) {
-        // std::cerr << "[YRM1001] ERROR: Invalid tail (0x" << std::hex << (int)m_rawBuffer[m_bufferPos - 1] << std::dec << ")" << std::endl;
         std::cerr << "[YRM1001] ERROR: Invalid tail (0x"
                   << std::hex << static_cast<int>(m_rawBuffer[m_bufferPos - 1]) << std::dec << ")" << std::endl;
         return false;
     }
-
     return true; 
 }
 
@@ -199,17 +177,13 @@ bool C_YRM1001::parseFrame(char* epcOut, size_t epcSize) const {
         return false;
     }
 
-    
     if (m_rawBuffer[YRM_IDX_TYPE] != YRM_TYPE_NOTIF ||
         m_rawBuffer[YRM_IDX_COMMAND] != YRM_CMD_INVENTORY) {
         return false;
     }
 
-    
     uint16_t payloadLen = (m_rawBuffer[YRM_IDX_PL_MSB] << 8) | m_rawBuffer[YRM_IDX_PL_LSB];
 
-    
-    
     if (payloadLen < 5) {
         std::cerr << "[YRM1001] ERROR: Payload too small" << std::endl;
         return false;
@@ -219,33 +193,22 @@ bool C_YRM1001::parseFrame(char* epcOut, size_t epcSize) const {
     int epcStartIdx = YRM_IDX_PAYLOAD + 1 + 2;  
 
     
-    // if (epcLen * 2 >= (int)epcSize) {
     if (epcLen * 2 >= static_cast<int>(epcSize)) {
         std::cerr << "[YRM1001] ERROR: EPC too large (" << epcLen << " bytes)" << std::endl;
         return false;
     }
 
-    
-    
     int checksumIdx = 5 + payloadLen;
 
-    
-    
     uint8_t expectedCS = calculateChecksum(&m_rawBuffer[YRM_IDX_TYPE], 4 + payloadLen);
 
     if (m_rawBuffer[checksumIdx] != expectedCS) {
-        // std::cerr << "[YRM1001] WARNING: Invalid checksum " << "(expected: 0x" << std::hex << (int)expectedCS << ", received: 0x" << (int)m_rawBuffer[checksumIdx] << std::dec << ")" << std::endl;
         std::cerr << "[YRM1001] WARNING: Invalid checksum "
                   << "(expected: 0x" << std::hex << static_cast<int>(expectedCS)
                   << ", received: 0x" << static_cast<int>(m_rawBuffer[checksumIdx])
                   << std::dec << ")" << std::endl;
-        
-        
-        
     }
 
-    
-    
     bytesToHex(&m_rawBuffer[epcStartIdx], epcLen, epcOut);
 
     return true;
@@ -254,9 +217,7 @@ bool C_YRM1001::parseFrame(char* epcOut, size_t epcSize) const {
 bool C_YRM1001::setPower(uint16_t powerCentiDbm) {
     uint8_t cmd_power[] = {
         0xBB, 0x00, 0xB6, 0x00, 0x02,
-        // (uint8_t)((powerCentiDbm >> 8) & 0xFF),
         static_cast<uint8_t>((powerCentiDbm >> 8) & 0xFF),
-        // (uint8_t)(powerCentiDbm & 0xFF),
         static_cast<uint8_t>(powerCentiDbm & 0xFF),
         0x00, 0x7E
     };
@@ -276,14 +237,12 @@ bool C_YRM1001::setPower(uint16_t powerCentiDbm) {
         m_rawBuffer[YRM_IDX_TYPE]   == 0x01 &&
         m_rawBuffer[YRM_IDX_COMMAND]== 0xB6) {
 
-        // uint16_t pl = (uint16_t(m_rawBuffer[YRM_IDX_PL_MSB]) << 8) | m_rawBuffer[YRM_IDX_PL_LSB];
         uint16_t pl = (static_cast<uint16_t>(m_rawBuffer[YRM_IDX_PL_MSB]) << 8) | m_rawBuffer[YRM_IDX_PL_LSB];
         if (pl == 1 && m_rawBuffer[YRM_IDX_PAYLOAD] == 0x00) ok = true;
         }
 
     if (!ok) return false;
 
-    
     uint16_t actual{};
     if (getPower(actual)) {
         std::cout << "[YRM1001] Power now: " << (actual / 100.0f) << " dBm\n";
@@ -307,13 +266,11 @@ bool C_YRM1001::getPower(uint16_t& outCentiDbm) {
 
     if (!sendCommand(cmd_get, sizeof(cmd_get))) return false;
     if (!readFrame()) return false;
-
     
     if (m_rawBuffer[YRM_IDX_HEADER] != YRM_HEADER) return false;
     if (m_rawBuffer[YRM_IDX_TYPE]   != 0x01)       return false;
     if (m_rawBuffer[YRM_IDX_COMMAND]!= 0xB7)       return false;
 
-    // uint16_t pl = (uint16_t(m_rawBuffer[YRM_IDX_PL_MSB]) << 8) | m_rawBuffer[YRM_IDX_PL_LSB];
     uint16_t pl = (static_cast<uint16_t>(m_rawBuffer[YRM_IDX_PL_MSB]) << 8) | m_rawBuffer[YRM_IDX_PL_LSB];
     if (pl != 2) return false;
 
@@ -327,7 +284,6 @@ bool C_YRM1001::getPower(uint16_t& outCentiDbm) {
     }
     if (m_rawBuffer[checksumIdx + 1] != YRM_TAIL) return false;
 
-    // outCentiDbm = (uint16_t(m_rawBuffer[payloadIdx]) << 8) | m_rawBuffer[payloadIdx + 1];
     outCentiDbm = (static_cast<uint16_t>(m_rawBuffer[payloadIdx]) << 8) | m_rawBuffer[payloadIdx + 1];
     return true;
 }
@@ -384,11 +340,8 @@ bool C_YRM1001::read(SensorData* data) {
 
     flushUART();
 
-    
-    
     setPower(5);
 
-    
     if (!sendCommand(CMD_START_INVENTORY, sizeof(CMD_START_INVENTORY))) {
         powerOff();
         return false;
@@ -402,14 +355,12 @@ bool C_YRM1001::read(SensorData* data) {
     int tagCount = 0;
     int64_t tStart   = nowMs();
     int64_t tLastNew = tStart;
-
     
     data->type = ID_YRM1001;
     data->data.rfid_inventory.tagCount = 0;
     for (int i = 0; i < MAX_TAGS; ++i) {
         data->data.rfid_inventory.tagList[i][0] = '\0';
     }
-
     while (tagCount < MAX_TAGS) {
         
         if (nowMs() - tStart >= TOTAL_SCAN_MS) {
@@ -417,7 +368,6 @@ bool C_YRM1001::read(SensorData* data) {
             break;
         }
 
-        
         if (nowMs() - tLastNew >= IDLE_NEW_TAG_MS) {
             std::cout << "[YRM1001] No new tags for " << IDLE_NEW_TAG_MS << "ms -> done\n";
             break;
@@ -436,7 +386,6 @@ bool C_YRM1001::read(SensorData* data) {
             break;
         }
 
-        
         if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
             std::cerr << "[YRM1001] ERROR: UART revents=" << std::hex << pfd.revents << std::dec << "\n";
             break;
@@ -466,10 +415,7 @@ bool C_YRM1001::read(SensorData* data) {
             }
         }
     }
-
-    
     sendCommand(CMD_STOP_INVENTORY, sizeof(CMD_STOP_INVENTORY));
-    usleep(YRM_STOP_TIME_MS * 1000);
 
     powerOff();
 

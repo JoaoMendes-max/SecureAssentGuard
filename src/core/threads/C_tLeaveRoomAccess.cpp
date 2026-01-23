@@ -35,14 +35,12 @@ void C_tLeaveRoomAccess::run() {
         SensorData data = {};
         
         if (m_rfidExit.read(&data)) {
-            // char* rfidRead = data.data.rfid_single.tagID;
             const char* rfidRead = data.data.rfid_single.tagID;
             std::cout << "[RFID-EXIT] Cartão lido: " << rfidRead << std::endl;
 
             
             DatabaseMsg msg = {};
             msg.command = DB_CMD_LEAVE_ROOM_RFID; 
-            // strncpy(msg.payload.rfid, rfidRead, 11);
             strncpy(msg.payload.rfid, rfidRead, sizeof(msg.payload.rfid) - 1);
             msg.payload.rfid[sizeof(msg.payload.rfid) - 1] = '\0';
             m_mqToDatabase.send(&msg, sizeof(msg));
@@ -56,7 +54,6 @@ void C_tLeaveRoomAccess::run() {
                 if (bytes > 0) {
                     
                     if (resp.payload.auth.authorized) {
-                        // std::cout << "[RFID-EXIT] Saída Autorizada! UserID: " << (int)resp.payload.auth.userId << std::endl;
                         std::cout << "[RFID-EXIT] Saída Autorizada! UserID: " << static_cast<unsigned int>(resp.payload.auth.userId) << std::endl;
                         m_failedAttempts = 0;
 
@@ -65,7 +62,6 @@ void C_tLeaveRoomAccess::run() {
                         m_mqToActuator.send(&cmd, sizeof(cmd));
 
                         
-                        // sendLog((uint8_t)resp.payload.auth.userId, (uint16_t)resp.payload.auth.accessLevel);
                         sendLog(static_cast<uint32_t>(resp.payload.auth.userId),
                                 static_cast<uint32_t>(resp.payload.auth.accessLevel));
 
@@ -98,13 +94,11 @@ void C_tLeaveRoomAccess::run() {
     std::cout << "[LeaveRoom] Thread terminada com sucesso." << std::endl;
 }
 
-// void C_tLeaveRoomAccess::generateDescription(uint8_t userId, char* buffer, size_t size) {
 void C_tLeaveRoomAccess::generateDescription(uint32_t userId, char* buffer, size_t size) {
 
         snprintf(buffer, size, "Utilizador %u SAIU da sala", userId);
 }
 
-// void C_tLeaveRoomAccess::sendLog(uint8_t userId, uint16_t accessLevel) {
 void C_tLeaveRoomAccess::sendLog(uint32_t userId, uint32_t accessLevel) {
     DatabaseMsg msg = {};
     msg.command = DB_CMD_WRITE_LOG;

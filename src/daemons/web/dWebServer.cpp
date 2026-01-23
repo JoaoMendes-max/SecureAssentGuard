@@ -38,17 +38,12 @@ void dWebServer::run() {
     }
 }
 
-// ============================================
-// EVENT HANDLER (Router Principal)
-// ============================================
-
 bool dWebServer::matchUri(const struct mg_str* uri, const char* pattern) {
     size_t plen = strlen(pattern);
     return uri->len == plen && memcmp(uri->buf, pattern, plen) == 0;
 }
 bool dWebServer::matchPrefix(const struct mg_str* uri, const char* pattern) {
     size_t plen = strlen(pattern);
-    // Verifica se o URI é maior ou igual ao pattern e se o início coincide
     return uri->len >= plen && memcmp(uri->buf, pattern, plen) == 0;
 }
 
@@ -57,7 +52,6 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
         struct mg_http_message* hm = (struct mg_http_message*)ev_data;
         dWebServer* self = (dWebServer*)c->fn_data;
 
-        // ========== ROTAS PÚBLICAS (sem autenticação) ==========
         if (matchUri(&hm->uri, "/api/login")) {
             self->handleLogin(c, hm);
         }
@@ -67,8 +61,6 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
         else if (matchUri(&hm->uri, "/api/logout")) {
             self->handleLogout(c, hm);
         }
-
-        // ========== ROTAS PROTEGIDAS (requerem autenticação) ==========
         else if (matchUri(&hm->uri, "/api/dashboard")) {
             self->handleDashboard(c, hm);
         }
@@ -81,12 +73,10 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
         else if (matchUri(&hm->uri, "/api/logs/filter")) {
             self->handleLogsFilter(c, hm);
         }
-
-        // ========== ROTAS ADMIN (requerem AccessLevel >= 1) ==========
         else if (matchPrefix(&hm->uri, "/api/assets/")) {
             self->handleAssetsById(c, hm);
         }
-        else if (matchPrefix(&hm->uri, "/api/users/")) { // <--- MUDANÇA AQUI
+        else if (matchPrefix(&hm->uri, "/api/users/")) {
             self->handleUsersById(c, hm);
         }
         else if (matchUri(&hm->uri, "/api/users")) {
@@ -98,32 +88,20 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
         else if (matchUri(&hm->uri, "/api/settings")) {
             self->handleSettings(c, hm);
         }
-
-        // ========== REDIRECIONAMENTO E FICHEIROS ESTÁTICOS ==========
-
-        // Se o utilizador não pedir nada (apenas /), manda para o login
         else if (matchUri(&hm->uri, "/")) {
             mg_http_reply(c, 302, "Location: /login.html\r\n", "");
         }
-
-        // Para tudo o resto (HTMLs, CSS, JS), tentamos servir o ficheiro
         else {
-            // 1. Verificar proteção para páginas de Admin
             SessionData session;
             bool logado = self->validateSession(hm, session);
-
             if (matchUri(&hm->uri, "/users.html") ||
                 matchUri(&hm->uri, "/settings.html") ||
                 matchUri(&hm->uri, "/assets.html")) {
-
                 if (!logado || session.accessLevel < 1) {
-                    // Não é admin? Chuta para o login
                     mg_http_reply(c, 302, "Location: /login.html\r\n", "");
                     return;
                 }
-                }
-
-            // 2. Tenta encontrar e enviar o ficheiro da pasta ./web
+            }
             struct mg_http_serve_opts opts;
             memset(&opts, 0, sizeof(opts));
             opts.root_dir = "/root/SecureAsset/web";
@@ -131,10 +109,6 @@ void dWebServer::eventHandler(struct mg_connection* c, int ev, void* ev_data) {
         }
     }
 }
-
-// ============================================
-// AUTENTICAÇÃO
-// ============================================
 
 void dWebServer::handleLogin(struct mg_connection* c, struct mg_http_message* hm) {
     nlohmann::json body;
@@ -239,9 +213,7 @@ void dWebServer::handleLogout(struct mg_connection* c, struct mg_http_message* h
         "%s", json.c_str());
 }
 
-// ============================================
-// DASHBOARD & VISUALIZAÇÃO (todos os users)
-// ============================================
+
 
 void dWebServer::handleDashboard(struct mg_connection* c, struct mg_http_message* hm) {
     SessionData session;
@@ -264,7 +236,6 @@ void dWebServer::handleDashboard(struct mg_connection* c, struct mg_http_message
     if (bytes > 0 && resp.success) {
         nlohmann::json data = nlohmann::json::parse(resp.jsonData);
 
-        // ✅ ADICIONAR isAdmin baseado no AccessLevel
         data["isAdmin"] = (session.accessLevel >= 1);
 
         sendJson(c, 200, data);
@@ -347,10 +318,6 @@ void dWebServer::handleLogsFilter(struct mg_connection* c, struct mg_http_messag
     }
 }
 
-// ============================================
-// USERS (ADMIN apenas)
-// ============================================
-
 void dWebServer::handleUsers(struct mg_connection* c, struct mg_http_message* hm) {
     SessionData session;
     if (!validateSession(hm, session)) {
@@ -363,7 +330,6 @@ void dWebServer::handleUsers(struct mg_connection* c, struct mg_http_message* hm
         return;
     }
 
-    // GET - Listar
     if (mg_strcmp(hm->method, mg_str("GET")) == 0) {
         DatabaseMsg msg = {};
         msg.command = DB_CMD_GET_USERS;
@@ -378,7 +344,6 @@ void dWebServer::handleUsers(struct mg_connection* c, struct mg_http_message* hm
             sendError(c, 500, "Failed to get users");
         }
     }
-    // POST - Criar
     else if (mg_strcmp(hm->method, mg_str("POST")) == 0) {
         nlohmann::json body;
         try {
@@ -391,7 +356,6 @@ void dWebServer::handleUsers(struct mg_connection* c, struct mg_http_message* hm
         DatabaseMsg msg = {};
         msg.command = DB_CMD_CREATE_USER;
 
-        // ✅ PROTEÇÃO: Se campo não existir ou for null, usa string vazia
         std::string name = body.value("name", "");
         std::string rfid = body.value("rfid", "");
         std::string access = body.value("access", "Viewer");
@@ -432,12 +396,11 @@ void dWebServer::handleUsersById(struct mg_connection* c, struct mg_http_message
         return;
     }
 
-    // Extrair ID do URL: /api/users/5 -> "5"
     std::string uri(hm->uri.buf, hm->uri.len);
-    std::string idStr = uri.substr(11);  // "/api/users/" = 11 chars
+    std::string idStr = uri.substr(11);
     int userId = std::stoi(idStr);
 
-    // PUT - Editar
+
     if (mg_strcmp(hm->method, mg_str("PUT")) == 0) {
         nlohmann::json body;
         try {
@@ -451,7 +414,6 @@ void dWebServer::handleUsersById(struct mg_connection* c, struct mg_http_message
         msg.command = DB_CMD_MODIFY_USER;
         msg.payload.user.userID = userId;
 
-        // ✅ PROTEÇÃO: Trata campos null
         std::string name = body.value("name", "");
         std::string rfid = body.value("rfid", "");
         std::string accessStr = body.value("access", "Viewer");
@@ -461,7 +423,6 @@ void dWebServer::handleUsersById(struct mg_connection* c, struct mg_http_message
         msg.payload.user.fingerprintID = body.value("fingerprint", 0);
         msg.payload.user.accessLevel = (accessStr == "Room/Vault") ? 2 : ((accessStr == "Room") ? 1 : 0);
 
-        // A password fica vazia (terminador nulo no início), pois não se edita a pass aqui
         msg.payload.user.password[0] = '\0';
 
         m_mqToDatabase.send(&msg, sizeof(msg));
@@ -475,7 +436,6 @@ void dWebServer::handleUsersById(struct mg_connection* c, struct mg_http_message
             sendError(c, 500, "Failed to modify user");
         }
     }
-    // DELETE - Apagar
     else if (mg_strcmp(hm->method, mg_str("DELETE")) == 0) {
         DatabaseMsg msg = {};
         msg.command = DB_CMD_REMOVE_USER;
@@ -494,10 +454,6 @@ void dWebServer::handleUsersById(struct mg_connection* c, struct mg_http_message
     }
 }
 
-// ============================================
-// ASSETS (ADMIN apenas)
-// ============================================
-
 void dWebServer::handleAssets(struct mg_connection* c, struct mg_http_message* hm) {
     SessionData session;
     if (!validateSession(hm, session)) {
@@ -509,8 +465,6 @@ void dWebServer::handleAssets(struct mg_connection* c, struct mg_http_message* h
         sendError(c, 403, "Admin access required");
         return;
     }
-
-    // GET - Listar
     if (mg_strcmp(hm->method, mg_str("GET")) == 0) {
         DatabaseMsg msg = {};
         msg.command = DB_CMD_GET_ASSETS;
@@ -525,7 +479,6 @@ void dWebServer::handleAssets(struct mg_connection* c, struct mg_http_message* h
             sendError(c, 500, "Failed to get assets");
         }
     }
-    // POST - Criar
     else if (mg_strcmp(hm->method, mg_str("POST")) == 0) {
         nlohmann::json body;
         try {
@@ -565,11 +518,9 @@ void dWebServer::handleAssetsById(struct mg_connection* c, struct mg_http_messag
         return;
     }
 
-    // Extrair TAG do URL
     std::string uri(hm->uri.buf, hm->uri.len);
-    std::string tag = uri.substr(12);  // "/api/assets/" = 12 chars
+    std::string tag = uri.substr(12);
 
-    // PUT - Editar
     if (mg_strcmp(hm->method, mg_str("PUT")) == 0) {
         nlohmann::json body;
         try {
@@ -595,7 +546,6 @@ void dWebServer::handleAssetsById(struct mg_connection* c, struct mg_http_messag
             sendError(c, 500, "Failed to modify asset");
         }
     }
-    // DELETE - Apagar
     else if (mg_strcmp(hm->method, mg_str("DELETE")) == 0) {
         DatabaseMsg msg = {};
         msg.command = DB_CMD_REMOVE_ASSET;
@@ -614,10 +564,6 @@ void dWebServer::handleAssetsById(struct mg_connection* c, struct mg_http_messag
     }
 }
 
-// ============================================
-// SETTINGS (ADMIN apenas)
-// ============================================
-
 void dWebServer::handleSettings(struct mg_connection* c, struct mg_http_message* hm) {
     SessionData session;
     if (!validateSession(hm, session)) {
@@ -630,7 +576,6 @@ void dWebServer::handleSettings(struct mg_connection* c, struct mg_http_message*
         return;
     }
 
-    // GET - Ler
     if (mg_strcmp(hm->method, mg_str("GET")) == 0) {
         DatabaseMsg msg = {};
         msg.command = DB_CMD_GET_SETTINGS;
@@ -645,7 +590,6 @@ void dWebServer::handleSettings(struct mg_connection* c, struct mg_http_message*
             sendError(c, 500, "Failed to get settings");
         }
     }
-    // POST - Atualizar
     else if (mg_strcmp(hm->method, mg_str("POST")) == 0) {
         nlohmann::json body;
         try {
@@ -672,10 +616,6 @@ void dWebServer::handleSettings(struct mg_connection* c, struct mg_http_message*
         }
     }
 }
-
-// ============================================
-// UTILITÁRIOS
-// ============================================
 
 std::string dWebServer::generateToken() {
     static std::random_device rd;

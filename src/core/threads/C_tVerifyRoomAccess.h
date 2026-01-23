@@ -20,7 +20,6 @@ private:
     int m_failedAttempts;
     int m_maxAttempts;
 
-    // void sendLog(uint8_t userId, uint16_t accessLevel, bool isInside);
     void sendLog(uint32_t userId, uint32_t accessLevel, bool isInside);
 
 public:
@@ -33,7 +32,6 @@ public:
                         C_Mqueue& mqAct);
 
     virtual ~C_tVerifyRoomAccess();
-    // void generateDescription(uint8_t userId, bool authorized, char* buffer, size_t size);
     void generateDescription(uint32_t userId, bool authorized, char* buffer, size_t size);
     void run() override; 
 };

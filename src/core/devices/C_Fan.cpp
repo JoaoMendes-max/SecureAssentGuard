@@ -10,12 +10,9 @@ bool C_Fan::init() {
     stop();
     return true;
 }
-
 C_Fan::~C_Fan() {
     C_Fan::stop();
 }
-
-
 void C_Fan::stop() {
     gpio_fan.writePin(false);
     fan_on = false;

@@ -124,7 +124,6 @@ private:
     std::unique_ptr<C_tCheckMovement> m_thread_check_movement;
     std::unique_ptr<C_tAct> m_thread_actuator;
 
-    bool initHardware();
     bool initSensors();
     bool initActuators();
     void initActuatorsList();

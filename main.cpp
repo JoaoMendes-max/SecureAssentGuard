@@ -1,6 +1,3 @@
-// ===============================
-// main.cpp  (Wrapper / Launcher)
-// ===============================
 #include <iostream>
 #include <unistd.h>
 #include <sys/types.h>
@@ -155,7 +152,6 @@ static void stopDaemon(DaemonInfo& daemon) {
         return;
     }
 
-    // Wait for ACK or EOF (POLLHUP) on shutdown_fd, no sleeps
     if (daemon.shutdown_fd >= 0) {
         pollfd pfd{};
         pfd.fd = daemon.shutdown_fd;

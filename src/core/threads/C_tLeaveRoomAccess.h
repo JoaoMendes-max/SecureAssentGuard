@@ -28,9 +28,7 @@ public:
 
     virtual ~C_tLeaveRoomAccess();
 
-    // void generateDescription(uint8_t userId, char* buffer, size_t size);
     void generateDescription(uint32_t userId, char* buffer, size_t size);
-    // void sendLog(uint8_t userId, uint16_t accessLevel);
     void sendLog(uint32_t userId, uint32_t accessLevel);
     void run() override;
 };

@@ -10,7 +10,6 @@ C_tCheckMovement::C_tCheckMovement(C_Mqueue& m_mqToCheckMovement, C_Mqueue& m_mq
 {
 }
 
-
 void C_tCheckMovement::run() {
 
     while (!stopRequested()) {
@@ -46,9 +45,7 @@ void C_tCheckMovement::run() {
                 break;
             }
             if (bytes < 0 && errno == ETIMEDOUT) {
-                
-                
-                
+
                 std::cout << "[CheckMovement] DB ainda não respondeu... a tentar ler a fila novamente." << std::endl;
                 continue;
             }

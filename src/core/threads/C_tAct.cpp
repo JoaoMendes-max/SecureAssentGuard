@@ -11,9 +11,6 @@ using namespace std;
 
 static constexpr const char* MODULE_NAME = "[tAct]";
 
-
-
-
 C_tAct::C_tAct(C_Mqueue& mqIn,
                C_Mqueue& mqOut,
                const std::array<C_Actuator*, ID_ACTUATOR_COUNT>& listaAtuadores)
@@ -46,9 +43,6 @@ C_tAct::~C_tAct() {
     }
 }
 
-
-
-
 void C_tAct::initTimer() {
 
     struct sigevent sev = {};
@@ -63,9 +57,6 @@ void C_tAct::initTimer() {
     }
 }
 
-
-
-
 void C_tAct::alarmTimerCallback(union sigval sv) {
     
     C_tAct* self = static_cast<C_tAct*>(sv.sival_ptr);
@@ -76,16 +67,10 @@ void C_tAct::alarmTimerCallback(union sigval sv) {
         
         ActuatorCmd cmd;
         cmd.actuatorID = ID_ALARM_ACTUATOR;
-        cmd.value = 0; 
-
-        
-        
+        cmd.value = 0;
         self->m_mqToActuator.send(&cmd, sizeof(cmd));
     }
 }
-
-
-
 
 void C_tAct::startAlarmTimer(int seconds) {
     struct itimerspec its;
@@ -105,9 +90,6 @@ void C_tAct::startAlarmTimer(int seconds) {
     }
 }
 
-
-
-
 void C_tAct::stopAlarmTimer() {
     struct itimerspec its;
     
@@ -118,9 +100,6 @@ void C_tAct::stopAlarmTimer() {
 
     timer_settime(m_alarmTimerId, 0, &its, nullptr);
 }
-
-
-
 
 void C_tAct::run() {
     cout << MODULE_NAME << " Iniciada..." << endl;
@@ -148,13 +127,9 @@ void C_tAct::run() {
     cout << MODULE_NAME << " Terminada" << endl;
 }
 
-
-
-
 void C_tAct::processMessage(const ActuatorCmd& msg) {
     
     if (!isValidActuatorID(msg.actuatorID)) {
-        // cerr << MODULE_NAME << " ERRO: ID inválido " << (int)msg.actuatorID << endl;
         cerr << MODULE_NAME << " ERRO: ID inválido " << static_cast<int>(msg.actuatorID) << endl;
         return;
     }
@@ -165,7 +140,6 @@ void C_tAct::processMessage(const ActuatorCmd& msg) {
         return;
     }
 
-    // cout << MODULE_NAME << " Comando: " << ACTUATOR_NAMES[msg.actuatorID] << " -> " << (int)msg.value << endl;
     cout << MODULE_NAME << " Comando: " << ACTUATOR_NAMES[msg.actuatorID]
          << " -> " << static_cast<int>(msg.value) << endl;
 
@@ -223,7 +197,6 @@ void C_tAct::generateDescription(ActuatorID_enum id,
             break;
 
         default:
-            // snprintf(buffer, size, "Atuador %d Val %d", (int)id, value);
             snprintf(buffer, size, "Atuador %d Val %d", static_cast<int>(id), value);
     }
 
@@ -241,7 +214,6 @@ void C_tAct::sendLog(ActuatorID_enum id, uint8_t value) {
     
     msg.payload.log.logType = LOG_TYPE_ACTUATOR;
     msg.payload.log.entityID = static_cast<uint8_t>(id);
-    // msg.payload.log.value = static_cast<uint16_t>(value);
     msg.payload.log.value = static_cast<double>(value);
     msg.payload.log.timestamp = static_cast<uint32_t>(time(nullptr));
 

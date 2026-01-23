@@ -38,7 +38,6 @@ void C_tReadEnvSensor::run() {
 
         std::cout << "[tReadEnv] A pedir settings à BD..." << std::endl;
 
-        // Espera resposta (máx 5s)
         AuthResponse settingsResp{};
         ssize_t bytes = m_mqFromDb.timedReceive(&settingsResp, sizeof(settingsResp), 5);
 
@@ -111,7 +110,6 @@ void C_tReadEnvSensor::generateDescription(double temp, double hum,
 
 
 
-// void C_tReadEnvSensor::sendLog(int temp, int hum) const {
 void C_tReadEnvSensor::sendLog(double temp, double hum) const {
     DatabaseMsg msg = {};
 
@@ -124,7 +122,6 @@ void C_tReadEnvSensor::sendLog(double temp, double hum) const {
     msg.payload.log.value = temp;
     msg.payload.log.value2 = hum;
     msg.payload.log.timestamp = static_cast<uint32_t>(time(nullptr));
-
     
     generateDescription(temp, hum,
                        msg.payload.log.description,

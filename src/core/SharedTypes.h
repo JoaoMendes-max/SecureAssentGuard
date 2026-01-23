@@ -11,7 +11,6 @@ enum SensorID_enum : uint8_t {
     ID_SENSOR_COUNT = 4
 };
 
-// struct Data_SHT31 { int temp; int hum; };
 struct Data_SHT31 {
     float temp;
     float hum;
@@ -67,14 +66,6 @@ inline constexpr const char* ACTUATOR_NAMES[] = {
     "ALARM_ACTUATOR"
 };
 
-inline constexpr const char* SENSOR_NAMES[] = {
-    "TEMP_HUMIDITY",
-    "RFID_ENTRY",
-    "RFID_INVENTORY",
-    "FINGERPRINT",
-    
-};
-
 enum ThreadPriority_enum : int {
     PRIO_LOW        = 10,
     PRIO_MEDIUM   = 30,
@@ -90,7 +81,6 @@ enum LogType_enum : uint8_t {
     LOG_TYPE_INVENTORY = 5
 };
 
-// struct DatabaseLog { LogType_enum logType; uint8_t entityID; uint16_t value; uint16_t value2; uint32_t timestamp; char description[48]{}; DatabaseLog() : logType(LOG_TYPE_SYSTEM), entityID(0), value(0), value2(0), timestamp(0) { description[0] = '\0'; } };
 struct DatabaseLog {
     LogType_enum logType;
     uint32_t entityID;
@@ -98,7 +88,6 @@ struct DatabaseLog {
     double value2;
     uint32_t timestamp;
     char description[266]{};
-
     DatabaseLog()
         : logType(LOG_TYPE_SYSTEM),
           entityID(0),
@@ -154,7 +143,6 @@ struct UserData {
     char password[64];  
 };
 
-// struct AssetData { char name[64]; char tag[32]; char state[16]; };
 struct AssetData {
     char name[64];
     char tag[32];

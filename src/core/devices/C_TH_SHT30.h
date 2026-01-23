@@ -18,7 +18,6 @@ private:
 public:
     C_TH_SHT30(C_I2C& i2c);
     ~C_TH_SHT30() override;
-
     bool init() override;
     bool read(SensorData* data) override;
 };

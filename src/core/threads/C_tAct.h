@@ -30,15 +30,10 @@ public:
 private:
     void processMessage(const ActuatorCmd& msg);
     void sendLog(ActuatorID_enum id, uint8_t value);
-
-    
     void initTimer();
     void startAlarmTimer(int seconds);
     void stopAlarmTimer();
-
-    
     static void alarmTimerCallback(union sigval sv);
-
     static void generateDescription(ActuatorID_enum id,
                                    uint8_t value,
                                    char* buffer,

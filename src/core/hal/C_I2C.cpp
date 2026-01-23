@@ -76,7 +76,6 @@ bool C_I2C::readBytes(uint8_t reg, uint8_t* buffer, size_t len) {
         return false;
     }
     
-    // if (read(m_fd, buffer, len) != (ssize_t)len) {
     if (read(m_fd, buffer, len) != static_cast<ssize_t>(len)) {
         cerr<<"C_I2C: Erro na leitura do bloco\n";
         return false;

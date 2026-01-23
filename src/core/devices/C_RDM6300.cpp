@@ -16,27 +16,20 @@ bool C_RDM6300::init() {
     if (!m_uart.configPort(9600, 8, 'N')) return false;
     return true;
 }
-
-
-
 bool C_RDM6300::waitForData(int timeout_ms) const {
     struct pollfd pfd;
     pfd.fd = m_uart.getFd();
-    pfd.events = POLLIN;     
-
-    
+    pfd.events = POLLIN;
     int ret = poll(&pfd, 1, timeout_ms);
 
     return (ret > 0);        
 }
 
 bool C_RDM6300::read(SensorData* data) {
-    
     if (!waitForData(1000)) {
         cerr << "shit falhou" << endl;
         return false;
     }
-    
     char header = 0;
     if (m_uart.readBuffer(&header, 1) != 1) return false;
     
@@ -47,11 +40,9 @@ bool C_RDM6300::read(SensorData* data) {
         }
         return false;
     }
-    
     m_rawBuffer[0] = RDM_STX;
     int bytesToRead = 13;    
     int totalRead = 0;
-    
     while (totalRead < bytesToRead) {
         if (!waitForData(100)) {
             return false;    

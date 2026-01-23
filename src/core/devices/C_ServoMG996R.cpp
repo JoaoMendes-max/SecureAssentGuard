@@ -55,23 +55,18 @@ bool C_ServoMG996R::set_value(uint8_t angle) {
         stop();  
         return true;
     }
-
-    
     if (angle > 180) {
         angle = 180;
     }
     m_targetAngle = angle;
-    
     uint8_t duty = angleToDutyCycle(angle);
 
-    // std::cout << "[Servo] Mover para " << (int)angle << "º (Duty " << (int)duty << "%)" << std::endl;
     std::cout << "[Servo] Mover para " << static_cast<int>(angle) << "º (Duty " << static_cast<int>(duty) << "%)" << std::endl;
 
     if (!m_pwm.setDutyCycle(duty)) {
         std::cerr << "[Servo] Erro critico: Falha ao escrever duty cycle!" << std::endl;
         return false;
     }
-
     return true;
 }
 

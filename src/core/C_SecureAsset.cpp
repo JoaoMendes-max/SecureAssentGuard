@@ -6,40 +6,40 @@ C_SecureAsset* C_SecureAsset::s_instance = nullptr;
 
 
 C_SecureAsset::C_SecureAsset()
-    
+
     : m_gpio_fingerprint_rst(PIN_FINGERPRINT_RST, OUT),
       m_gpio_yrm1001_enable(PIN_YRM1001_ENABLE, OUT),
       m_gpio_fan(PIN_FAN, OUT),
       m_gpio_alarm_led(PIN_ALARM_LED, OUT),
       m_gpio_alarm_buzzer(PIN_ALARM_BUZZER, OUT),
 
-      
+
       m_uart_rfid_entry(UART_RFID_ENTRY),
       m_uart_rfid_exit(UART_RFID_EXIT),
       m_uart_fingerprint(UART_FINGERPRINT),
       m_uart_yrm1001(UART_YRM1001),
 
-      
+
       m_i2c_temp_sensor(I2C_BUS, SHT30_ADDR),
 
-      
+
       m_pwm_servo_room(PWM_CHIP, PWM_CHANNEL_SERVO_ROOM),
       m_pwm_servo_vault(PWM_CHIP, PWM_CHANNEL_SERVO_VAULT),
 
-      
+
       m_temp_sensor(m_i2c_temp_sensor),
       m_rfid_entry(m_uart_rfid_entry),
       m_rfid_exit(m_uart_rfid_exit),
       m_rfid_inventory(m_uart_yrm1001, m_gpio_yrm1001_enable),
       m_fingerprint(m_uart_fingerprint, m_gpio_fingerprint_rst),
 
-      
+
       m_servo_room(ID_SERVO_ROOM, m_pwm_servo_room),
       m_servo_vault(ID_SERVO_VAULT, m_pwm_servo_vault),
       m_fan(m_gpio_fan),
       m_alarm(m_gpio_alarm_led, m_gpio_alarm_buzzer),
 
-      
+
       m_mq_to_database("/mq_to_db", sizeof(DatabaseMsg), 20, false),
       m_mq_to_actuator("/mq_to_actuator", sizeof(ActuatorCmd), 20, false),
       m_mq_to_verify_room("/mq_rfid_in", sizeof(AuthResponse), 10, false),
@@ -48,7 +48,7 @@ C_SecureAsset::C_SecureAsset()
       m_mq_to_vault("/mq_finger", sizeof(AuthResponse), 10, false),
       m_mq_to_env_sensor("/mq_db_to_env", sizeof(AuthResponse), 10, false),
 
-      
+
       m_monitor_reed_room(),
       m_monitor_reed_vault(),
       m_monitor_pir(),
@@ -58,7 +58,7 @@ C_SecureAsset::C_SecureAsset()
 {
     std::cout << "[SecureAsset] Construtor executado" << std::endl;
 
-    
+
     m_actuators_list.fill(nullptr);
 }
 
@@ -83,12 +83,12 @@ void C_SecureAsset::destroyInstance() {
 
 bool C_SecureAsset::initSensors() {
     std::cout << "[SecureAsset] A inicializar Sensores..." << std::endl;
-/*
+
     if (!m_temp_sensor.init()) {
         std::cerr << "[ERRO] Falha no init: Sensor Temperatura" << std::endl;
         return false;
     }
-*/
+
     if (!m_rfid_entry.init()) {
         std::cerr << "[ERRO] Falha no init: RFID Entry" << std::endl;
         return false;
@@ -260,11 +260,7 @@ bool C_SecureAsset::init() {
     std::cout << "============================================" << std::endl;
     std::cout << "    INITIALIZATION COMPLETE" << std::endl;
     std::cout << "============================================" << std::endl;
-/*
-    m_fingerprint.wakeUp();
-    m_fingerprint.deleteAllUsers();
-    m_fingerprint.sleep();
-*/
+
     return true;
 }
 

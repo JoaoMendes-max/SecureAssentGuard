@@ -1,12 +1,9 @@
 #include "C_tSighandler.h"
 
 
-
 C_tSighandler::C_tSighandler(C_Monitor& reed_room,C_Monitor& reed_vault, C_Monitor& pir, C_Monitor& finger, C_Monitor& rfid_entry,C_Monitor& rfid_exit)
     : C_Thread(PRIO_HIGH),m_monReed_room(reed_room),m_monReed_vault(reed_vault), m_monPIR(pir), m_monFinger(finger), m_monRFID_entry(rfid_entry),m_monRFID_exit(rfid_exit), m_fd(-1)
 {
-
-    
     sigemptyset(&m_sigSet);
     sigaddset(&m_sigSet, 43); 
     sigaddset(&m_sigSet, 44);
@@ -20,11 +17,7 @@ C_tSighandler::~C_tSighandler() {
     if (m_fd >= 0) close(m_fd);
 }
 
-
 void C_tSighandler::setupSignalBlock() {
-    
-    
-    
 
     sigset_t set;
     sigemptyset(&set);
@@ -34,7 +27,6 @@ void C_tSighandler::setupSignalBlock() {
     sigaddset(&set, 46);
     sigaddset(&set, 47);
     sigaddset(&set, 48);
-
     
     if (pthread_sigmask(SIG_BLOCK, &set, NULL) != 0) {
         perror("Erro ao bloquear sinais");
@@ -54,7 +46,6 @@ void C_tSighandler::run() {
     std::cout << "[Sighandler] Pronto. À espera de eventos de hardware..." << std::endl;
 
     while (!stopRequested()) {
-        
 
         struct timespec timeout;
         timeout.tv_sec = 1;
@@ -69,7 +60,6 @@ void C_tSighandler::run() {
         }
 
         int pino = info.si_int; 
-
 
         switch (sig) {
             case 43:

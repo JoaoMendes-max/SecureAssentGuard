@@ -14,8 +14,6 @@ public:
     virtual bool init() = 0;
     virtual bool set_value(uint8_t value) = 0;
     virtual void stop() = 0;
-
-
     ActuatorID_enum get_ID() const { return m_actuatorID; }
 };
 

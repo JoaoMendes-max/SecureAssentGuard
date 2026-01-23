@@ -18,7 +18,6 @@ C_GPIO::~C_GPIO() {
     closePin();
 }
 
-
 bool C_GPIO::init() {
     
     
@@ -30,11 +29,7 @@ bool C_GPIO::init() {
 
     string pinStr = to_string(m_pin);
     write(fd, pinStr.c_str(), pinStr.length()); 
-    close(fd); 
-
-    
-    
-
+    close(fd);
     
     string dirPath = m_path + "/direction";
     fd = open(dirPath.c_str(), O_WRONLY);
@@ -46,9 +41,6 @@ bool C_GPIO::init() {
     const char* d = (m_dir == OUT) ? "out" : "in";
     write(fd, d, strlen(d)); 
     close(fd);
-
-
-
     return true;
 }
 
@@ -65,13 +57,9 @@ void C_GPIO::closePin() {
 
 void C_GPIO::writePin(bool value) {
     if (m_dir != OUT) return;
-
     string valPath = m_path + "/value";
-
-    
     int fd = open(valPath.c_str(), O_WRONLY);
     if (fd == -1) return;
-
     
     if (value) {
         write(fd, "1", 1);
@@ -79,10 +67,8 @@ void C_GPIO::writePin(bool value) {
         write(fd, "0", 1);
     }
 
-    
     close(fd);
 }
-
 
 bool C_GPIO::readPin() {
     string valPath = m_path + "/value";

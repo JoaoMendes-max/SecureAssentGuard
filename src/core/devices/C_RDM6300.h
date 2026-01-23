@@ -21,7 +21,6 @@ public:
 private:
     C_UART& m_uart;
     char m_rawBuffer[RDM_FRAME_SIZE]{};
-
     static uint8_t asciiCharToVal(char c);
     static uint8_t hexPairToByte(char high, char low);
     static bool validateChecksum(const char* buffer);

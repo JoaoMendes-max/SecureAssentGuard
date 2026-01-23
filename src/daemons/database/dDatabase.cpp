@@ -1006,10 +1006,10 @@ void dDatabase::handleCreateUser(const UserData& user) {
         sqlite3_finalize(stmt);
 }
 
-if (!resp.success) {
-    resp.jsonData[0] = '\0';
-}
-m_mqToWeb.send(&resp, sizeof(resp));
+    if (!resp.success) {
+        resp.jsonData[0] = '\0';
+    }
+    m_mqToWeb.send(&resp, sizeof(resp));
 }
 
 void dDatabase::handleModifyUser(const UserData& user) {

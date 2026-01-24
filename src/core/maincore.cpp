@@ -76,6 +76,9 @@ int main() {
     if (const char* env = std::getenv("NOTIFY_FD")) notify_fd = std::atoi(env);
     if (const char* env = std::getenv("SHUTDOWN_FD")) g_shutdown_fd = std::atoi(env);
 
+    if (system("insmod /root/my_irq.ko") != 0) {
+        std::cerr << "[AVISO] Falha ao carregar driver ou já estava carregado." << std::endl;
+    }
     daemonize(CORE_PIDFILE, "/var/log/SecureAssetCore.log");
     unsetenv("NOTIFY_FD");
     unsetenv("SHUTDOWN_FD");

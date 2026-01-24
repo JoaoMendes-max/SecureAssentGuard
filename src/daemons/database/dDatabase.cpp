@@ -339,8 +339,7 @@ void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
 
     
     if (resp.payload.auth.authorized) {
-        
-        
+
         int newState = isEntering ? 1 : 0;
 
         const char* sqlUpdate = "UPDATE Users SET IsInside = ? WHERE UserID = ?;";
@@ -352,8 +351,6 @@ void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
         }
     }
 
-    
-    
     if (isEntering) {
         m_mqToVerifyRoom.send(&resp, sizeof(resp));
     } else {

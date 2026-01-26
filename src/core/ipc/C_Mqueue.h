@@ -1,6 +1,11 @@
 #ifndef C_MQUEUE_H
 #define C_MQUEUE_H
 
+/*
+ * Simple wrapper for POSIX message queues.
+ * Used for IPC between daemons and core threads.
+ */
+
 #include <mqueue.h>
 #include <string>
 #include <ctime>   
@@ -19,6 +24,7 @@ private:
 
 public:
     
+    // createNew=true creates and tries to take queue ownership.
     C_Mqueue(const string& queueName, long msgSize = 1024, long maxMsgs = 10, bool createNew = true);
     ~C_Mqueue();
     bool send(const void* msg, size_t size, unsigned int prio = 0);

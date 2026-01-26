@@ -1,3 +1,7 @@
+/*
+ * C_Thread base class implementation.
+ */
+
 #include "C_Thread.h"
 #include <sched.h>      
 #include <cstring>      
@@ -7,20 +11,21 @@ C_Thread::C_Thread(int priority) : m_priority(priority) {
     pthread_attr_init(&m_attributes);
 
     if (m_priority > 0) {
-        
+        // RT FIFO policy for threads with priority > 0.
         pthread_attr_setschedpolicy(&m_attributes, SCHED_FIFO);
 
-        
+        // Set thread priority.
         struct sched_param param;
         param.sched_priority = m_priority;
         pthread_attr_setschedparam(&m_attributes, &param);
 
-        
+        // Force use of the configured attributes.
         pthread_attr_setinheritsched(&m_attributes, PTHREAD_EXPLICIT_SCHED);
     }
 }
 bool C_Thread::start() {
 
+    // Start the thread and call internalRun().
     int result = pthread_create(&m_thread, &m_attributes, internalRun, this );
     
     if (result != 0) {
@@ -35,6 +40,7 @@ void* C_Thread::internalRun(void* arg) {
     C_Thread* threadObj = static_cast<C_Thread*>(arg);
 
     if (threadObj != nullptr) {
+        // Dispatch to the concrete implementation.
         threadObj->run();
     }
 
@@ -63,6 +69,7 @@ void C_Thread::cancel() {
 
 
 void C_Thread::requestStop() {
+    // Atomic flag checked in thread loops.
     m_stopRequested.store(true, std::memory_order_relaxed);
 }
 

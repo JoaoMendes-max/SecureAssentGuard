@@ -1,6 +1,10 @@
 #ifndef C_YRM1001_H
 #define C_YRM1001_H
 
+/*
+ * YRM1001 UHF RFID reader (UART) interface.
+ */
+
 #include "C_Sensor.h"
 #include <stdint.h>
 #include <cstddef>

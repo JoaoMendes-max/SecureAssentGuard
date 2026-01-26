@@ -1,3 +1,7 @@
+/*
+ * POSIX mqueue wrapper with timeout and ownership support.
+ */
+
 #include "C_Mqueue.h"
 #include <iostream>
 #include <cstring>      
@@ -18,6 +22,7 @@ C_Mqueue::C_Mqueue(const string& queueName, long msgSize, long maxMsgs, bool cre
     attr.mq_curmsgs = 0;
 
     if (createNew) {
+        // Create with O_EXCL; if it exists, reopen without ownership.
         id = mq_open(name.c_str(), O_RDWR | O_CREAT | O_EXCL, 0666, &attr);
         if (id != static_cast<mqd_t>(-1)) {
             m_owner = true;
@@ -33,6 +38,7 @@ C_Mqueue::C_Mqueue(const string& queueName, long msgSize, long maxMsgs, bool cre
         return;
     }
 
+    // Adjust actual limits (may differ from requested).
     struct mq_attr actual{};
     if (mq_getattr(id, &actual) == 0) {
         maxMsgSize = actual.mq_msgsize;
@@ -44,6 +50,7 @@ C_Mqueue::~C_Mqueue() {
     if (id != (mqd_t)-1) {
         mq_close(id);
         if (m_owner && m_unlinkOnClose) {
+            // Unlink only if this instance owns the queue.
             mq_unlink(name.c_str());
         }
     }
@@ -89,7 +96,7 @@ ssize_t C_Mqueue::timedReceive(void* buffer, size_t size, int timeout_sec) {
          return -1;
     }
 
-    
+    // Absolute timeout based on CLOCK_REALTIME (mq_timedreceive requirement).
     struct timespec tm;
     clock_gettime(CLOCK_REALTIME, &tm); 
     tm.tv_sec += timeout_sec;           
@@ -102,6 +109,7 @@ ssize_t C_Mqueue::timedReceive(void* buffer, size_t size, int timeout_sec) {
 
 void C_Mqueue::unregister() {
     if (m_owner) {
+        // Mark for unlink in destructor.
         m_unlinkOnClose = true;
     }
 }

@@ -1,5 +1,8 @@
 #ifndef C_TREADENVENSOR_H
 #define C_TREADENVENSOR_H
+/*
+ * Environment thread: reads SHT30, updates DB, and controls fan.
+ */
 #include <cstdint>
 #include "C_Thread.h"
 

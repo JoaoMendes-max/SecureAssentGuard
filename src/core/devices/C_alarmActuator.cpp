@@ -1,3 +1,7 @@
+/*
+ * Alarm actuator implementation (LED + buzzer).
+ */
+
 #include "C_alarmActuator.h"
 #include "C_GPIO.h"
 
@@ -9,11 +13,13 @@ C_alarmActuator::~C_alarmActuator() {
 }
 
 void C_alarmActuator::stop() {
+    // Turn off both buzzer and LED.
     gpio_buzzer.writePin(false);
     gpio_led.writePin(false);
     ison = false;
 }
 bool C_alarmActuator::init() {
+    // Initialize GPIOs and ensure OFF state.
     if (!gpio_led.init()) {
         return false;
     }
@@ -25,6 +31,7 @@ bool C_alarmActuator::init() {
 }
 
 bool C_alarmActuator::set_value(const uint8_t value) {
+    // Any value > 0 enables alarm.
     if (value > 0) {
         gpio_buzzer.writePin(true);
         gpio_led.writePin(true);
@@ -35,5 +42,4 @@ bool C_alarmActuator::set_value(const uint8_t value) {
     }
     return true;
 }
-
 

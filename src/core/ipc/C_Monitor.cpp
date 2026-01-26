@@ -1,3 +1,7 @@
+/*
+ * Monitor implementation with timed wait based on CLOCK_MONOTONIC.
+ */
+
 #include "C_Monitor.h"
 #include <iostream>
 #include <time.h>
@@ -27,6 +31,7 @@ C_Monitor::~C_Monitor() {
 
 void C_Monitor::wait() {
 
+    // Block indefinitely until signal().
     pthread_mutex_lock(&m_mutex);
     pthread_cond_wait(&m_cond, &m_mutex);
     pthread_mutex_unlock(&m_mutex);
@@ -34,12 +39,14 @@ void C_Monitor::wait() {
 
 
 void C_Monitor::signal() {
+    // Wake all waiting threads.
     pthread_mutex_lock(&m_mutex);
     pthread_cond_broadcast(&m_cond);
     pthread_mutex_unlock(&m_mutex);
 }
 
 bool C_Monitor::timedWait(int seconds) {
+    // Wait with relative timeout (monotonic).
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     ts.tv_sec += seconds;

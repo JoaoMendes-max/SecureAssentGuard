@@ -1,6 +1,9 @@
 #ifndef C_THREAD_H
 #define C_THREAD_H
 
+/*
+ * Thread base class with priority and stop signaling support.
+ */
 
 #include <pthread.h>
 #include <iostream>

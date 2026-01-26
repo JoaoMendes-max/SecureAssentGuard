@@ -1,3 +1,7 @@
+/*
+ * Flow: load settings -> read loop -> control fan -> send logs.
+ */
+
 #include "C_tReadEnvSensor.h"
 #include <iostream>
 #include <ctime>
@@ -6,7 +10,6 @@
 #include "C_TH_SHT30.h"
 #include "C_Monitor.h"
 #include "C_Mqueue.h"
-
 
 
 C_tReadEnvSensor::C_tReadEnvSensor(C_TH_SHT30& sensor,
@@ -25,13 +28,13 @@ C_tReadEnvSensor::C_tReadEnvSensor(C_TH_SHT30& sensor,
       m_lastFanState(0)
 {}
 
-
 C_tReadEnvSensor::~C_tReadEnvSensor() = default;
 
 void C_tReadEnvSensor::run() {
     std::cout << "[tReadEnv] Thread em execução.\n";
 
     {
+        // Initial settings request to DB (threshold and interval).
         DatabaseMsg reqSettings = {};
         reqSettings.command = DB_CMD_GET_SETTINGS_THREAD;
         m_mqToDatabase.send(&reqSettings, sizeof(reqSettings));
@@ -53,6 +56,7 @@ void C_tReadEnvSensor::run() {
     }
 
     while (!stopRequested()) {
+        // Wait for DB messages with timeout = sampling interval.
         AuthResponse cmdMsg{};
         ssize_t bytes =
             m_mqFromDb.timedReceive(&cmdMsg, sizeof(cmdMsg), m_intervalSeconds);
@@ -62,6 +66,7 @@ void C_tReadEnvSensor::run() {
                 break;
             }
             if (cmdMsg.command == DB_CMD_UPDATE_SETTINGS) {
+                // Update threshold and interval dynamically.
                 m_tempThreshold   = cmdMsg.payload.settings.tempThreshold;
                 m_intervalSeconds = cmdMsg.payload.settings.samplingInterval;
                 if (m_intervalSeconds < 1) m_intervalSeconds = 1;
@@ -75,6 +80,7 @@ void C_tReadEnvSensor::run() {
         }
 
         SensorData data{};
+        // If timeout expires, read the sensor.
         if (m_sensor.read(&data)) {
             float temp = data.data.tempHum.temp;
             float hum  = data.data.tempHum.hum;
@@ -82,6 +88,7 @@ void C_tReadEnvSensor::run() {
             uint8_t fanValue = (temp > static_cast<float>(m_tempThreshold)) ? 1 : 0;
 
             if (fanValue != m_lastFanState) {
+                // Toggle fan when crossing the threshold.
                 ActuatorCmd cmd{ID_FAN, fanValue};
                 m_lastFanState = fanValue;
                 m_mqToActuator.send(&cmd, sizeof(cmd));
@@ -97,9 +104,6 @@ void C_tReadEnvSensor::run() {
     std::cout << "[tReadEnv] Thread terminada\n";
 }
 
-
-
-
 void C_tReadEnvSensor::generateDescription(double temp, double hum,
                                           char* buffer, size_t size) {
     snprintf(buffer, size,
@@ -107,27 +111,19 @@ void C_tReadEnvSensor::generateDescription(double temp, double hum,
              temp, hum);
 }
 
-
-
-
 void C_tReadEnvSensor::sendLog(double temp, double hum) const {
     DatabaseMsg msg = {};
 
-    
     msg.command = DB_CMD_WRITE_LOG;
-
-    
     msg.payload.log.logType = LOG_TYPE_SENSOR;
     msg.payload.log.entityID = ID_SHT31;  
     msg.payload.log.value = temp;
     msg.payload.log.value2 = hum;
     msg.payload.log.timestamp = static_cast<uint32_t>(time(nullptr));
-    
     generateDescription(temp, hum,
                        msg.payload.log.description,
                        sizeof(msg.payload.log.description));
 
-    
     if (m_mqToDatabase.send(&msg, sizeof(DatabaseMsg), 0)) {
         std::cout << "[tReadEnv] Log enviado para BD" << std::endl;
     } else {

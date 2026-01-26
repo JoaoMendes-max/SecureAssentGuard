@@ -1,6 +1,10 @@
 #ifndef C_UART_H
 #define C_UART_H
 
+/*
+ * UART abstraction (ttyAMA*) with baud/bits/parity config.
+ */
+
 #include <string>
 
 #include <cstddef> 

@@ -1,6 +1,10 @@
 #ifndef C_FINGERPRINT_H
 #define C_FINGERPRINT_H
 
+/*
+ * Fingerprint sensor (UART) interface.
+ */
+
 #include "C_Sensor.h"
 #include <stdint.h>
 

@@ -3,6 +3,10 @@
 
 #include <cstdint>
 
+/*
+ * Shared IPC types between core, daemons, and web layer.
+ */
+
 enum SensorID_enum : uint8_t {
     ID_SHT31 = 0,
     ID_RDM6300 = 1,
@@ -54,6 +58,7 @@ struct ActuatorCmd {
     ActuatorID_enum actuatorID;
     uint8_t value;
 
+    // Default is room servo at 0.
     ActuatorCmd() : actuatorID(ID_SERVO_ROOM), value(0) {}
     ActuatorCmd(ActuatorID_enum id, uint8_t val)
         : actuatorID(id), value(val) {}

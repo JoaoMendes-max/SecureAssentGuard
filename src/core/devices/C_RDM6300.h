@@ -1,6 +1,10 @@
 #ifndef C_RDM6300_H
 #define C_RDM6300_H
 
+/*
+ * RDM6300 RFID reader (UART) interface.
+ */
+
 #include "C_Sensor.h"
 #include <stdint.h>
 
@@ -28,4 +32,3 @@ private:
     bool waitForData(int timeout_ms) const;
 };
 #endif
-

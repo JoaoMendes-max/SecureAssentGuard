@@ -1,6 +1,10 @@
 #ifndef C_MONITOR_H
 #define C_MONITOR_H
 
+/*
+ * Simple monitor (mutex + cond) for thread signaling.
+ */
+
 #include <pthread.h>
 
 class C_Monitor {

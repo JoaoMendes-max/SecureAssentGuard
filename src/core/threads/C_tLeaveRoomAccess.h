@@ -1,6 +1,10 @@
 #ifndef C_TVERIFYLEAVEROOM_H
 #define C_TVERIFYLEAVEROOM_H
 
+/*
+ * Exit thread: validates exit RFID and drives the door servo.
+ */
+
 #include "C_Thread.h"
 #include "C_Monitor.h"
 #include "C_RDM6300.h"

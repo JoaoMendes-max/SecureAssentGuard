@@ -1,3 +1,7 @@
+/*
+ * Flow: wake on vault close -> scan RFID tags -> update DB + log.
+ */
+
 #include "C_tInventoryScan.h"
 #include <iostream>
 #include <cstring>
@@ -14,6 +18,7 @@ void C_tInventoryScan::run() {
     std::cout << "[InventoryScan] Thread iniciada. Monitorizando cofre..." << std::endl;
 
     while (!stopRequested()) {
+        // Wait for vault reed switch event.
         if (m_monitorservovault.timedWait(1)) {
             continue;
         }
@@ -21,14 +26,10 @@ void C_tInventoryScan::run() {
 
         SensorData data = {};
 
-        
+        // Read inventory (tag list) from the YRM1001 reader.
         if (m_rfidInventoy.read(&data)) {
-
-            
             DatabaseMsg msg = {};
             msg.command = DB_CMD_UPDATE_ASSET;
-
-            
             msg.payload.rfidInventory.tagCount = data.data.rfid_inventory.tagCount;
 
             for(int i = 0; i < data.data.rfid_inventory.tagCount; ++i) {
@@ -36,18 +37,14 @@ void C_tInventoryScan::run() {
                         data.data.rfid_inventory.tagList[i], 31);
                 msg.payload.rfidInventory.tagList[i][31] = '\0';
             }
-
-            
             m_mqToDatabase.send(&msg, sizeof(DatabaseMsg));
-
-            
             sendLog(data.data.rfid_inventory.tagCount);
         }
     }
 }
 
 void C_tInventoryScan::generateDescription(int count, char* buffer, size_t size) {
-    
+    // Audit message for inventory.
     snprintf(buffer, size, "LEITURA INVENTÁRIO: %d itens confirmados após fecho", count);
 }
 

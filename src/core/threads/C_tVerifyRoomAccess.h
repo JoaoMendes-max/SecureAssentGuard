@@ -1,6 +1,10 @@
 #ifndef C_TVERIFYROOMACCESS_H
 #define C_TVERIFYROOMACCESS_H
 
+/*
+ * Room access verification thread via entry RFID.
+ */
+
 #include "C_Thread.h"
 #include "C_Mqueue.h"
 #include "C_Monitor.h"

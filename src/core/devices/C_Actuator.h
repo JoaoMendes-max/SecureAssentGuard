@@ -1,6 +1,10 @@
 #ifndef C_ACTUATOR_H
 #define C_ACTUATOR_H
 
+/*
+ * Base interface for actuators (servo, fan, alarm).
+ */
+
 #include <cstdint>
 #include "SharedTypes.h"
 

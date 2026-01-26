@@ -1,3 +1,9 @@
+/*
+ * Secure Asset Guard launcher.
+ * Creates POSIX queues, starts daemons (DB/Web/Core),
+ * waits for signals, and performs ordered shutdown.
+ */
+
 #include <iostream>
 #include <unistd.h>
 #include <sys/types.h>
@@ -25,6 +31,7 @@ static void signalHandler(int signum) {
 }
 
 static std::string getExecutableDir() {
+    // Resolve the binary directory to build absolute daemon paths.
     char path[PATH_MAX] = {};
     ssize_t len = readlink("/proc/self/exe", path, sizeof(path) - 1);
     if (len <= 0) return ".";
@@ -58,10 +65,9 @@ struct DaemonInfo {
 static DaemonInfo launchDaemon(const std::string& binName, const std::string& binPath) {
     DaemonInfo info;
     info.name = binName;
-
     int sv_startup[2];
     int sv_shutdown[2];
-
+    // Two socketpair channels: startup handshake and shutdown ACK.
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, sv_startup) < 0) {
         std::perror("socketpair startup");
         return info;
@@ -72,7 +78,6 @@ static DaemonInfo launchDaemon(const std::string& binName, const std::string& bi
         close(sv_startup[1]);
         return info;
     }
-
     // Daemon ends must survive exec()
     if (!clearCloExec(sv_startup[1]) || !clearCloExec(sv_shutdown[1])) {
         std::perror("fcntl FD_CLOEXEC");
@@ -80,13 +85,12 @@ static DaemonInfo launchDaemon(const std::string& binName, const std::string& bi
         close(sv_shutdown[0]); close(sv_shutdown[1]);
         return info;
     }
-
     char fdStartupStr[16], fdShutdownStr[16];
     std::snprintf(fdStartupStr, sizeof(fdStartupStr), "%d", sv_startup[1]);
     std::snprintf(fdShutdownStr, sizeof(fdShutdownStr), "%d", sv_shutdown[1]);
     setenv("NOTIFY_FD", fdStartupStr, 1);
     setenv("SHUTDOWN_FD", fdShutdownStr, 1);
-
+    // First fork: child execs the daemon; parent waits for the real daemon PID.
     pid_t child = fork();
     if (child < 0) {
         std::perror("fork");
@@ -96,30 +100,25 @@ static DaemonInfo launchDaemon(const std::string& binName, const std::string& bi
         unsetenv("SHUTDOWN_FD");
         return info;
     }
-
     if (child == 0) {
-        // Child: keep write ends, close read ends
+        // Child: keep write FDs (inherited by exec) and close read ends.
         close(sv_startup[0]);
         close(sv_shutdown[0]);
         execl(binPath.c_str(), binName.c_str(), nullptr);
         std::perror("execl");
         std::_Exit(EXIT_FAILURE);
     }
-
-    // Wrapper: close write ends, keep read ends
+    // Wrapper: close write ends, keep read ends.
     close(sv_startup[1]);
     close(sv_shutdown[1]);
     unsetenv("NOTIFY_FD");
     unsetenv("SHUTDOWN_FD");
-
-    // Wait intermediate child (exits after daemonize first fork)
+    // Wait for intermediate child (exits after daemon's first fork).
     waitpid(child, nullptr, 0);
-
-    // Wait PID from daemon (startup handshake), timeout 5s
+    // Wait for PID sent by the daemon on startup channel (5s timeout).
     pollfd pfd{};
     pfd.fd = sv_startup[0];
     pfd.events = POLLIN | POLLHUP;
-
     int ret = poll(&pfd, 1, 5000);
     if (ret > 0 && (pfd.revents & (POLLIN | POLLHUP))) {
         info.pid = readPidFromFd(sv_startup[0]);
@@ -127,16 +126,14 @@ static DaemonInfo launchDaemon(const std::string& binName, const std::string& bi
         std::cerr << "[Wrapper] ERROR: startup timeout for " << binName << std::endl;
     }
     close(sv_startup[0]);
-
     if (info.pid <= 0) {
-        // startup failed: close shutdown channel too
+        // Startup failed: also close the shutdown channel.
         close(sv_shutdown[0]);
         info.shutdown_fd = -1;
         info.pid = -1;
         return info;
     }
-
-    // Keep shutdown read end for later
+    // Keep shutdown read end for later ACK.
     info.shutdown_fd = sv_shutdown[0];
     return info;
 }
@@ -146,7 +143,7 @@ static void stopDaemon(DaemonInfo& daemon) {
 
     std::cout << "[Wrapper] Stopping " << daemon.name << " (PID " << daemon.pid << ")..." << std::endl;
 
-    // Request graceful termination
+    // Request graceful shutdown.
     if (kill(daemon.pid, SIGTERM) != 0 && errno == ESRCH) {
         if (daemon.shutdown_fd >= 0) { close(daemon.shutdown_fd); daemon.shutdown_fd = -1; }
         return;
@@ -159,7 +156,7 @@ static void stopDaemon(DaemonInfo& daemon) {
 
         int ret = poll(&pfd, 1, 5000);
         if (ret > 0 && (pfd.revents & (POLLIN | POLLHUP))) {
-            // Accept either explicit "OK" or just EOF
+            // Accept explicit "OK" ACK or EOF.
             char buf[16];
             (void)read(daemon.shutdown_fd, buf, sizeof(buf));
             close(daemon.shutdown_fd);
@@ -185,7 +182,7 @@ int main() {
     std::cout << "  SECURE ASSET GUARD - LAUNCHER\n";
     std::cout << "======================================\n";
 
-    // Create message queues (launcher is the owner)
+    // Create POSIX queues (launcher owns and unlinks).
     std::vector<std::unique_ptr<C_Mqueue>> mqs;
     try {
         mqs.push_back(std::make_unique<C_Mqueue>("/mq_to_db", sizeof(DatabaseMsg), 20, true));
@@ -208,6 +205,7 @@ int main() {
     if (db.pid < 0) return EXIT_FAILURE;
     std::cout << "[Wrapper] dDatabase PID " << db.pid << std::endl;
 
+    // Startup order: DB -> Web -> Core (IPC/data dependencies).
     DaemonInfo web = launchDaemon("dWebServer", execDir + "/dWebServer");
     if (web.pid < 0) {
         stopDaemon(db);
@@ -228,6 +226,7 @@ int main() {
     while (!g_stop) pause();
 
     std::cout << "\n[Wrapper] Starting ordered shutdown...\n";
+    // Reverse order to avoid pending dependencies.
     stopDaemon(core);
     stopDaemon(web);
     stopDaemon(db);

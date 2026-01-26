@@ -1,3 +1,7 @@
+/*
+ * UART implementation based on termios.
+ */
+
 #include "C_UART.h"
 #include <iostream>
 #include <fcntl.h>      
@@ -11,6 +15,7 @@ using namespace std;
 C_UART::C_UART(int portnumber)
     : m_fd(-1)
 {
+    // Map number to /dev/ttyAMA{n}.
     m_portPath = "/dev/ttyAMA" + to_string(portnumber);
 }
 
@@ -19,6 +24,7 @@ C_UART::~C_UART() {
 }
 
 bool C_UART::openPort() {
+    // Open the port in non-blocking mode.
     m_fd = open(m_portPath.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (m_fd == -1) {
         perror("C_UART: Erro ao abrir porta");
@@ -43,13 +49,14 @@ bool C_UART::configPort(int baud, int bits, char parity) {
 
     struct termios options = {0};
 
-    
+    // Load current configuration.
     if (tcgetattr(m_fd, &options) != 0) {
         perror("C_UART: Erro no tcgetattr");
         return false;
     }
 
     speed_t speed;
+    // Map baud rate to termios constants.
     switch (baud) {
         case 9600:   speed = B9600; break;
         case 19200:  speed = B19200; break;
@@ -66,6 +73,7 @@ bool C_UART::configPort(int baud, int bits, char parity) {
     cfsetispeed(&options, speed);
     cfsetospeed(&options, speed);
     
+    // Configure data bits.
     options.c_cflag &= ~CSIZE;
     if (bits == 8) {
         options.c_cflag |= CS8;
@@ -75,7 +83,7 @@ bool C_UART::configPort(int baud, int bits, char parity) {
         cerr << "C_UART: Bits deve ser 7 ou 8" << endl;
         return false;
     }
-    
+    // Configure parity.
     if (parity == 'N') {
         options.c_cflag &= ~PARENB; 
     } else if (parity == 'E') {
@@ -98,6 +106,7 @@ bool C_UART::configPort(int baud, int bits, char parity) {
     options.c_cc[VMIN] = 0;
     options.c_cc[VTIME] = 1;
 
+    // Apply configuration immediately.
     if (tcsetattr(m_fd, TCSANOW, &options) != 0) {
         cerr<<"C_UART: Erro no tcsetattr\n";
         return false;
@@ -112,6 +121,7 @@ bool C_UART::configPort(int baud, int bits, char parity) {
 int C_UART::writeBuffer(const void* data, size_t len) {
     if (m_fd == -1) return -1;
 
+    // Write bytes to the port.
     int count = write(m_fd, data, len);
     if (count < 0) cerr<<"C_UART: Erro ao escrever";
 
@@ -121,14 +131,15 @@ int C_UART::writeBuffer(const void* data, size_t len) {
 int C_UART::readBuffer(void* buffer, size_t len) {
     if (m_fd == -1) return -1;
 
+    // Non-blocking read.
     int count = read(m_fd, buffer, len);
 
     if (count < 0) {
-        
+        // No data available.
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             return 0;
         }
-        
+        // Real I/O error.
         perror("C_UART: Erro real no read");
         return -1;
     }

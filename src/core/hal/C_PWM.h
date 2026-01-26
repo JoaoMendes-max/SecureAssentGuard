@@ -1,5 +1,8 @@
 #ifndef UNTITLED_C_PWM_H
 #define UNTITLED_C_PWM_H
+/*
+ * PWM abstraction via sysfs.
+ */
 #include <cstdint>
 
 class C_PWM

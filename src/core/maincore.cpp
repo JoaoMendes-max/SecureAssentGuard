@@ -1,4 +1,9 @@
 
+/*
+ * SecureAssetCore main process.
+ * Daemonizes, initializes the C_SecureAsset singleton, and manages lifecycle.
+ */
+
 #include <iostream>
 #include <csignal>
 #include <unistd.h>
@@ -19,6 +24,7 @@ static void handleSignal(int) { g_shutdown = 1; }
 
 static void sendShutdownAck() {
     if (g_shutdown_fd >= 0) {
+        // ACK sent to the launcher to indicate clean shutdown.
         const char* ack = "OK\n";
         (void)write(g_shutdown_fd, ack, 3);
         close(g_shutdown_fd);
@@ -27,6 +33,7 @@ static void sendShutdownAck() {
 }
 
 static void daemonize(const char* pidfile, const char* logfile = nullptr) {
+    // Classic double-fork to daemonize and detach from terminal.
     pid_t pid = fork();
     if (pid < 0) std::exit(EXIT_FAILURE);
     if (pid > 0) std::exit(EXIT_SUCCESS);
@@ -62,6 +69,7 @@ static void daemonize(const char* pidfile, const char* logfile = nullptr) {
         open("/dev/null", O_WRONLY);
     }
 
+    // Write PID for wrapper integration.
     int fd = open(pidfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
         char buf[32];
@@ -76,6 +84,7 @@ int main() {
     if (const char* env = std::getenv("NOTIFY_FD")) notify_fd = std::atoi(env);
     if (const char* env = std::getenv("SHUTDOWN_FD")) g_shutdown_fd = std::atoi(env);
 
+    // Load external IRQ driver before daemonizing.
     if (system("insmod /root/my_irq.ko") != 0) {
         std::cerr << "[AVISO] Falha ao carregar driver ou já estava carregado." << std::endl;
     }
@@ -83,11 +92,12 @@ int main() {
     unsetenv("NOTIFY_FD");
     unsetenv("SHUTDOWN_FD");
 
+    // Initialize core singleton and its threads.
     C_SecureAsset* core = C_SecureAsset::getInstance();
     bool ok = core->init();
     if (ok) core->start();
 
-    // Startup notify (PID or -1)
+    // Startup notify (PID or -1 on failure).
     if (notify_fd >= 0) {
         char buf[64];
         int len = ok ? std::snprintf(buf, sizeof(buf), "%d\n", getpid())
@@ -98,7 +108,7 @@ int main() {
     }
 
     if (!ok) {
-        // Ensure wrapper is not stuck waiting for shutdown ACK
+        // Ensure the wrapper does not block waiting for ACK.
         sendShutdownAck();  // closes g_shutdown_fd
         C_SecureAsset::destroyInstance();
         return -1;
@@ -107,6 +117,7 @@ int main() {
     std::signal(SIGINT, handleSignal);
     std::signal(SIGTERM, handleSignal);
 
+    // Main daemon loop: sleep until SIGINT/SIGTERM.
     while (!g_shutdown) pause();
 
     core->stop();

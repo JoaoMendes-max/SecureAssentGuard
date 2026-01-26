@@ -1,5 +1,8 @@
 #ifndef _C_TCHECKMOVEMENT_H_
 #define _C_TCHECKMOVEMENT_H_
+/*
+ * PIR movement thread: validates active user and triggers alarm if needed.
+ */
 #include "C_Monitor.h"
 #include "C_Thread.h"
 #include "SharedTypes.h"
@@ -23,4 +26,3 @@ private:
 
 
 #endif
-

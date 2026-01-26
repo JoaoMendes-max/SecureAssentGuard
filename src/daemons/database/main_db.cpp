@@ -10,6 +10,11 @@
 #include "C_Mqueue.h"
 #include "SharedTypes.h"
 
+/*
+ * Database daemon.
+ * Opens SQLCipher DB, processes POSIX queue requests, and replies to threads/daemons.
+ */
+
 static const char* DB_PIDFILE = "/var/run/dDatabase.pid";
 static volatile sig_atomic_t g_stop = 0;
 static int g_shutdown_fd = -1;
@@ -18,6 +23,7 @@ static void handleSignal(int) { g_stop = 1; }
 
 static void sendShutdownAck() {
     if (g_shutdown_fd >= 0) {
+        // ACK to the launcher indicating clean shutdown.
         const char* ack = "OK\n";
         (void)write(g_shutdown_fd, ack, 3);
         close(g_shutdown_fd);
@@ -26,6 +32,7 @@ static void sendShutdownAck() {
 }
 
 static void daemonize(const char* pidfile, const char* logfile = nullptr) {
+    // Double-fork to run in background.
     pid_t pid = fork();
     if (pid < 0) std::exit(EXIT_FAILURE);
     if (pid > 0) std::exit(EXIT_SUCCESS);
@@ -61,6 +68,7 @@ static void daemonize(const char* pidfile, const char* logfile = nullptr) {
         open("/dev/null", O_WRONLY);
     }
 
+    // Write PID so the wrapper can manage the daemon.
     int fd = open(pidfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
         char buf[32];
@@ -79,7 +87,7 @@ int main() {
     unsetenv("NOTIFY_FD");
     unsetenv("SHUTDOWN_FD");
 
-    // Open existing queues (createNew=false)
+    // Open existing queues (created by the launcher).
     C_Mqueue mqToDb("/mq_to_db", sizeof(DatabaseMsg), 20, false);
     C_Mqueue mqRfidIn("/mq_rfid_in", sizeof(AuthResponse), 10, false);
     C_Mqueue mqRfidOut("/mq_rfid_out", sizeof(AuthResponse), 10, false);
@@ -94,7 +102,7 @@ int main() {
 
     bool ok = db.open() && db.initializeSchema();
 
-    // Startup notify (PID or -1)
+    // Startup notify (PID or -1 on failure).
     if (notify_fd >= 0) {
         char buf[64];
         int len = ok ? std::snprintf(buf, sizeof(buf), "%d\n", getpid())
@@ -105,7 +113,7 @@ int main() {
     }
 
     if (!ok) {
-        // Prevent wrapper from waiting until timeout
+        // Avoid wrapper waiting until timeout.
         sendShutdownAck(); // closes g_shutdown_fd
         unlink(DB_PIDFILE);
         return -1;
@@ -118,6 +126,7 @@ int main() {
         DatabaseMsg msg{};
         ssize_t bytesRead = mqToDb.timedReceive(&msg, sizeof(DatabaseMsg), 1);
         if (bytesRead > 0) {
+            // Dispatch requests received via IPC.
             db.processDbMessage(msg);
         }
     }

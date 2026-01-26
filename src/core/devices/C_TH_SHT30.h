@@ -1,6 +1,10 @@
 #ifndef C_TH_SHT30_H
 #define C_TH_SHT30_H
 
+/*
+ * SHT30 temperature/humidity sensor (I2C).
+ */
+
 #include "C_Sensor.h"
 #include <stdint.h>
 #include <cstddef>  

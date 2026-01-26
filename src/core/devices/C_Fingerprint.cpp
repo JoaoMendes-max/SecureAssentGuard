@@ -1,3 +1,7 @@
+/*
+ * Fingerprint sensor implementation (command/response protocol).
+ */
+
 #include <poll.h>
 #include "C_Fingerprint.h"
 #include "C_UART.h"
@@ -13,8 +17,7 @@ C_Fingerprint::C_Fingerprint(C_UART& uart, C_GPIO& rst)
 C_Fingerprint::~C_Fingerprint() = default;
 
 bool C_Fingerprint::init() {
-    
-    
+    // Initialize reset GPIO and UART.
     if (!m_rst.init()) return false;
     if (!m_uart.openPort()) return false;
     if (!m_uart.configPort(19200, 8, 'N')) return false; 
@@ -32,18 +35,18 @@ void C_Fingerprint::sleep() {
 bool C_Fingerprint::read(SensorData* data) {
     uint8_t idHigh = 0, idLow = 0;
 
-
+    // Match command returns status + user ID (if any).
     const uint8_t status = executeCommand(CMD_MATCH, 0, 0, 0, &idHigh, &idLow, 5.0);
 
     if (data) {
         data->type = ID_FINGERPRINT;
-        
+        // Map status to authenticated flag.
         if (status == 1 || status == 2 || status == 3) {
             data->data.fingerprint.authenticated = true;
             data->data.fingerprint.userID = (idHigh << 8) | idLow;
             std::cout << "[Finger] User ID Verified: " << data->data.fingerprint.userID << std::endl;
         } else {
-            
+            // Unknown/failed authentication.
             data->data.fingerprint.authenticated = false;
             data->data.fingerprint.userID = -1;
         }
@@ -53,6 +56,7 @@ bool C_Fingerprint::read(SensorData* data) {
 }
 
 bool C_Fingerprint::addUser(const int userID) const {
+    // Three-step enrollment sequence.
     const uint8_t p1 = (userID >> 8) & 0xFF;
     const uint8_t p2 = userID & 0xFF;
     const uint8_t perm = 1;
@@ -73,6 +77,7 @@ bool C_Fingerprint::addUser(const int userID) const {
 }
 
 bool C_Fingerprint::deleteUser(const int userID) const {
+    // Delete user by ID.
     uint8_t p1 = (userID >> 8) & 0xFF;
     uint8_t p2 = userID & 0xFF;
 
@@ -85,7 +90,7 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
 
     std::cout << "[DEBUG] >> A entrar em executeCommand (POLL VERSION)..." << std::endl;
 
-    
+    // Flush any pending bytes in UART RX.
     std::cout << "[DEBUG] A limpar buffer (Flush)..." << std::endl;
     uint8_t trash[64];
     int flushCount = 0;
@@ -98,7 +103,7 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
     }
     if (flushCount > 0) std::cout << "[DEBUG] Lixo limpo." << std::endl;
 
-    
+    // Build command frame.
     uint8_t tx[8];
     tx[0] = FINGER_HEAD;
     tx[1] = cmd;
@@ -117,7 +122,7 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
     pfd.fd = m_uart.getFd();
     pfd.events = POLLIN;     
     int timeoutMs = static_cast<int>(timeoutSec * 1000);
-
+    // Poll until full response frame arrives or timeout.
     while (totalRead < 8) {
 
         int ret = poll(&pfd, 1, timeoutMs);
@@ -132,7 +137,7 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
             }
         }
         else if (ret == 0) {
-            
+            // Timeout waiting for response.
             return ACK_TIMEOUT;
         }
         else {
@@ -143,19 +148,19 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
 
     std::cout << "[DEBUG] Pacote completo recebido." << std::endl;
 
-    
+    // Validate frame header/tail.
     if (rx[0] != FINGER_HEAD || rx[7] != FINGER_TAIL) {
         std::cout << "[DEBUG] Erro de Frame (Head/Tail incorretos)" << std::endl;
         return 0xFF;
     }
-
+    // Validate checksum.
     uint8_t chk = rx[1] ^ rx[2] ^ rx[3] ^ rx[4] ^ rx[5];
     if (rx[6] != chk) {
         std::cout << "[DEBUG] Erro de Checksum (Calculado: " << static_cast<int>(chk) << " vs Recebido: " << static_cast<int>(rx[6]) << ")" << std::endl;
         return 0xFF;
     }
 
-    
+    // Output user ID if requested.
     if (outHigh) *outHigh = rx[2];
     if (outLow)  *outLow  = rx[3];
     std::cout << "[DEBUG] Resposta valida! Status (Q3): " << static_cast<int>(rx[4]) << std::endl;
@@ -166,7 +171,7 @@ uint8_t C_Fingerprint::executeCommand(const uint8_t cmd, const uint8_t p1, const
 static constexpr uint8_t CMD_DELETE_ALL = 0x05;
 
 bool C_Fingerprint::deleteAllUsers() const {
-    
+    // Delete all enrolled users.
     uint8_t st = executeCommand(CMD_DELETE_ALL, 0, 0, 0, nullptr, nullptr, 2.0f);
     return (st == ACK_SUCCESS);
 }

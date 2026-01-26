@@ -1,6 +1,10 @@
 #ifndef C_FAN_H
 #define C_FAN_H
 
+/*
+ * Simple actuator: GPIO-controlled fan.
+ */
+
 #include "C_Actuator.h"
 
 class C_GPIO;

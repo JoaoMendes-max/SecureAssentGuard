@@ -1,6 +1,10 @@
 #ifndef C_I2C_H
 #define C_I2C_H
 
+/*
+ * I2C abstraction (device file + slave ioctl).
+ */
+
 #include <string>
 #include <cstdint> 
 using namespace std;

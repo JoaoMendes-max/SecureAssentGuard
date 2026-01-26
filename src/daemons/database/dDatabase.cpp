@@ -1,3 +1,7 @@
+/*
+ * DB daemon implementation: SQLCipher key, schema, and command dispatch.
+ */
+
 #include "dDatabase.h"
 #include <iostream>
 #include <argon2.h>
@@ -23,6 +27,7 @@ constexpr std::array<uint8_t, kDbKeyLength> kDbKeyMask = {
 };
 
 std::array<unsigned char, kDbKeyLength> buildDbKey() {
+    // Reconstruct key from two halves (part XOR mask).
     std::array<unsigned char, kDbKeyLength> key{};
     for (size_t i = 0; i < key.size(); ++i) {
         key[i] = static_cast<unsigned char>(kDbKeyPart[i] ^ kDbKeyMask[i]);
@@ -31,6 +36,7 @@ std::array<unsigned char, kDbKeyLength> buildDbKey() {
 }
 
 void secureZero(void* data, size_t len) {
+    // Wipe sensitive memory (best-effort) to avoid optimizations.
     volatile unsigned char* p = static_cast<volatile unsigned char*>(data);
     while (len--) {
         *p++ = 0;
@@ -38,6 +44,9 @@ void secureZero(void* data, size_t len) {
 }
 
 namespace {
+/*
+ * Local helpers for access levels and safe bindings.
+ */
 int computeAccessLevel(bool hasRfid, bool hasFingerprint) {
     if (hasRfid && hasFingerprint) {
         return 2; // vault + room
@@ -104,6 +113,7 @@ dDatabase::~dDatabase() {
 }
 
 bool dDatabase::open() {
+    // Open database file and apply SQLCipher key.
     int result = sqlite3_open(m_dbPath.c_str(), &m_db);
 
     if (result != SQLITE_OK) {
@@ -114,6 +124,7 @@ bool dDatabase::open() {
 
     std::array<unsigned char, kDbKeyLength> key = buildDbKey();
 
+    // Apply SQLCipher key before any DB operation.
     if (sqlite3_key(m_db, key.data(), static_cast<int>(key.size())) != SQLITE_OK) {
         std::cerr << "ERRO: Falha ao definir chave SQLCipher: "
                   << sqlite3_errmsg(m_db) << std::endl;
@@ -131,7 +142,7 @@ bool dDatabase::open() {
 
 void dDatabase::close() {
     if (m_db) {
-        
+        // Close open handle.
         sqlite3_close(m_db);
         m_db = nullptr; 
         std::cout << "Base de dados fechada corretamente." << std::endl;
@@ -140,11 +151,13 @@ void dDatabase::close() {
 
 
 bool dDatabase::initializeSchema() {
+    // Create tables and seed default rows.
     if (!m_db) {
         std::cerr << "Erro: A base de dados não está aberta!" << std::endl;
         return false;
     }
 
+    // Base schema: Users, Logs, Assets, Sensors, Actuators, SystemSettings.
     const char* sql =
         "CREATE TABLE IF NOT EXISTS Users ("
         "UserID INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -196,13 +209,13 @@ bool dDatabase::initializeSchema() {
         return false;
     }
 
-    
+    // Initial data (admin, sensors, actuators).
     const char* initSettings =
         "INSERT OR IGNORE INTO SystemSettings (ID, TempThreshold, SamplingTime) "
         "VALUES (1, 30, 600);";
     sqlite3_exec(m_db, initSettings, nullptr, nullptr, nullptr);
 
-    
+    // Seed admin password hash.
     const char* password = "1234";
     char hash[128];
     uint8_t salt[16];
@@ -214,7 +227,7 @@ bool dDatabase::initializeSchema() {
     argon2id_hash_encoded(2, 16384, 1, password, strlen(password),
                          salt, sizeof(salt), 32, hash, sizeof(hash));
 
-    
+    // Seed admin user row.
     const char* createAdmin =
         "INSERT OR IGNORE INTO Users (UserID, Name, Password, AccessLevel, FingerprintID) "
         "VALUES (1, 'admin', ?, 2, 1);";
@@ -226,12 +239,13 @@ bool dDatabase::initializeSchema() {
         sqlite3_finalize(stmt);
     }
 
-    
+    // Seed initial sensor rows.
     const char* insertSensors =
         "INSERT OR IGNORE INTO Sensors (Type, Value) VALUES "
         "('TEMPERATURE', 22.5), ('HUMIDITY', 45.0);";
     sqlite3_exec(m_db, insertSensors, nullptr, nullptr, nullptr);
 
+    // Seed initial actuator rows.
     const char* insertActuators =
         "INSERT OR IGNORE INTO Actuators (Type, State) VALUES "
         "('SERVO_ROOM', 1), ('SERVO_VAULT', 1), ('FAN', 0), ('ALARM', 0);";
@@ -241,6 +255,10 @@ bool dDatabase::initializeSchema() {
 }
 
 void dDatabase::processDbMessage(const DatabaseMsg &msg) {
+    /*
+     * IPC dispatcher: routes DB commands from core/web to handlers.
+     */
+    // Central dispatch of commands from core/web.
     switch (msg.command) {
         case DB_CMD_ENTER_ROOM_RFID:
             handleAccessRequest(msg.payload.rfid, true);
@@ -314,13 +332,13 @@ void dDatabase::processDbMessage(const DatabaseMsg &msg) {
 
 
 void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
+    // Verify RFID and respond with AuthResponse to the correct thread.
     sqlite3_stmt* stmt;
 
     AuthResponse resp = {};
 
     resp.command = isEntering ? DB_CMD_ENTER_ROOM_RFID : DB_CMD_LEAVE_ROOM_RFID;
 
-    
     const char* sqlSelect = "SELECT UserID, AccessLevel FROM Users WHERE RFID_Card = ?;";
     if (sqlite3_prepare_v2(m_db, sqlSelect, -1, &stmt, nullptr) == SQLITE_OK) {
         sqlite3_bind_text(stmt, 1, rfid, -1, SQLITE_TRANSIENT);
@@ -337,9 +355,8 @@ void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
         sqlite3_finalize(stmt);
     }
 
-    
     if (resp.payload.auth.authorized) {
-
+        // Track occupancy for PIR checks.
         int newState = isEntering ? 1 : 0;
 
         const char* sqlUpdate = "UPDATE Users SET IsInside = ? WHERE UserID = ?;";
@@ -352,18 +369,22 @@ void dDatabase::handleAccessRequest(const char* rfid, bool isEntering) {
     }
 
     if (isEntering) {
+        // Reply to room entry thread.
         m_mqToVerifyRoom.send(&resp, sizeof(resp));
     } else {
+        // Reply to room exit thread.
         m_mqToLeaveRoom.send(&resp, sizeof(resp));
     }
 }
 
 
 void dDatabase::handleInsertLog(const DatabaseLog& log) {
+    // Insert log record and update state tables.
     sqlite3_stmt* stmt;
     std::string description = log.description;
 
     if (log.logType == LOG_TYPE_ACCESS && log.entityID > 0) {
+        // Enrich access logs with user name when possible.
         sqlite3_stmt* nameStmt;
         const char* sqlName = "SELECT Name FROM Users WHERE UserID = ? OR FingerprintID = ? LIMIT 1;";
 
@@ -396,6 +417,7 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
         sqlite3_finalize(stmt);
     }
 
+    // Propagate state to Sensors/Actuators tables.
     if (log.logType == LOG_TYPE_SENSOR) {
         updateSensorTable(static_cast<uint8_t>(log.entityID), log.value, log.value2, log.timestamp);
     } else if (log.logType == LOG_TYPE_ACTUATOR) {
@@ -406,6 +428,7 @@ void dDatabase::handleInsertLog(const DatabaseLog& log) {
 
 void dDatabase::updateSensorTable(uint8_t entityID, double value, double value2, uint32_t timestamp) {
     if (entityID == ID_SHT31) {
+        // Update temperature and humidity rows.
         sqlite3_stmt* stmt;
 
         const char* sqlTemp = "UPDATE Sensors SET Value = ?, LastUpdate = ? WHERE Type = 'TEMPERATURE';";
@@ -427,6 +450,7 @@ void dDatabase::updateSensorTable(uint8_t entityID, double value, double value2,
 }
 
 void dDatabase::updateActuatorTable(uint8_t entityID, double value, uint32_t timestamp) {
+    // Map actuator ID to DB "Type" string.
     sqlite3_stmt* stmt;
     const char* type = nullptr;
 
@@ -456,6 +480,7 @@ void dDatabase::handleCheckUserInPir() {
 
     resp.command = DB_CMD_USER_IN_PIR;
     
+    // Count users marked as inside.
     const char* sql = "SELECT COUNT(*) FROM Users WHERE IsInside = 1;";
 
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -468,12 +493,12 @@ void dDatabase::handleCheckUserInPir() {
         sqlite3_finalize(stmt);
     }
 
-    
-    
+    // Reply to PIR thread.
     m_mqToCheckMovement.send(&resp, sizeof(resp));
 }
 
 void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
+    // Update LastRead for each tag; insert unknown tags.
     sqlite3_stmt* stmt;
     uint32_t now = static_cast<uint32_t>(time(nullptr));
 
@@ -481,14 +506,14 @@ void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
 
     if (sqlite3_prepare_v2(m_db, sqlUpdate, -1, &stmt, nullptr) == SQLITE_OK) {
 
-        
+        // Iterate over tag list.
         for (int i = 0; i < inventory.tagCount; ++i) {
 
-            
+            // Bind tag and timestamp.
             sqlite3_bind_int(stmt, 1, static_cast<int>(now));
             sqlite3_bind_text(stmt, 2, inventory.tagList[i], -1, SQLITE_TRANSIENT);
 
-            
+            // Update existing asset row.
             if (sqlite3_step(stmt) != SQLITE_DONE) {
                 std::cerr << "[DB] Erro ao atualizar Tag: " << inventory.tagList[i] << std::endl;
             }
@@ -505,7 +530,7 @@ void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
                 }
             }
 
-            
+            // Reset for next tag.
             sqlite3_reset(stmt);
         }
 
@@ -518,6 +543,7 @@ void dDatabase:: handleScanInventory(const Data_RFID_Inventory& inventory) {
 
 
 void dDatabase::handleLogin(const LoginRequest& login) {
+    // Validate credentials and send response to web daemon.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
     nlohmann::json result;
@@ -566,10 +592,15 @@ void dDatabase::handleLogin(const LoginRequest& login) {
 }
 
 void dDatabase::handleGetDashboard() {
+    /*
+     * Web API aggregation handlers.
+     * Build snapshot JSON for UI screens.
+     */
+    // Aggregate summary fields for dashboard.
     nlohmann::json response;
     sqlite3_stmt* stmt;
 
-    
+    // Latest access/alert decides security status.
     const char* sql =
       "SELECT LogType FROM Logs "
       "WHERE LogType IN (?, ?) "
@@ -588,7 +619,7 @@ void dDatabase::handleGetDashboard() {
         sqlite3_finalize(stmt);
     }
 
-    
+    // Vault door state.
     sql = "SELECT State FROM Actuators WHERE Type = 'SERVO_VAULT';";
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -599,7 +630,7 @@ void dDatabase::handleGetDashboard() {
         sqlite3_finalize(stmt);
     }
 
-    
+    // Latest temperature value.
     sql = "SELECT Value FROM Sensors WHERE Type = 'TEMPERATURE';";
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -610,7 +641,7 @@ void dDatabase::handleGetDashboard() {
         sqlite3_finalize(stmt);
     }
 
-    
+    // Latest humidity value.
     sql = "SELECT Value FROM Sensors WHERE Type = 'HUMIDITY';";
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -631,9 +662,11 @@ void dDatabase::handleGetDashboard() {
 }
 
 void dDatabase::handleGetSensors() {
+    // Build sensor and access snapshot for the UI.
     nlohmann::json response;
     sqlite3_stmt* stmt;
     
+    // Environment sensors with last update time.
     const char* sqlEnv = "SELECT Type, Value, LastUpdate FROM Sensors;";
 
     if (sqlite3_prepare_v2(m_db, sqlEnv, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -642,7 +675,7 @@ void dDatabase::handleGetSensors() {
             double value = sqlite3_column_double(stmt, 1);
             time_t ts = sqlite3_column_int(stmt, 2); 
 
-            
+            // Format timestamp for UI.
             char timeBuf[10] = "--:--";
             if (ts > 0) {
                 struct tm* timeinfo = localtime(&ts);
@@ -660,7 +693,7 @@ void dDatabase::handleGetSensors() {
         }
         sqlite3_finalize(stmt);
     }
-
+    // Latest vault access log (fingerprint user + time).
     const char* sqlVault =
     "SELECT u.Name, l.Timestamp, l.EntityID FROM Logs l "
     "LEFT JOIN Users u ON l.EntityID = u.FingerprintID "
@@ -685,7 +718,7 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    
+    // Vault door state.
     const char* sqlVaultDoor = "SELECT State FROM Actuators WHERE Type = 'SERVO_VAULT';";
     if (sqlite3_prepare_v2(m_db, sqlVaultDoor, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -694,6 +727,7 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
+    // Current user inside the room (if any).
     const char* sqlRoom = "SELECT Name FROM Users WHERE IsInside = 1 LIMIT 1;";
     if (sqlite3_prepare_v2(m_db, sqlRoom, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -703,7 +737,7 @@ void dDatabase::handleGetSensors() {
         }
         sqlite3_finalize(stmt);
     }
-
+    // Room entry time from access logs.
     const char* sqlRoomTime =
         "SELECT Timestamp FROM Logs WHERE LogType = ? AND Description LIKE '%ENTROU%' "
         "ORDER BY Timestamp DESC LIMIT 1;";
@@ -723,7 +757,7 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    
+    // Room door state.
     const char* sqlRoomDoor = "SELECT State FROM Actuators WHERE Type = 'SERVO_ROOM';";
     if (sqlite3_prepare_v2(m_db, sqlRoomDoor, -1, &stmt, nullptr) == SQLITE_OK) {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -732,9 +766,7 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    
-    
-    
+    // Last room exit log (name + time).
     const char* sqlRoomOut =
         "SELECT u.Name, l.Timestamp FROM Logs l "
         "LEFT JOIN Users u ON l.EntityID = u.UserID "
@@ -747,7 +779,7 @@ void dDatabase::handleGetSensors() {
         if (sqlite3_step(stmt) == SQLITE_ROW) {
             const char* userName = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
 
-            
+            // Prefer stored user name, fallback to "Unknown".
             std::string displayName(userName ? userName : "Unknown");
             
 
@@ -765,9 +797,7 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    
-    
-    
+    // UHF activity based on last inventory log.
     const char* sqlUHF =
         "SELECT Timestamp FROM Logs WHERE LogType = ? "
         "ORDER BY Timestamp DESC LIMIT 1;";
@@ -790,9 +820,7 @@ void dDatabase::handleGetSensors() {
         sqlite3_finalize(stmt);
     }
 
-    
-    
-    
+    // Send snapshot to web daemon.
     DbWebResponse resp = {};
     resp.success = true;
     std::string json = response.dump();
@@ -803,10 +831,11 @@ void dDatabase::handleGetSensors() {
 }
 
 void dDatabase::handleGetActuators() {
+    // Build actuator state snapshot for the UI.
     nlohmann::json response;
     sqlite3_stmt* stmt;
 
-    
+    // Read all actuator rows.
     const char* sql = "SELECT Type, State, LastUpdate FROM Actuators;";
 
     if (sqlite3_prepare_v2(m_db, sql, -1, &stmt, nullptr) == SQLITE_OK) {
@@ -814,7 +843,7 @@ void dDatabase::handleGetActuators() {
             std::string type = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0));
             int state = sqlite3_column_int(stmt, 1);
             time_t ts = sqlite3_column_int(stmt, 2); 
-            
+            // Format timestamp for UI.
             char timeBuf[6] = "--:--";
             if (ts > 0) { 
                 struct tm* ti = localtime(&ts);
@@ -851,6 +880,7 @@ void dDatabase::handleGetActuators() {
 
 
 void dDatabase::handleRegisterUser(const UserData& user) {
+    // Public registration (username/password only).
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -865,7 +895,7 @@ void dDatabase::handleRegisterUser(const UserData& user) {
         sqlite3_finalize(stmt);
     }
 
-    
+    // Reject duplicate usernames.
     if (count > 0) {
         resp.success = false;
         strncpy(resp.errorMsg, "Username already taken", sizeof(resp.errorMsg) - 1);
@@ -874,8 +904,7 @@ void dDatabase::handleRegisterUser(const UserData& user) {
         return;  
     }
 
-    
-    
+    // Hash password with Argon2id.
     char hash[128];
     uint8_t salt[16];
     srand(time(nullptr) + rand());
@@ -910,6 +939,7 @@ void dDatabase::handleRegisterUser(const UserData& user) {
 }
 
 void dDatabase::handleGetUsers() {
+    // List non-admin users with derived access label.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
     nlohmann::json users = nlohmann::json::array();
@@ -955,6 +985,7 @@ void dDatabase::handleGetUsers() {
 }
 
 void dDatabase::handleCreateUser(const UserData& user) {
+    // Create user with RFID and/or fingerprint credentials.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -963,6 +994,7 @@ void dDatabase::handleCreateUser(const UserData& user) {
     int accessLevel = computeAccessLevel(hasRfid, hasFingerprint);
 
     if (!hasRfid && !hasFingerprint) {
+        // Require at least one credential.
         resp.success = false;
         strncpy(resp.errorMsg, "RFID or fingerprint is required", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -990,6 +1022,7 @@ void dDatabase::handleCreateUser(const UserData& user) {
             resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
 
             if (user.fingerprintID > 0) {
+                // Notify fingerprint thread to enroll.
                 AuthResponse cmd = {};
                 cmd.command = DB_CMD_ADD_USER;
                 cmd.payload.auth.userId = user.fingerprintID;
@@ -1010,6 +1043,7 @@ void dDatabase::handleCreateUser(const UserData& user) {
 }
 
 void dDatabase::handleModifyUser(const UserData& user) {
+    // Update user data and optionally enroll fingerprint.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -1053,6 +1087,7 @@ void dDatabase::handleModifyUser(const UserData& user) {
     int accessLevel = computeAccessLevel(hasRfid, hasFingerprint);
 
     if (!hasRfid && !hasFingerprint) {
+        // Require at least one credential.
         resp.success = false;
         strncpy(resp.errorMsg, "RFID or fingerprint is required", sizeof(resp.errorMsg) - 1);
         resp.errorMsg[sizeof(resp.errorMsg) - 1] = '\0';
@@ -1080,6 +1115,7 @@ void dDatabase::handleModifyUser(const UserData& user) {
             strncpy(resp.jsonData, "{\"status\":\"ok\"}", sizeof(resp.jsonData) - 1);
             resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
             if (shouldAddFingerprint) {
+                // Notify fingerprint thread to enroll.
                 AuthResponse cmd = {};
                 cmd.command = DB_CMD_ADD_USER;
                 cmd.payload.auth.userId = static_cast<uint32_t>(finalFingerprint);
@@ -1100,6 +1136,7 @@ void dDatabase::handleModifyUser(const UserData& user) {
 }
 
 void dDatabase::handleRemoveUser(uint32_t userId) {
+    // Delete user and propagate fingerprint deletion if needed.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -1132,6 +1169,7 @@ void dDatabase::handleRemoveUser(uint32_t userId) {
             resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
 
             if (fingerprintId > 0) {
+                // Notify fingerprint thread to delete.
                 AuthResponse cmd = {};
                 cmd.command = DB_CMD_DELETE_USER;
                 cmd.payload.auth.userId = static_cast<uint32_t>(fingerprintId);
@@ -1152,6 +1190,7 @@ void dDatabase::handleRemoveUser(uint32_t userId) {
 }
 
 void dDatabase::handleGetAssets() {
+    // List assets and infer state from last inventory scan.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
     nlohmann::json assets = nlohmann::json::array();
@@ -1207,6 +1246,7 @@ void dDatabase::handleGetAssets() {
 }
 
 void dDatabase::handleCreateAsset(const AssetData& asset) {
+    // Insert new asset row.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -1236,6 +1276,7 @@ void dDatabase::handleCreateAsset(const AssetData& asset) {
 }
 
 void dDatabase::handleModifyAsset(const AssetData& asset) {
+    // Update asset name by tag.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -1263,6 +1304,7 @@ void dDatabase::handleModifyAsset(const AssetData& asset) {
 }
 
 void dDatabase::handleRemoveAsset(const char* tag) {
+    // Delete asset by tag.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -1288,6 +1330,7 @@ void dDatabase::handleRemoveAsset(const char* tag) {
 }
 
 void dDatabase::handleGetSettings() {
+    // Return settings to web (sampleTime in minutes).
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
     nlohmann::json settings;
@@ -1311,6 +1354,7 @@ void dDatabase::handleGetSettings() {
 }
 
 void dDatabase::handleGetSettingsForThread() {
+    // Return settings to env thread (sampling interval in seconds).
     sqlite3_stmt* stmt;
     AuthResponse resp = {};
     resp.command = DB_CMD_GET_SETTINGS_THREAD;
@@ -1332,6 +1376,7 @@ void dDatabase::handleGetSettingsForThread() {
 }
 
 void dDatabase::handleUpdateSettings(const SystemSettings& settings) {
+    // Persist settings and notify env thread.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
 
@@ -1346,6 +1391,7 @@ void dDatabase::handleUpdateSettings(const SystemSettings& settings) {
             strncpy(resp.jsonData, "{\"status\":\"saved\"}", sizeof(resp.jsonData) - 1);
             resp.jsonData[sizeof(resp.jsonData) - 1] = '\0';
 
+            // Push updated settings to env thread.
             AuthResponse cmd = {};
             cmd.command = DB_CMD_UPDATE_SETTINGS;
             cmd.payload.settings.tempThreshold = settings.tempThreshold;
@@ -1364,11 +1410,12 @@ void dDatabase::handleUpdateSettings(const SystemSettings& settings) {
 }
 
 void dDatabase::handleFilterLogs(const LogFilter& filter) {
+    // Build filtered logs or chart data for the UI.
     sqlite3_stmt* stmt;
     DbWebResponse resp = {};
     nlohmann::json result;
 
-    
+    // Translate time range to a lower bound timestamp.
     time_t now = time(nullptr);
     time_t startTime = now;
 
@@ -1377,19 +1424,19 @@ void dDatabase::handleFilterLogs(const LogFilter& filter) {
     else if (strcmp(filter.timeRange, "1 Week") == 0) startTime -= 604800;
     else if (strcmp(filter.timeRange, "1 Month") == 0) startTime -= 2592000;
 
-    
+    // Temperature/Humidity chart path.
     if (strcmp(filter.logType, "Temperature") == 0 ||
         strcmp(filter.logType, "Humidity") == 0) {
 
         std::string colName = (strcmp(filter.logType, "Temperature") == 0) ? "Value" : "Value2";
 
-        
+        // Select time series limited to 50 points.
         std::string sqlStr = "SELECT Timestamp, " + colName +
                              " FROM Logs WHERE LogType = ? AND EntityID = ? AND Timestamp > ? "
                              " ORDER BY Timestamp ASC LIMIT 50;"; 
 
         if (sqlite3_prepare_v2(m_db, sqlStr.c_str(), -1, &stmt, nullptr) == SQLITE_OK) {
-            
+            // Bind sensor type and time range.
             sqlite3_bind_int(stmt, 1, LOG_TYPE_SENSOR);
             sqlite3_bind_int(stmt, 2, ID_SHT31); 
             sqlite3_bind_int(stmt, 3, static_cast<int>(startTime));
@@ -1416,7 +1463,7 @@ void dDatabase::handleFilterLogs(const LogFilter& filter) {
             }
         }
     }
-    
+    // Non-sensor logs: alerts/access/inventory.
     else {
         int logTypeFilter = LOG_TYPE_SYSTEM;
         if (strcmp(filter.logType, "Intrusion") == 0) logTypeFilter = LOG_TYPE_ALERT;
@@ -1451,6 +1498,7 @@ void dDatabase::handleFilterLogs(const LogFilter& filter) {
                 uint32_t entityId = static_cast<uint32_t>(sqlite3_column_int(stmt, 3));
                 std::string description = desc ? desc : "";
                 if (type == LOG_TYPE_ACCESS && entityId > 0) {
+                    // Replace placeholders with actual user name when possible.
                     std::string name = getUserNameById(m_db, entityId);
                     if (!name.empty()) {
                         if (description.find("ENTROU") != std::string::npos) {

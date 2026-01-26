@@ -1,6 +1,11 @@
 #ifndef DWEBSERVER_H
 #define DWEBSERVER_H
 
+/*
+ * HTTP server (Mongoose) for API and UI.
+ * Session cookie auth and DB communication via queues.
+ */
+
 #include <string>
 #include <map>
 #include <mutex>
@@ -18,6 +23,9 @@ struct SessionData {
 
 class dWebServer {
 private:
+    /*
+     * Mongoose event manager and shared IPC queues for DB requests/responses.
+     */
     struct mg_mgr m_mgr;
     C_Mqueue& m_mqToDatabase;
     C_Mqueue& m_mqFromDatabase;
@@ -37,6 +45,7 @@ public:
 private:
     static void eventHandler(struct mg_connection* c, int ev, void* ev_data);
 
+    // HTTP handlers -> DB commands -> JSON responses.
     void handleLogin(struct mg_connection* c, struct mg_http_message* hm);
     void handleRegister(struct mg_connection* c, struct mg_http_message* hm);
     void handleLogout(struct mg_connection* c, struct mg_http_message* hm);

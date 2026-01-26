@@ -1,6 +1,10 @@
 #ifndef C_DATABASE_H
 #define C_DATABASE_H
 #define SQLITE_HAS_CODEC
+/*
+ * Database backend (SQLCipher).
+ * Receives queue requests, applies CRUD operations, and sends responses.
+ */
 #include "sqlcipher/sqlite3.h"
 #include <string>
 #include "SharedTypes.h"

@@ -1,6 +1,10 @@
 #ifndef C_TINVENTORYSCAN_H
 #define C_TINVENTORYSCAN_H
 
+/*
+ * Inventory thread: RFID read in the vault and tag push to DB.
+ */
+
 #include "C_Thread.h"
 #include "C_Monitor.h"
 #include "C_YRM1001.h" 

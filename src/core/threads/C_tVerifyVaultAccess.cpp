@@ -1,3 +1,7 @@
+/*
+ * Flow: receive DB commands (add/delete), wait for fingerprint, control vault servo.
+ */
+
 #include "C_tVerifyVaultAccess.h"
 #include <iostream>
 #include <ctime>
@@ -31,6 +35,7 @@ void c_tVerifyVaultAccess::run() {
     uint32_t pendingAddUserId = 0;
 
     while (!stopRequested()) {
+        // Process pending commands from DB (add/delete biometrics).
         while (m_mqFromDatabase.timedReceive(&cmdMsg, sizeof(AuthResponse), 0) > 0) {
             if (cmdMsg.command == DB_CMD_ADD_USER) {
                 pendingAddUserId = cmdMsg.payload.auth.userId;
@@ -41,6 +46,7 @@ void c_tVerifyVaultAccess::run() {
             }
         }
 
+        // Wait for biometric sensor trigger.
         if (m_monitorfgp.timedWait(1)) {
             continue;
         }
@@ -48,12 +54,14 @@ void c_tVerifyVaultAccess::run() {
         m_fingerprint.wakeUp();
 
         if (pendingAddUserId > 0) {
+            // Biometric user enrollment mode.
             m_fingerprint.addUser(static_cast<int>(pendingAddUserId));
             pendingAddUserId = 0;
             m_fingerprint.sleep();
             continue;
         }
 
+        // Normal mode: authenticate and open vault.
         if (m_fingerprint.read(&data)) {
             if (data.data.fingerprint.authenticated) {
                 ActuatorCmd cmd = {ID_SERVO_VAULT, 0};
@@ -61,6 +69,7 @@ void c_tVerifyVaultAccess::run() {
                 
                 sendLog(static_cast<uint32_t>(data.data.fingerprint.userID), true);
 
+                // Wait for vault reed switch.
                 while (!stopRequested()) {
                     if (!m_monitorservovault.timedWait(1)) {
                         break;
@@ -69,6 +78,7 @@ void c_tVerifyVaultAccess::run() {
                 if (stopRequested()) {
                     break;
                 }
+                // Close the vault.
                 cmd = {ID_SERVO_VAULT, 90};
                 m_mqToActuator.send(&cmd, sizeof(cmd));
             } else {
@@ -80,6 +90,8 @@ void c_tVerifyVaultAccess::run() {
     }
 
 }
+
+
 
 
 void c_tVerifyVaultAccess::generateDescription(uint32_t userId, bool authorized, char* buffer, size_t size) {
@@ -96,7 +108,7 @@ void c_tVerifyVaultAccess::sendLog(uint32_t userId, bool authorized) {
 
     msg.payload.log.logType = authorized ? LOG_TYPE_ACCESS : LOG_TYPE_ALERT;
 
-    
+    // Log the event for UI and audit.
     msg.payload.log.entityID = userId;
 
     msg.payload.log.value = authorized ? 1.0 : 0.0;

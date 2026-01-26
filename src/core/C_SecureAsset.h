@@ -1,6 +1,11 @@
 #ifndef C_SECUREASSET_H
 #define C_SECUREASSET_H
 
+/*
+ * Core orchestrator.
+ * Aggregates hardware (GPIO/UART/I2C/PWM), sensors/actuators, IPC queues, and threads.
+ */
+
 #include <memory>
 #include <array>
 
@@ -63,6 +68,7 @@ private:
     
     static C_SecureAsset* s_instance;
     
+    // Singleton: private ctor and copy/move disabled.
     C_SecureAsset();
     ~C_SecureAsset();
 
@@ -100,6 +106,7 @@ private:
 
     std::array<C_Actuator*, ID_ACTUATOR_COUNT> m_actuators_list;
     
+    // POSIX queues used to communicate with DB daemon and other threads.
     C_Mqueue m_mq_to_database;
     C_Mqueue m_mq_to_actuator;
     C_Mqueue m_mq_to_verify_room;
@@ -124,6 +131,7 @@ private:
     std::unique_ptr<C_tCheckMovement> m_thread_check_movement;
     std::unique_ptr<C_tAct> m_thread_actuator;
 
+    // Initialization helpers and internal wiring.
     bool initSensors();
     bool initActuators();
     void initActuatorsList();
@@ -131,9 +139,11 @@ private:
 
 public:
 
+    // Singleton API.
     static C_SecureAsset* getInstance();
     static void destroyInstance();
     
+    // Core lifecycle.
     bool init();
     void start();
     void stop();

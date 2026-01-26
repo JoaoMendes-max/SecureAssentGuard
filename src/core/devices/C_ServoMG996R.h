@@ -3,6 +3,10 @@
 #ifndef C_SERVOMG996R_H
 #define C_SERVOMG996R_H
 
+/*
+ * MG996R servo actuator (PWM).
+ */
+
 #include "C_Actuator.h"
 #include <cstdint>
 
@@ -25,6 +29,5 @@ private:
 
 };
 #endif 
-
 
 

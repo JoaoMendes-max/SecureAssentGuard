@@ -1,3 +1,7 @@
+/*
+ * SHT30 sensor implementation (temperature + humidity).
+ */
+
 #include "C_TH_SHT30.h"
 #include "C_I2C.h"
 #include <iostream>
@@ -15,6 +19,7 @@ C_TH_SHT30::~C_TH_SHT30() = default;
 
 bool C_TH_SHT30::init() {
 
+    // Initialize I2C bus.
     if (!m_i2c.init()) {
         cerr << "[SHT30] Falha: Não foi possível inicializar o barramento I2C." << endl;
         return false;
@@ -25,7 +30,7 @@ bool C_TH_SHT30::init() {
 
 bool C_TH_SHT30::read(SensorData* data) {
     
-
+    // Send measurement command.
     
     if (!m_i2c.writeRegister(CMD_MSB, CMD_LSB)) {
         std::cerr << "[SHT30] ERRO: Falha ao enviar comando" << std::endl;
@@ -39,16 +44,19 @@ bool C_TH_SHT30::read(SensorData* data) {
         return false;
     }
 
+    // Validate temperature CRC.
     if (calculateCRC(buffer, 2) != buffer[2]) {
         std::cerr << "[SHT30] ERRO: CRC temperatura inválido" << std::endl;
         return false;
     }
 
+    // Validate humidity CRC.
     if (calculateCRC(buffer + 3, 2) != buffer[5]) {
         std::cerr << "[SHT30] ERRO: CRC humidade inválido" << std::endl;
         return false;
     }
 
+    // Convert raw values to physical units.
     uint16_t rawTemp = (buffer[0] << 8) | buffer[1];
     float temp = -45.0f + 175.0f * (static_cast<float>(rawTemp) / 65535.0f);
 
@@ -65,6 +73,7 @@ bool C_TH_SHT30::read(SensorData* data) {
 }
 
 uint8_t C_TH_SHT30::calculateCRC(const uint8_t* data, size_t len) {
+    // CRC-8 as per SHT30 datasheet.
     uint8_t crc = 0xFF;
     for (size_t i = 0; i < len; i++) {
         crc ^= data[i];

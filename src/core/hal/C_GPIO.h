@@ -1,6 +1,11 @@
 #ifndef C_GPIO_H
 #define C_GPIO_H
 
+/*
+ * Simple GPIO abstraction via sysfs.
+ * Used for digital signals (input/output).
+ */
+
 #include <string>
 
 using namespace std;

@@ -1,6 +1,10 @@
 #ifndef C_TVERIFYVAULTACCESS_H
 #define C_TVERIFYVAULTACCESS_H
 
+/*
+ * Vault access thread via fingerprint.
+ */
+
 #include "C_Fingerprint.h"
 #include "C_Thread.h"
 #include "C_Monitor.h"

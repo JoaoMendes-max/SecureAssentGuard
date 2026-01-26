@@ -1,3 +1,7 @@
+/*
+ * Flow: receive actuation commands via queue -> apply to hardware -> log.
+ */
+
 #include "C_tAct.h"
 #include "C_Mqueue.h"
 #include "C_Actuator.h"
@@ -20,6 +24,7 @@ C_tAct::C_tAct(C_Mqueue& mqIn,
       m_actuators(listaAtuadores),
       m_alarmTimerId(0) 
 {
+    // Check which actuators are wired/configured.
     size_t count = 0;
     for (size_t i = 0; i < m_actuators.size(); ++i) {
         if (m_actuators[i] != nullptr) {
@@ -47,6 +52,7 @@ void C_tAct::initTimer() {
 
     struct sigevent sev = {};
     
+    // POSIX timer fires a thread callback to disable the alarm.
     sev.sigev_notify = SIGEV_THREAD;
     sev.sigev_notify_function = alarmTimerCallback; 
     sev.sigev_value.sival_ptr = this; 
@@ -64,7 +70,7 @@ void C_tAct::alarmTimerCallback(union sigval sv) {
     if (self) {
         cout << "[tAct-Timer] Tempo esgotado! A enviar comando OFF..." << endl;
 
-        
+        // Turn off the alarm after timeout.
         ActuatorCmd cmd;
         cmd.actuatorID = ID_ALARM_ACTUATOR;
         cmd.value = 0;
@@ -75,11 +81,11 @@ void C_tAct::alarmTimerCallback(union sigval sv) {
 void C_tAct::startAlarmTimer(int seconds) {
     struct itimerspec its;
 
-    
+    // Single shot after 'seconds'.
     its.it_value.tv_sec = seconds;
     its.it_value.tv_nsec = 0;
 
-    
+    // No repeat.
     its.it_interval.tv_sec = 0;
     its.it_interval.tv_nsec = 0;
 
@@ -106,7 +112,7 @@ void C_tAct::run() {
     ActuatorCmd msg;
 
     while (!stopRequested()) {
-        
+        // Wait for commands with timeout to allow stopRequested().
         ssize_t bytes = m_mqToActuator.timedReceive(&msg, sizeof(msg), 1);
 
         if (bytes == sizeof(ActuatorCmd)) {
@@ -129,6 +135,7 @@ void C_tAct::run() {
 
 void C_tAct::processMessage(const ActuatorCmd& msg) {
     
+    // Basic ID validation.
     if (!isValidActuatorID(msg.actuatorID)) {
         cerr << MODULE_NAME << " ERRO: ID inválido " << static_cast<int>(msg.actuatorID) << endl;
         return;
@@ -143,20 +150,20 @@ void C_tAct::processMessage(const ActuatorCmd& msg) {
     cout << MODULE_NAME << " Comando: " << ACTUATOR_NAMES[msg.actuatorID]
          << " -> " << static_cast<int>(msg.value) << endl;
 
+    // Execute the command on the concrete actuator.
     bool sucesso = actuator->set_value(msg.value);
 
     if (sucesso && msg.actuatorID == ID_ALARM_ACTUATOR) {
         if (msg.value == 1) {
-            
+            // Alarm active: arm auto-off timer.
             startAlarmTimer(30);
         } else {
-            
-            
+            // Alarm manually disabled: cancel timer.
             stopAlarmTimer();
         }
     }
 
-    
+    // Log actuation event.
     if (sucesso) {
         sendLog(msg.actuatorID, msg.value);
     } else {
@@ -174,7 +181,7 @@ void C_tAct::generateDescription(ActuatorID_enum id,
 {
     if (!buffer || size == 0) return;
 
-    
+    // UI-friendly descriptions.
 
     switch (id) {
         case ID_SERVO_ROOM:
@@ -211,7 +218,7 @@ void C_tAct::sendLog(ActuatorID_enum id, uint8_t value) {
     DatabaseMsg msg = {};
     msg.command = DB_CMD_WRITE_LOG; 
 
-    
+    // Actuation log (current state).
     msg.payload.log.logType = LOG_TYPE_ACTUATOR;
     msg.payload.log.entityID = static_cast<uint8_t>(id);
     msg.payload.log.value = static_cast<double>(value);

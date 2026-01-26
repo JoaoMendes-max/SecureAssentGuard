@@ -1,5 +1,8 @@
 #ifndef C_SENSOR_H
 #define C_SENSOR_H
+/*
+ * Base interface for sensors (RFID, temperature, biometrics, etc.).
+ */
 #include "SharedTypes.h"
 
 class C_Sensor {

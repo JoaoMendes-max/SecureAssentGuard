@@ -11,6 +11,11 @@
 #include "C_Mqueue.h"
 #include "SharedTypes.h"
 
+/*
+ * Web daemon (Mongoose) that exposes the API/GUI.
+ * Forwards requests to the database via POSIX queues.
+ */
+
 static const char* WEB_PIDFILE = "/var/run/dWebServer.pid";
 static dWebServer* g_server = nullptr;
 static int g_shutdown_fd = -1;
@@ -22,6 +27,7 @@ static void handleSignal(int signum) {
 
 static void sendShutdownAck() {
     if (g_shutdown_fd >= 0) {
+        // ACK to the launcher indicating clean shutdown.
         const char* ack = "OK\n";
         (void)write(g_shutdown_fd, ack, 3);
         close(g_shutdown_fd);
@@ -30,6 +36,7 @@ static void sendShutdownAck() {
 }
 
 static void daemonize(const char* pidfile, const char* logfile = nullptr) {
+    // Double-fork to run in background.
     pid_t pid = fork();
     if (pid < 0) std::exit(EXIT_FAILURE);
     if (pid > 0) std::exit(EXIT_SUCCESS);
@@ -65,6 +72,7 @@ static void daemonize(const char* pidfile, const char* logfile = nullptr) {
         open("/dev/null", O_WRONLY);
     }
 
+    // Write PID so the wrapper can manage the daemon.
     int fd = open(pidfile, O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd >= 0) {
         char buf[32];
@@ -83,7 +91,7 @@ int main() {
     unsetenv("NOTIFY_FD");
     unsetenv("SHUTDOWN_FD");
 
-    // Open existing queues
+    // Open existing queues (created by the launcher).
     C_Mqueue mqToDb("/mq_to_db", sizeof(DatabaseMsg), 20, false);
     C_Mqueue mqFromDb("/mq_db_to_web", sizeof(DbWebResponse), 10, false);
 
@@ -95,7 +103,7 @@ int main() {
 
     bool ok = server.start();
 
-    // Startup notify (PID or -1)
+    // Startup notify (PID or -1 on failure).
     if (notify_fd >= 0) {
         char buf[64];
         int len = ok ? std::snprintf(buf, sizeof(buf), "%d\n", getpid())
@@ -106,13 +114,13 @@ int main() {
     }
 
     if (!ok) {
-        // Prevent wrapper from waiting until timeout
+        // Avoid wrapper waiting until timeout.
         sendShutdownAck(); // closes g_shutdown_fd
         unlink(WEB_PIDFILE);
         return -1;
     }
 
-    // Blocks until stop() is called by signal handler
+    // Blocks until stop() is called by the signal handler.
     server.run();
 
     sendShutdownAck();

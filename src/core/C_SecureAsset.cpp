@@ -1,3 +1,8 @@
+/*
+ * Core implementation: hardware initialization, thread creation,
+ * and system lifecycle management.
+ */
+
 #include "C_SecureAsset.h"
 #include <iostream>
 #include <cstdlib>
@@ -58,7 +63,7 @@ C_SecureAsset::C_SecureAsset()
 {
     std::cout << "[SecureAsset] Construtor executado" << std::endl;
 
-
+    // Initialize actuator list with null pointers.
     m_actuators_list.fill(nullptr);
 }
 
@@ -84,6 +89,7 @@ void C_SecureAsset::destroyInstance() {
 bool C_SecureAsset::initSensors() {
     std::cout << "[SecureAsset] A inicializar Sensores..." << std::endl;
 
+    // Required sensors; any failure aborts initialization.
     if (!m_temp_sensor.init()) {
         std::cerr << "[ERRO] Falha no init: Sensor Temperatura" << std::endl;
         return false;
@@ -116,6 +122,7 @@ bool C_SecureAsset::initSensors() {
 bool C_SecureAsset::initActuators() {
     std::cout << "[SecureAsset] A inicializar Atuadores..." << std::endl;
 
+    // Required actuators; any failure aborts initialization.
     if (!m_servo_room.init()) {
         std::cerr << "[ERRO] Falha no init: Servo Room" << std::endl;
         return false;
@@ -141,6 +148,7 @@ bool C_SecureAsset::initActuators() {
 }
 
 void C_SecureAsset::initActuatorsList() {
+    // Map actuator IDs to concrete instances.
     m_actuators_list.fill(nullptr);
     m_actuators_list[ID_SERVO_ROOM] = &m_servo_room;
     m_actuators_list[ID_SERVO_VAULT] = &m_servo_vault;
@@ -156,7 +164,7 @@ void C_SecureAsset::initActuatorsList() {
 void C_SecureAsset::createThreads() {
     std::cout << "[SecureAsset] A criar threads..." << std::endl;
 
-    
+    // Thread dedicated to signals and monitors (sensor wakeups).
     m_thread_sighandler = std::make_unique<C_tSighandler>(
         m_monitor_reed_room,
         m_monitor_reed_vault,
@@ -166,7 +174,7 @@ void C_SecureAsset::createThreads() {
         m_monitor_rfid_exit
     );
 
-    
+    // Verify room entry access via RFID.
     m_thread_verify_room = std::make_unique<C_tVerifyRoomAccess>(
         m_monitor_rfid_entry,
         m_monitor_reed_room,
@@ -176,7 +184,7 @@ void C_SecureAsset::createThreads() {
         m_mq_to_actuator
     );
 
-    
+    // Verify room exit via RFID.
     m_thread_leave_room = std::make_unique<C_tLeaveRoomAccess>(
         m_monitor_rfid_exit,
         m_monitor_reed_room,
@@ -186,7 +194,7 @@ void C_SecureAsset::createThreads() {
         m_mq_to_actuator
     );
 
-    
+    // Verify vault access via fingerprint.
     m_thread_verify_vault = std::make_unique<c_tVerifyVaultAccess>(
         m_monitor_fingerprint,
         m_monitor_reed_vault,
@@ -196,14 +204,14 @@ void C_SecureAsset::createThreads() {
         m_mq_to_vault
     );
 
-    
+    // Inventory via RFID (YRM1001).
     m_thread_inventory = std::make_unique<C_tInventoryScan>(
         m_monitor_reed_vault,
         m_rfid_inventory,
         m_mq_to_database
     );
 
-    
+    // Environmental reading (temperature) and threshold notification.
     m_thread_env_sensor = std::make_unique<C_tReadEnvSensor>(
         m_temp_sensor,
         m_mq_to_actuator,
@@ -213,7 +221,7 @@ void C_SecureAsset::createThreads() {
         TEMP_THRESHOLD_DEFAULT
     );
 
-    
+    // Movement monitoring (PIR) and DB communication.
     m_thread_check_movement = std::make_unique<C_tCheckMovement>(
         m_mq_to_check_movement,
         m_mq_to_database,
@@ -221,7 +229,7 @@ void C_SecureAsset::createThreads() {
         m_monitor_pir
     );
 
-    
+    // Execute actuator commands received via queue.
     m_thread_actuator = std::make_unique<C_tAct>(
         m_mq_to_actuator,
         m_mq_to_database,
@@ -239,7 +247,7 @@ bool C_SecureAsset::init() {
     std::cout << "    SECURE ASSET GUARD - INITIALIZATION" << std::endl;
     std::cout << "============================================" << std::endl;
 
-    
+    // Block signals before creating threads so they inherit the mask.
     C_tSighandler::setupSignalBlock();
     std::cout << "[SecureAsset] Sinais bloqueados (herança para threads)" << std::endl;
 
@@ -248,7 +256,7 @@ bool C_SecureAsset::init() {
         return false;
     }
 
-    
+    // Order: sensors -> actuators -> wiring -> threads.
     if (!initActuators()) {
         std::cerr << "[ERRO CRÍTICO] Inicialização dos atuadores falhou!" << std::endl;
         return false;
@@ -267,7 +275,7 @@ bool C_SecureAsset::init() {
 void C_SecureAsset::start() {
     std::cout << "[SecureAsset] A iniciar threads..." << std::endl;
 
-    
+    // Startup order ensures signal handler and actuation are ready.
     if (!m_thread_sighandler->start()) {
         std::cerr << "[ERRO] Falha ao iniciar Signal Handler!" << std::endl;
         std::exit(EXIT_FAILURE);
@@ -315,6 +323,7 @@ void C_SecureAsset::start() {
 }
 
 void C_SecureAsset::stop() {
+    // Stop requests in reverse order of the main flow.
     if (m_thread_check_movement) m_thread_check_movement->requestStop();
     if (m_thread_env_sensor) m_thread_env_sensor->requestStop();
     if (m_thread_inventory) m_thread_inventory->requestStop();
@@ -326,6 +335,7 @@ void C_SecureAsset::stop() {
 
     AuthResponse stopMsg = {};
     stopMsg.command = DB_CMD_STOP_ENV_SENSOR;
+    // Special message to unblock the env thread (if waiting).
     m_mq_to_env_sensor.send(&stopMsg, sizeof(stopMsg));
     m_monitor_reed_room.signal();
     m_monitor_reed_vault.signal();
@@ -338,6 +348,7 @@ void C_SecureAsset::stop() {
 void C_SecureAsset::waitForThreads() {
     std::cout << "[SecureAsset] A aguardar término das threads..." << std::endl;
 
+    // Join all threads for clean shutdown.
     if (m_thread_sighandler) m_thread_sighandler->join();
     if (m_thread_actuator) m_thread_actuator->join();
     if (m_thread_verify_room) m_thread_verify_room->join();
@@ -351,6 +362,7 @@ void C_SecureAsset::waitForThreads() {
 }
 
 void C_SecureAsset::unregisterQueues() {
+    // Request unlink of queues when the owner closes them.
     m_mq_to_database.unregister();
     m_mq_to_actuator.unregister();
     m_mq_to_verify_room.unregister();

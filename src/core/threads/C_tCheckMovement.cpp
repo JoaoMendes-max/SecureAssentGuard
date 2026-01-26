@@ -1,3 +1,7 @@
+/*
+ * Flow: wait for PIR -> ask DB if users are present -> alarm/log.
+ */
+
 #include "C_tCheckMovement.h"
 #include <iostream>
 #include <cerrno>
@@ -14,10 +18,12 @@ void C_tCheckMovement::run() {
 
     while (!stopRequested()) {
 
+        // Wait for PIR event via monitor.
         if (m_monitor.timedWait(1)) {
             continue;
         }
 
+        // Ask DB if there is a user inside the room.
         DatabaseMsg msg = {};
         msg.command = DB_CMD_USER_IN_PIR;
         m_mqToDatabase.send(&msg, sizeof(msg));
@@ -29,7 +35,7 @@ void C_tCheckMovement::run() {
             ssize_t bytes = m_mqToCheckMovement.timedReceive(&resp, sizeof(resp), 1);
 
             if (bytes > 0) {
-                
+                // DB replied: authorized vs. unauthorized.
                 if (!resp.payload.auth.authorized) {
                     std::cout << "[ALERTA] Movimento NÃO autorizado! ATIVANDO ALARME." << std::endl;
 
@@ -41,7 +47,7 @@ void C_tCheckMovement::run() {
                     std::cout << "[CheckMovement] Movimento autorizado: Utilizadores presentes." << std::endl;
                 }
 
-                
+                // Exit wait after response.
                 break;
             }
             if (bytes < 0 && errno == ETIMEDOUT) {
@@ -50,7 +56,7 @@ void C_tCheckMovement::run() {
                 continue;
             }
             else {
-                
+                // Unexpected queue error.
                 std::cerr << "[CheckMovement] Erro crítico na Message Queue. A sair da espera." << std::endl;
                 break;
             }

@@ -1,5 +1,8 @@
 #ifndef SECUREASSETGUARD_C_TSIGHANDLER_H
 #define SECUREASSETGUARD_C_TSIGHANDLER_H
+/*
+ * High-level thread that receives IRQ driver signals and wakes monitors.
+ */
 #include <csignal>
 #include <cerrno>
 #include <fcntl.h>

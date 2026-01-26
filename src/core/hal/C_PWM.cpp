@@ -1,3 +1,6 @@
+/*
+ * PWM implementation via /sys/class/pwm.
+ */
 
 #include "C_PWM.h"
 #include <fcntl.h>
@@ -17,6 +20,7 @@ C_PWM::C_PWM(int chip, int channel)
 
 C_PWM::~C_PWM()
 {
+    // Disable and unexport the PWM channel.
     setEnable(false);
     string unexportPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) + "/unexport";
     int fd = open(unexportPath.c_str(), O_WRONLY);
@@ -31,18 +35,18 @@ bool C_PWM::init()
 {
     string pwmPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) + "/pwm" + to_string(m_pwmChannel);
 
-    
+    // If it already exists, consider it initialized.
     if (access(pwmPath.c_str(), F_OK) == 0)
     {
         return true;
     }
 
-    
+    // Export the PWM channel in sysfs.
     string exportPath = "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) + "/export";
     int fd = open(exportPath.c_str(), O_WRONLY);
     if (fd < 0)
     {
-        
+        // Error opening export.
         cerr << "Erro ao abrir export: " << strerror(errno) << endl;
         return false;
     }
@@ -63,6 +67,7 @@ bool C_PWM::init()
 }
 
 bool C_PWM::setPeriodns(int s) {
+    // Set period in nanoseconds.
     m_fd_period = s;
     string periodPath =
             "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) +
@@ -89,7 +94,7 @@ bool C_PWM::setDutyCycle(uint8_t duty) {
     m_fd_duty = duty;
     int dutyns = (m_fd_period * duty) / 100;
 
-    
+    // Duty cycle in nanoseconds computed from the period.
     string dutyPath =
             "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) +
             "/pwm" + to_string(m_pwmChannel) + "/duty_cycle";
@@ -114,6 +119,7 @@ bool C_PWM::setDutyCycle(uint8_t duty) {
 bool C_PWM::setEnable(bool enable)
 {
     m_fd_enable = enable;
+    // Enable/disable the PWM channel.
     string enablePath =
             "/sys/class/pwm/pwmchip" + to_string(m_pwmChip) +
             "/pwm" + to_string(m_pwmChannel) + "/enable";

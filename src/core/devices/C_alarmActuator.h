@@ -1,5 +1,8 @@
 #ifndef C_ALARMACTUATOR_H
 #define C_ALARMACTUATOR_H
+/*
+ * Alarm actuator: LED + buzzer controlled via GPIO.
+ */
 #include "C_Actuator.h"
 #include "SharedTypes.h"
 
@@ -21,5 +24,4 @@ private:
 };
 
 #endif
-
 

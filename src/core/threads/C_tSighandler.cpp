@@ -1,3 +1,7 @@
+/*
+ * C_tSighandler: converte sinais do kernel em eventos para outras threads.
+ */
+
 #include "C_tSighandler.h"
 
 
@@ -19,6 +23,7 @@ C_tSighandler::~C_tSighandler() {
 
 void C_tSighandler::setupSignalBlock() {
 
+    // Block signals in the main thread so they are handled here.
     sigset_t set;
     sigemptyset(&set);
     sigaddset(&set, 43);
@@ -36,7 +41,7 @@ void C_tSighandler::setupSignalBlock() {
 void C_tSighandler::run() {
     siginfo_t info;
 
-    
+    // Register PID with the driver to receive IRQ signals.
     m_fd = open("/dev/irq0", O_WRONLY);
     if (m_fd < 0 || ioctl(m_fd, REGIST_PID, 0) < 0) {
         std::cerr << "[Sighandler] ERRO: Não foi possível conectar ao Kernel Driver!" << std::endl;
@@ -50,6 +55,7 @@ void C_tSighandler::run() {
         struct timespec timeout;
         timeout.tv_sec = 1;
         timeout.tv_nsec = 0;
+        // Wait for signal with timeout to allow graceful stop.
         int sig = sigtimedwait(&m_sigSet, &info, &timeout);
 
         if (sig < 0) {
@@ -61,6 +67,7 @@ void C_tSighandler::run() {
 
         int pino = info.si_int; 
 
+        // Map signal -> corresponding monitor.
         switch (sig) {
             case 43:
                 std::cout << "[Hardware] Reed Switch detetado no pino " << pino << std::endl;

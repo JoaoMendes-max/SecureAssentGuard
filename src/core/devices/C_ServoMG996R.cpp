@@ -1,3 +1,6 @@
+/*
+ * MG996R servo actuator implementation.
+ */
 
 #include "C_ServoMG996R.h"
 #include "C_PWM.h"
@@ -17,11 +20,13 @@ C_ServoMG996R::~C_ServoMG996R() {
 }
 
 void C_ServoMG996R::stop() {
+    // Disable PWM output.
     m_pwm.setEnable(false);
     std::cout << "[Servo] Stop (PWM Disabled)" << std::endl;
 }
 
 bool C_ServoMG996R::init() {
+    // Initialize PWM and set a safe default.
     if (!m_pwm.init()) {
         std::cerr << "[Servo] Erro: Falha no init do PWM" << std::endl;
         return false;
@@ -37,6 +42,7 @@ bool C_ServoMG996R::init() {
         return false;
     }
 
+    // Start at a neutral duty cycle.
     if (!m_pwm.setDutyCycle(90)) {
         std::cerr << "[Servo] Erro: Falha ao ativar PWM" << std::endl;
         return false;
@@ -47,11 +53,13 @@ bool C_ServoMG996R::init() {
 
 bool C_ServoMG996R::set_value(uint8_t angle) {
 
+    // Ensure PWM is enabled before commanding.
     if (!m_pwm.setEnable(true)) {
         std::cerr << "[Servo] Erro: Nao consegui reativar o motor" << std::endl;
         return false;
     }
     if (angle == 0) {
+        // Angle 0 is used as "disable".
         stop();  
         return true;
     }
@@ -61,6 +69,7 @@ bool C_ServoMG996R::set_value(uint8_t angle) {
     m_targetAngle = angle;
     uint8_t duty = angleToDutyCycle(angle);
 
+    // Convert angle to duty cycle percentage.
     std::cout << "[Servo] Mover para " << static_cast<int>(angle) << "º (Duty " << static_cast<int>(duty) << "%)" << std::endl;
 
     if (!m_pwm.setDutyCycle(duty)) {
@@ -71,5 +80,6 @@ bool C_ServoMG996R::set_value(uint8_t angle) {
 }
 
 uint8_t C_ServoMG996R::angleToDutyCycle(uint8_t angle) {
+    // Linear mapping from angle to duty range.
     return DUTY_MIN + (angle * (DUTY_MAX - DUTY_MIN) / 180);
 }

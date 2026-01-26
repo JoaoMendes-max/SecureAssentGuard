@@ -1,6 +1,10 @@
 #ifndef C_TACT_H
 #define C_TACT_H
 
+/*
+ * Actuation thread: receives commands, controls hardware, and logs.
+ */
+
 #include "C_Thread.h"
 #include "SharedTypes.h"
 #include <array>

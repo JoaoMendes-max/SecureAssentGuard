@@ -1,3 +1,7 @@
+/*
+ * GPIO implementation via sysfs (/sys/class/gpio).
+ */
+
 #include "C_GPIO.h"
 #include <cstdio>       
 #include <fcntl.h>      
@@ -10,6 +14,7 @@ using namespace std;
 C_GPIO::C_GPIO(int pin, GPIO_DIRECTION dir)
     : m_dir(dir)
 {
+    // Map logical pins to the platform base.
     m_pin=pin+GPIO_BASE;
     m_path = "/sys/class/gpio/gpio" + to_string(m_pin);
 }
@@ -19,8 +24,7 @@ C_GPIO::~C_GPIO() {
 }
 
 bool C_GPIO::init() {
-    
-    
+    // Export the pin to sysfs.
     int fd = open("/sys/class/gpio/export", O_WRONLY);
     if (fd == -1) {
         perror("GPIO: Erro ao abrir export");
@@ -30,7 +34,7 @@ bool C_GPIO::init() {
     string pinStr = to_string(m_pin);
     write(fd, pinStr.c_str(), pinStr.length()); 
     close(fd);
-    
+    // Set direction (in/out).
     string dirPath = m_path + "/direction";
     fd = open(dirPath.c_str(), O_WRONLY);
     if (fd == -1) {
@@ -46,6 +50,7 @@ bool C_GPIO::init() {
 
 
 void C_GPIO::closePin() {
+    // Unexport to free the pin.
     int fd = open("/sys/class/gpio/unexport", O_WRONLY);
     if (fd != -1) {
         string pinStr = to_string(m_pin);
@@ -57,6 +62,7 @@ void C_GPIO::closePin() {
 
 void C_GPIO::writePin(bool value) {
     if (m_dir != OUT) return;
+    // Write 0/1 to the value file.
     string valPath = m_path + "/value";
     int fd = open(valPath.c_str(), O_WRONLY);
     if (fd == -1) return;
@@ -71,6 +77,7 @@ void C_GPIO::writePin(bool value) {
 }
 
 bool C_GPIO::readPin() {
+    // Read the value file from sysfs.
     string valPath = m_path + "/value";
 
     int fd = open(valPath.c_str(), O_RDONLY);

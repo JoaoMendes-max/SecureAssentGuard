@@ -60,5 +60,15 @@ Grid ─┬─ 12 V 6 A PSU ─┬─ DC-DC 5 V  ─ 5 V sensors / actuators
 Inputs (PIR, reed switches, fingerprint WAKE, RFID activity) are handled by a custom
 character device driver (`/dev/irq0-5`) that maps GPIO interrupts to Real-Time Signals
 (43–48) with 500 ms kernel debounce, removing the need for polling. The launcher loads it
-via `insmod /root/my_irq.ko` at startup. Driver source is documented in the report
-(section 8.4); it is not part of this repository tree.
+via `insmod /root/my_irq.ko` at startup.
+
+Source and build instructions are in [`driver/`](../driver/). Signal mapping:
+
+| Signal | GPIO | Source | Edge |
+|--------|------|--------|------|
+| 43 | 22 | reed_switch_vault | rising |
+| 44 | 27 | reed_switch_room  | rising |
+| 45 | 17 | pir_sensor        | rising |
+| 46 | 6  | fingerprint       | rising |
+| 47 | 16 | rfid_entry        | falling |
+| 48 | 20 | rfid_left         | falling |

@@ -3,11 +3,19 @@
 .vscode/
 *.iml
 
-# Build
+# Build (userspace)
 build/
 cmake-build-*/
 *.o
+
+# Build (kernel module)
 *.ko
+*.mod
+*.mod.c
+*.cmd
+.tmp_versions/
+modules.order
+Module.symvers
 
 # Binaries
 SecureAssetCore

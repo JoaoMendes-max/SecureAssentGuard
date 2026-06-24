@@ -38,6 +38,62 @@ Components communicate exclusively through message queues. The launcher starts t
 order using a readiness handshake and stops them gracefully (SIGTERM, then ACK or EOF, with a
 SIGKILL fallback). The full design is described in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## How it works
+
+### Layered design
+
+The software is organized in three layers:
+
+1. Custom Linux and drivers. The Buildroot image plus the `my_irq.ko` kernel module sit at the
+   bottom. The module watches the sensor GPIO pins and, on each edge, sends a Real-Time Signal
+   to the application instead of letting it poll.
+2. Middleware. The core process (SecureAssetCore) wraps the hardware in C++ classes: a HAL for
+   GPIO, I2C, PWM and UART; device drivers for each sensor and actuator; and IPC wrappers for
+   message queues and condition variables. Worker threads run the logic on top of these.
+3. Application. The database daemon owns all persistence and the web daemon serves the user
+   interface. Neither touches hardware directly.
+
+The whole system runs as four cooperating processes (see the diagram above). They share no
+memory: every interaction is a fixed-size message on a POSIX queue, which keeps the boundaries
+clean and the message sizes deterministic.
+
+### Event-driven model
+
+The core does not spin polling the sensors. Each input pin is mapped, in the kernel module, to
+a Real-Time Signal (43 to 48). A dedicated thread, `tSighandler`, receives these signals and
+signals the matching condition variable. The corresponding worker thread, which was blocked
+waiting, wakes up, does its work, and goes back to sleep. This keeps CPU usage near zero while
+idle and gives a near-instant response when something happens.
+
+A request that needs data always follows the same pattern: the worker sends a `DatabaseMsg` to
+dDatabase on `/mq_to_db`, then blocks waiting for the reply on its own response queue. The
+database is the only writer of persistent state, so there are no concurrent-access races.
+
+### Typical flows
+
+- Room access. A card at the entry reader triggers an interrupt; `tVerifyRoomAccess` wakes,
+  reads the tag over UART and asks the database to authenticate it. On success it commands the
+  room servo (through `tAct`) to unlock; on repeated failures it triggers the alarm. The
+  attempt is logged either way. Leaving the room follows the same path through
+  `tLeaveRoomAccess`, which updates the presence state.
+- Vault access. The fingerprint module authenticates internally and pulses its WAKE pin.
+  `tVerifyVaultAccess` wakes, and if the print is authorized it commands the vault servo. The
+  access attempt is logged.
+- Intrusion. Motion on the PIR triggers `tCheckMovement`, which asks the database whether an
+  authorized person is registered inside the room. If nobody is, it commands the buzzer and
+  LED and logs an invalid access.
+- Environmental control. `tReadEnvSensor` runs on a timer, reads the SHT30 over I2C, and
+  compares the temperature against the configured threshold. Above it, it commands the fan.
+  The reading is stored in the database.
+- Inventory. Closing the vault door triggers the reed switch interrupt; `tInventoryScan` reads
+  the UHF reader, and the database updates each asset as inside or outside the vault.
+- Web request. The browser calls a REST endpoint; dWebServer translates it into a `DatabaseMsg`,
+  forwards it to dDatabase, waits for the reply, and returns it as JSON. Sessions are tracked
+  with an HttpOnly token and an access level.
+
+A single header, `src/core/SharedTypes.h`, defines every message and enum, so all four
+binaries agree on the exact layout of what travels through the queues.
+
 ## Repository structure
 
 ```

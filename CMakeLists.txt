@@ -83,7 +83,7 @@ target_link_libraries(dWebServer
 )
 
 add_executable(wrapper
-        main.cpp
+        src/launcher/main.cpp
         src/core/ipc/C_Mqueue.cpp
 )
 

@@ -1,0 +1,21 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Build
+build/
+cmake-build-*/
+*.o
+*.ko
+
+# Binaries
+SecureAssetCore
+dDatabase
+dWebServer
+wrapper
+
+# Database / runtime
+*.db
+*.log
+*.pid
